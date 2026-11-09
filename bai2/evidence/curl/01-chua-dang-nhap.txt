@@ -6,20 +6,20 @@ $ POST /api/dishes
 
 ĐẠT: POST /api/dishes → 401
 
-$ PATCH /api/dishes/1211
+$ PATCH /api/dishes/1207
   Authorization: (không có)
   {"name":"[TEST B9] ghi"}
 → 401
   {"ok":false,"error":{"code":"<đã che>","message":"Cần đăng nhập để thực hiện thao tác này."}}
 
-ĐẠT: PATCH /api/dishes/1211 → 401
+ĐẠT: PATCH /api/dishes/1207 → 401
 
-$ DELETE /api/dishes/1211
+$ DELETE /api/dishes/1207
   Authorization: (không có)
 → 401
   {"ok":false,"error":{"code":"<đã che>","message":"Cần đăng nhập để thực hiện thao tác này."}}
 
-ĐẠT: DELETE /api/dishes/1211 → 401
+ĐẠT: DELETE /api/dishes/1207 → 401
 
 $ POST /api/chefs
   Authorization: (không có)

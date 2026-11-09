@@ -122,7 +122,7 @@ function network(heading, calls) {
   add(NET, `## ${heading}\n`);
   for (const c of calls) {
     const u = new URL(c.url);
-    add(NET, `### ${c.method} ${u.pathname}${u.search} → ${c.status} (${c.type})\n`);
+    add(NET, `### ${c.method} ${u.pathname}${u.search} → ${c.status} (${c.method === "OPTIONS" ? "Preflight" : c.type})\n`);
     add(NET, "```");
     const headers = { ...(c.sentHeaders ?? {}), ...(c.reqHeaders ?? {}) };
     add(NET, "Request headers");
@@ -309,8 +309,12 @@ async function run() {
       await b.takeCalls();
       await submit("form.form");
       await until(`location.search.includes("msg=dish-updated")`);
-      const ui = (await b.takeCalls()).find((c) => c.method === "PATCH");
-      network("3. Editor sửa món nháp của mình qua giao diện", [ui]);
+      const sent = await b.takeCalls();
+      const ui = sent.find((c) => c.method === "PATCH");
+      const pre = sent.find((c) => c.method === "OPTIONS");
+      network("3. Editor sửa món nháp của mình qua giao diện: Chrome gửi preflight OPTIONS trước PATCH có Authorization", [pre, ui].filter(Boolean));
+      const allow = Object.fromEntries(Object.entries(pre?.resHeaders ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
+      check(F, pre?.status === 204 && allow["access-control-allow-origin"] === WEB && allow["access-control-allow-headers"]?.toLowerCase().includes("authorization"), "Chrome thật: preflight 204, origin cụ thể, cho phép Authorization");
       const direct = await call(F, "PATCH", `/api/dishes/${draft.id}`, { token: tA, body: { name: draft.name }, note: "cùng thao tác, gọi trực tiếp" });
       check(F, ui.status === 200 && direct.status === 200 && direct.json.ok === true, "Qua giao diện và gọi trực tiếp: cùng 200, ok true");
       const denied = await call(F, "PATCH", `/api/dishes/${draftB.id}`, { token: tA, body: { name: `${T} x` }, note: "món của B" });
@@ -406,7 +410,7 @@ async function run() {
       await sleep(500);
       const pub = (await b.takeCalls()).filter((c) => c.url.includes("/api/dishes"));
       network("6. Đã đăng nhập, mở thực đơn: GET /api/dishes KHÔNG kèm Authorization, không preflight", pub);
-      const anyAuth = pub.some((c) => Object.keys({ ...c.sentHeaders, ...c.reqHeaders }).some((k) => k.toLowerCase() === "authorization") || c.type === "Preflight");
+      const anyAuth = pub.some((c) => Object.keys({ ...c.sentHeaders, ...c.reqHeaders }).some((k) => k.toLowerCase() === "authorization") || c.method === "OPTIONS");
       check(P, pub.length > 0 && !anyAuth, "Route công khai: Chrome không gửi Authorization dù đang đăng nhập");
       await shot3("15-thuc-don");
       await noOverflow("curl/15-giao-dien.txt", "Thực đơn");

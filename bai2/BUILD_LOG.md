@@ -84,7 +84,7 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 
 **Chờ người thử** (nên chưa đánh dấu "đạt Bài 2"): tick ô CAPTCHA thật khi đăng ký, nhận thư Gmail thật từ `api`, quét QR bằng ứng dụng thật ở `web`.
 
-**Lỗi trong lúc thu bằng chứng (script, không phải ứng dụng):** bộ chặn rò rỉ coi chuỗi `admin` do script ghi vào storage là bí mật nên từ chối ghi; đo tràn ngang trang đăng ký bằng cách thu nhỏ cửa sổ sau khi widget CAPTCHA đã dựng ở cỡ lớn, cho kết quả sai. Đã sửa: chỉ coi JWT là bí mật trong storage; mở trang đúng ở 320px rồi mới đo.
+**Lỗi trong lúc thu bằng chứng (script, không phải ứng dụng):** ban đầu log Network không có dòng preflight nào, vì Chrome báo preflight là `OPTIONS` loại `Other` nên bộ lọc theo loại bỏ sót, và câu "không preflight" ở route công khai vì vậy chưa có cơ sở. Đã lọc thêm theo method, kiểm tra preflight thật khi Editor lưu món. Bộ chặn rò rỉ coi chuỗi `admin` do script ghi vào storage là bí mật nên từ chối ghi; đo tràn ngang trang đăng ký bằng cách thu nhỏ cửa sổ sau khi widget CAPTCHA đã dựng ở cỡ lớn, cho kết quả sai. Đã sửa: chỉ coi JWT là bí mật trong storage; mở trang đúng ở 320px rồi mới đo.
 
 ## Kiểm tra mã nguồn (slide 66)
 1. **Verify có cố định thuật toán và kiểm tra `exp`; quyền có lấy từ body, payload chưa verify?** Cố định HS256, có `exp`, `iss`, `aud`: `api/src/auth/jwt.js:23`. Quyền lấy từ user đọc DB theo `sub`: `api/src/auth/require-jwt.js:23`, `:25`. `chefId`, `status` trong body của Editor bị bỏ: `api/src/routes/dishes.js:125`; `check-api` phần A, E.

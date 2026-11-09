@@ -37,7 +37,7 @@ export async function openBrowser() {
     if (msg.id && waiting.has(msg.id)) { waiting.get(msg.id)(msg); waiting.delete(msg.id); return; }
     const p = msg.params;
     if (msg.method === "Page.loadEventFired") loads++;
-    if (msg.method === "Network.requestWillBeSent" && ["Fetch", "XHR", "Preflight"].includes(p.type) && p.request.url.includes(":3000/")) {
+    if (msg.method === "Network.requestWillBeSent" && (["Fetch", "XHR", "Preflight"].includes(p.type) || p.request.method === "OPTIONS") && p.request.url.includes(":3000/")) {
       calls.set(p.requestId, { ...(calls.get(p.requestId) ?? {}), id: p.requestId, type: p.type, method: p.request.method, url: p.request.url, postData: p.request.postData, sentHeaders: p.request.headers });
       callOrder.push(p.requestId);
     } else if (msg.method === "Network.responseReceived" && calls.has(p.requestId)) {

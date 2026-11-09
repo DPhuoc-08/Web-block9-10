@@ -1,8 +1,10 @@
-$ PATCH /api/dishes/1211   # cùng thao tác, gọi trực tiếp
+ĐẠT: Chrome thật: preflight 204, origin cụ thể, cho phép Authorization
+
+$ PATCH /api/dishes/1207   # cùng thao tác, gọi trực tiếp
   Authorization: Bearer <JWT đã che>
   {"name":"[TEST B9] Nháp của A"}
 → 200
-  {"ok":true,"data":{"id":1211,"name":"[TEST B9] Nháp của A","description":"mô tả","price":50000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T09:00:49.271Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[…
+  {"ok":true,"data":{"id":1207,"name":"[TEST B9] Nháp của A","description":"mô tả","price":50000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T09:12:13.300Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[…
 
 ĐẠT: Qua giao diện và gọi trực tiếp: cùng 200, ok true
 

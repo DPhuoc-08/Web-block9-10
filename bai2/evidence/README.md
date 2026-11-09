@@ -20,7 +20,7 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `api/`): 
 | Gọi API trực tiếp, bỏ qua giao diện | Cùng kết quả như qua giao diện | | mục 3 | | `03` | |
 | JWT bị sửa hoặc hết hạn | `401` | `13` | mục 5b | `03`, `04` | `04` | |
 | Đổi role trong storage hoặc payload | Quyền không tăng | `12` | mục 5a | `02` | `04` | |
-| Preflight với `Authorization` | `OPTIONS` thành công, origin cụ thể | | | | `05` | |
+| Preflight với `Authorization` | `OPTIONS` thành công, origin cụ thể | | mục 3 | | `05`, `03` | |
 | `GET /api/dishes` tìm kiếm, phân trang, không token | Như trước khi gắn xác thực | `15-*`, `16-*`, `17` | mục 6 | | `06` | SQL viết tay trong `curl/06` |
 | **Slide 68** | | | | | | |
 | Đăng ký với `role: admin` | Bản ghi có role `viewer` | | | | `07` | `03` |

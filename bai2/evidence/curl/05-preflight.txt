@@ -1,4 +1,4 @@
-$ OPTIONS /api/dishes/1211   # preflight
+$ OPTIONS /api/dishes/1207   # preflight
   Authorization: (không có)
   origin: http://localhost:5173
   access-control-request-method: PATCH

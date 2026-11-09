@@ -1,5 +1,20 @@
 ## 2a. Viewer đăng nhập: POST /api/auth/login, sau đó GET /api/auth/me kèm Bearer
 
+### OPTIONS /api/auth/login → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ### POST /api/auth/login → 200 (Fetch)
 
 ```
@@ -29,17 +44,63 @@ Response body
   {"ok":true,"data":{"id":1,"email":"<email nhóm đã che>","username":"Tài khoản xem thử","role":"viewer","chefId":null}}
 ```
 
+### OPTIONS /api/auth/me → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: GET
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
+### OPTIONS /api/admin/dishes?pageSize=20 → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: GET
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ### GET /api/admin/dishes?pageSize=20 → undefined (Fetch)
 
 ```
 Request headers
   Authorization: Bearer <JWT đã che>
+  Origin: http://localhost:5173
 Response headers
 ```
 
 ## 2b. Editor gửi form đã mở, món vừa được xuất bản → 403, giữ token
 
-### PATCH /api/dishes/1211 → 403 (Fetch)
+### OPTIONS /api/dishes/1207 → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization,content-type
+  Access-Control-Request-Method: PATCH
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
+### PATCH /api/dishes/1207 → 403 (Fetch)
 
 ```
 Request headers
@@ -68,12 +129,27 @@ Response headers
   Access-Control-Expose-Headers: Retry-After
   Access-Control-Allow-Origin: http://localhost:5173
 Response body
-  {"ok":true,"data":{"id":1212,"name":"[TEST B9] Editor tạo qua web","description":null,"price":45000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T09:01:50.893Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[{"id":2,"name":"Món nước"},{"id":14…
+  {"ok":true,"data":{"id":1208,"name":"[TEST B9] Editor tạo qua web","description":null,"price":45000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T09:13:27.290Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[{"id":2,"name":"Món nước"},{"id":14…
 ```
 
-## 3. Editor sửa món nháp của mình qua giao diện
+## 3. Editor sửa món nháp của mình qua giao diện: Chrome gửi preflight OPTIONS trước PATCH có Authorization
 
-### PATCH /api/dishes/1211 → 200 (Fetch)
+### OPTIONS /api/dishes/1207 → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization,content-type
+  Access-Control-Request-Method: PATCH
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
+### PATCH /api/dishes/1207 → 200 (Fetch)
 
 ```
 Request headers
@@ -85,7 +161,7 @@ Response headers
   Access-Control-Expose-Headers: Retry-After
   Access-Control-Allow-Origin: http://localhost:5173
 Response body
-  {"ok":true,"data":{"id":1211,"name":"[TEST B9] Sửa qua web","description":"mô tả","price":50000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T09:00:49.271Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[{"id":2,"name":"Món nước"},{"id":14,"na…
+  {"ok":true,"data":{"id":1207,"name":"[TEST B9] Sửa qua web","description":"mô tả","price":50000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T09:12:13.300Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[{"id":2,"name":"Món nước"},{"id":14,"na…
 ```
 
 ## 5a. Viewer đã sửa role trong storage, tự gửi POST /api/dishes
@@ -106,6 +182,21 @@ Response body
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 ```
 
+### OPTIONS /api/dishes → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization,content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ## 5b. Token bị sửa: 401, web xoá token, về đăng nhập
 
 ### GET /api/auth/me → 401 (Fetch)
@@ -113,6 +204,7 @@ Response body
 ```
 Request headers
   Authorization: Bearer <JWT đã che>
+  Origin: http://localhost:5173
 Response headers
   Access-Control-Expose-Headers: Retry-After
   Access-Control-Allow-Origin: http://localhost:5173
@@ -120,11 +212,25 @@ Response body
   {"ok":false,"error":{"code":"<đã che>","message":"Cần đăng nhập để thực hiện thao tác này."}}
 ```
 
+### OPTIONS /api/auth/me → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: GET
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ### GET /api/dishes/1 → 200 (Fetch)
 
 ```
 Request headers
-  Origin: http://localhost:5173
   (không có Authorization)
 Response headers
   Access-Control-Expose-Headers: Retry-After
@@ -139,6 +245,7 @@ Response body
 
 ```
 Request headers
+  Origin: http://localhost:5173
   (không có Authorization)
 Response headers
   Access-Control-Expose-Headers: Retry-After
@@ -151,6 +258,7 @@ Response body
 
 ```
 Request headers
+  Origin: http://localhost:5173
   (không có Authorization)
 Response headers
   Access-Control-Expose-Headers: Retry-After
@@ -160,6 +268,21 @@ Response body
 ```
 
 ## 7a. Tài khoản pending đăng nhập qua web: không có accessToken
+
+### OPTIONS /api/auth/login → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
 
 ### POST /api/auth/login → 200 (Fetch)
 
@@ -177,6 +300,21 @@ Response body
 ```
 
 ## 8a. POST /api/auth/mfa/setup: secret trả một lần, no-store
+
+### OPTIONS /api/auth/mfa/setup → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
 
 ### POST /api/auth/mfa/setup → 200 (Fetch)
 
@@ -204,6 +342,7 @@ Response body
 ```
 Request headers
   Content-Type: application/json
+  Origin: http://localhost:5173
   (không có Authorization)
 Request body
   {"email":"mfa.demo@demo.example","password":"<đã che>"}
@@ -213,6 +352,21 @@ Response headers
   Access-Control-Allow-Origin: http://localhost:5173
 Response body
   {"ok":true,"data":{"next":"mfa","challenge":"<đã che>","expiresIn":300}}
+```
+
+### OPTIONS /api/auth/login → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
 ```
 
 ### GET /api/dishes/1 → 200 (Fetch)
@@ -230,12 +384,26 @@ Response body
 
 ## 8d. Nhập đúng mã: có accessToken
 
+### OPTIONS /api/auth/mfa → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ### POST /api/auth/mfa → 200 (Fetch)
 
 ```
 Request headers
   Content-Type: application/json
-  Origin: http://localhost:5173
   (không có Authorization)
 Request body
   {"challenge":"<đã che>","code":"<đã che>"}
@@ -257,7 +425,22 @@ Response headers
   Access-Control-Expose-Headers: Retry-After
   Access-Control-Allow-Origin: http://localhost:5173
 Response body
-  {"ok":true,"data":{"id":33,"email":"mfa.demo@demo.example","username":null,"role":"viewer","chefId":null}}
+  {"ok":true,"data":{"id":7,"email":"mfa.demo@demo.example","username":null,"role":"viewer","chefId":null}}
+```
+
+### OPTIONS /api/auth/me → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: GET
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
 ```
 
 ### GET /api/admin/dishes?pageSize=20 → 200 (Fetch)
@@ -273,7 +456,37 @@ Response body
   {"ok":true,"data":{"items":[{"id":1,"name":"Phở bò tái","description":"Nước dùng hầm xương 12 tiếng, bánh phở tươi.","price":55000,"available":true,"status":"published","imageUrl":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Ph%E1%BB%9F_b%C3%B2_in_a_German_restaurant_01.jpg/960px-Ph%E1…
 ```
 
+### OPTIONS /api/admin/dishes?pageSize=20 → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: GET
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ## 9a. Recovery code lần đầu
+
+### OPTIONS /api/auth/mfa → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
 
 ### POST /api/auth/mfa → 200 (Fetch)
 
@@ -291,17 +504,31 @@ Response body
   {"ok":true,"data":{"accessToken":"<đã che>","expiresIn":1800,"recoveryRemaining":9}}
 ```
 
+### OPTIONS /api/auth/me → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: GET
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ### GET /api/auth/me → 200 (Fetch)
 
 ```
 Request headers
   Authorization: Bearer <JWT đã che>
-  Origin: http://localhost:5173
 Response headers
   Access-Control-Expose-Headers: Retry-After
   Access-Control-Allow-Origin: http://localhost:5173
 Response body
-  {"ok":true,"data":{"id":33,"email":"mfa.demo@demo.example","username":null,"role":"viewer","chefId":null}}
+  {"ok":true,"data":{"id":7,"email":"mfa.demo@demo.example","username":null,"role":"viewer","chefId":null}}
 ```
 
 ### GET /api/auth/mfa/status → 200 (Fetch)
@@ -317,7 +544,37 @@ Response body
   {"ok":true,"data":{"enabled":true,"remaining":9}}
 ```
 
+### OPTIONS /api/auth/mfa/status → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization
+  Access-Control-Request-Method: GET
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ## 9b. Recovery code lần hai: INVALID_OTP
+
+### OPTIONS /api/auth/mfa → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
 
 ### POST /api/auth/mfa → 200 (Fetch)
 
@@ -336,6 +593,21 @@ Response body
 
 ## 10a. Đặt mật khẩu mới: không cấp token
 
+### OPTIONS /api/auth/reset → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ### POST /api/auth/reset → 200 (Fetch)
 
 ```
@@ -352,20 +624,31 @@ Response body
   {"ok":true,"data":{"reset":true}}
 ```
 
-### GET /api/dishes/1 → 200 (Fetch)
+### GET /api/dishes/1 → undefined (Fetch)
 
 ```
 Request headers
   Origin: http://localhost:5173
   (không có Authorization)
 Response headers
-  Access-Control-Expose-Headers: Retry-After
-  Access-Control-Allow-Origin: http://localhost:5173
-Response body
-  {"ok":true,"data":{"id":1,"name":"Phở bò tái","description":"Nước dùng hầm xương 12 tiếng, bánh phở tươi.","price":55000,"available":true,"imageUrl":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Ph%E1%BB%9F_b%C3%B2_in_a_German_restaurant_01.jpg/960px-Ph%E1%BB%9F_b%C3%B2_in_a_German_rest…
 ```
 
 ## 10b. Đăng nhập bằng mật khẩu mới: vẫn qua MFA
+
+### OPTIONS /api/auth/login → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
 
 ### POST /api/auth/login → 200 (Fetch)
 
@@ -398,6 +681,21 @@ Response body
 
 ## 11a. Sai yếu tố thứ hai: 200 INVALID_OTP, không đăng xuất
 
+### OPTIONS /api/auth/mfa/disable → 204 (Preflight)
+
+```
+Request headers
+  Access-Control-Request-Headers: authorization,content-type
+  Access-Control-Request-Method: POST
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
+  Access-Control-Allow-Headers: Content-Type,Authorization
+  Access-Control-Allow-Methods: GET,POST,PATCH,DELETE
+  Access-Control-Allow-Origin: http://localhost:5173
+  Access-Control-Expose-Headers: Retry-After
+```
+
 ### POST /api/auth/mfa/disable → 200 (Fetch)
 
 ```
@@ -428,5 +726,14 @@ Response headers
   Access-Control-Allow-Origin: http://localhost:5173
 Response body
   {"ok":true,"data":{"disabled":true}}
+```
+
+### GET /api/dishes/1 → undefined (Fetch)
+
+```
+Request headers
+  Origin: http://localhost:5173
+  (không có Authorization)
+Response headers
 ```
 

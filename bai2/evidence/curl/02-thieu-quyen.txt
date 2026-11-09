@@ -6,35 +6,35 @@ $ POST /api/dishes   # Viewer
 
 ĐẠT: Viewer POST /api/dishes → 403
 
-$ PATCH /api/dishes/1211   # Viewer
+$ PATCH /api/dishes/1207   # Viewer
   Authorization: Bearer <JWT đã che>
   {"name":"[TEST B9] sửa"}
 → 403
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 
-ĐẠT: Viewer PATCH /api/dishes/1211 → 403
+ĐẠT: Viewer PATCH /api/dishes/1207 → 403
 
-$ DELETE /api/dishes/1211   # Viewer
+$ DELETE /api/dishes/1207   # Viewer
   Authorization: Bearer <JWT đã che>
 → 403
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 
-ĐẠT: Viewer DELETE /api/dishes/1211 → 403
+ĐẠT: Viewer DELETE /api/dishes/1207 → 403
 
-$ DELETE /api/dishes/1211   # Editor
+$ DELETE /api/dishes/1207   # Editor
   Authorization: Bearer <JWT đã che>
 → 403
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 
-ĐẠT: Editor DELETE /api/dishes/1211 → 403
+ĐẠT: Editor DELETE /api/dishes/1207 → 403
 
-$ PATCH /api/dishes/1211   # Editor B, món của A
+$ PATCH /api/dishes/1207   # Editor B, món của A
   Authorization: Bearer <JWT đã che>
   {"name":"[TEST B9] sửa"}
 → 403
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 
-ĐẠT: Editor B, món của A PATCH /api/dishes/1211 → 403
+ĐẠT: Editor B, món của A PATCH /api/dishes/1207 → 403
 
 $ PATCH /api/dishes/1   # Editor A, món published
   Authorization: Bearer <JWT đã che>
