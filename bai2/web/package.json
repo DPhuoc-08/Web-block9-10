@@ -1,5 +1,5 @@
 {
-  "name": "block7-web",
+  "name": "block9-bai2-web",
   "version": "1.0.0",
   "description": "SPA cho ứng dụng nhà hàng: React + Vite + React Router (chế độ thư viện), gọi REST API của api/, ba kiểu phân trang",
   "private": true,

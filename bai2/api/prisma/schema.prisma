@@ -1,6 +1,5 @@
-// Code-first: model trong file này là nguồn của schema.
-// Block7 dùng project Supabase RIÊNG (không chung với block5/block6), nên được `prisma db push` lên database này.
-// Khác block6: loại món và chuyên môn đầu bếp thành TAG nhiều-nhiều (bảng tags dùng chung cho cả hai).
+// Code-first: model trong file này là nguồn của schema. Bài 2 dùng project Supabase RIÊNG (plan 12.1).
+// Giống schema của Bài 1, trừ bảng sessions (api dùng JWT, slide 61); thêm users.tokenVersion và bảng mfa_challenges.
 
 generator client {
   provider = "prisma-client"
@@ -20,20 +19,23 @@ datasource db {
 //   Chef n >──< n Tag            qua chef_tags  (chuyên môn — cùng bảng tags với loại món)
 
 model Dish {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   name        String
   description String?
   price       Int
-  available   Boolean  @default(true)
+  available   Boolean    @default(true)
+  // Trạng thái biên tập (block9), khác với available (Đang phục vụ / Tạm hết). Luật ABAC dựa vào cột này;
+  // món draft không bao giờ hiện ở thực đơn công khai.
+  status      DishStatus @default(published)
   // Ảnh minh hoạ lấy từ nguồn online (link trực tiếp tới file ảnh), kèm ghi công tác giả/giấy phép.
   imageUrl    String?
   imageCredit String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime   @default(now())
 
   // onDelete: Restrict → database từ chối xoá đầu bếp khi còn món do người đó phụ trách
   // (app phải chuyển món sang đầu bếp khác trước, xem DELETE /api/chefs/:id?transferTo= trong src/routes/chefs.js).
-  chefId      Int
-  chef        Chef     @relation(fields: [chefId], references: [id], onDelete: Restrict)
+  chefId Int
+  chef   Chef @relation(fields: [chefId], references: [id], onDelete: Restrict)
 
   ingredients DishIngredient[]
   tags        DishTag[]
@@ -48,6 +50,8 @@ model Chef {
   name   String    @unique
   dishes Dish[]
   tags   ChefTag[]
+  // Tài khoản Editor phụ trách đầu bếp này (block9).
+  users  User[]
 
   @@map("chefs")
 }
@@ -109,4 +113,141 @@ model ChefTag {
   @@id([chefId, tagId])
   @@index([tagId])
   @@map("chef_tags")
+}
+
+// ===================== Xác thực tài khoản (block8) =====================
+
+// Role do server gán, mặc định viewer; role trong form đăng ký bị bỏ qua. Block8 chưa dùng role để chặn thao tác
+// (mọi tài khoản active dùng được cụm CRUD); editor, admin để sẵn cho phân quyền của block9.
+enum Role {
+  viewer
+  editor
+  admin
+}
+
+// pending: đã đăng ký, chưa nhập đúng OTP → chưa được đăng nhập. active: dùng được ứng dụng.
+enum UserStatus {
+  pending
+  active
+}
+
+// Mục đích của mã: mã kích hoạt chỉ có nghĩa với việc kích hoạt (không dùng được ở nơi khác).
+enum ChallengePurpose {
+  activation
+}
+
+enum DishStatus {
+  draft
+  published
+}
+
+model User {
+  id              Int        @id @default(autoincrement())
+  // Email đã chuẩn hoá (cắt khoảng trắng, chữ thường) — duy nhất, dùng để so sánh ở mọi chức năng.
+  email           String     @unique
+  // Email đúng như người dùng gõ khi đăng ký — chỉ để hiển thị.
+  emailInput      String
+  // Tên hiển thị (plan 12.4): được trùng nhau, không dùng để đăng nhập. Rỗng ở tài khoản tạo trước khi có cột này → hiện email.
+  username        String?
+  // Chuỗi Argon2id (gồm thuật toán, tham số, salt, giá trị băm). Không bao giờ lưu password.
+  passwordHash    String
+  role            Role       @default(viewer)
+  status          UserStatus @default(pending)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime   @default(now())
+
+  // Đầu bếp mà tài khoản Editor phụ trách (block9). Rỗng với viewer, admin. Rỗng thì không khớp món nào:
+  // luật ABAC phải kiểm tra khác null trước khi so sánh.
+  chefId Int?
+  chef   Chef? @relation(fields: [chefId], references: [id], onDelete: SetNull)
+
+  // MFA theo từng tài khoản. mfaSecret là bản mã AES-256-GCM, không phải secret gốc.
+  mfaEnabled       Boolean @default(false)
+  mfaSecret        String?
+  // Secret đang chờ xác nhận khi bật hoặc thay thiết bị: chưa có hiệu lực đăng nhập, không ghi đè mfaSecret.
+  mfaPendingSecret String?
+  // Bước thời gian TOTP đã chấp nhận gần nhất, để từ chối dùng lại mã. Int là đủ (khoảng 59 triệu);
+  // BigInt sẽ làm res.json báo lỗi khi mô-đun này chuyển sang api ở Bài 2.
+  mfaLastStep      Int?
+
+  // Số thế hệ token (plan 12.7): tăng trong cùng transaction với reset mật khẩu, tắt MFA. Token mang số cũ bị từ chối.
+  tokenVersion Int @default(0)
+
+  activation     ActivationChallenge?
+  passwordResets PasswordReset[]
+  mfaChallenges  MfaChallenge[]
+  recoveryCodes  RecoveryCode[]
+
+  @@index([chefId])
+  @@map("users")
+}
+
+// Một dòng cho mỗi tài khoản pending. Gửi lại mã → ghi đè otpHash, expiresAt, usedAt; GIỮ attempts, lockedUntil
+// (gửi lại không mở thêm lượt đoán). Xoá user → xoá dòng này.
+model ActivationChallenge {
+  userId      Int              @id
+  purpose     ChallengePurpose @default(activation)
+  // HMAC-SHA256(OTP_PEPPER, mã 6 số): không lưu mã; lộ bảng mà không có pepper thì không dò được mã.
+  otpHash     String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  attempts    Int              @default(0)
+  lockedUntil DateTime?
+  lastSentAt  DateTime
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activation_challenges")
+}
+
+// Link đặt lại mật khẩu: token gốc chỉ nằm trong email, DB lưu SHA-256 của token. Hạn 15 phút, dùng một lần.
+model PasswordReset {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
+}
+
+// Bộ đếm cho giới hạn tần suất và chống brute force, khoá dạng "login-fail:email:<email>", "login:ip:<ip>"...
+// Nằm ở DB (không ở cookie / bộ nhớ tiến trình): xoá cookie, mở tab ẩn danh hay khởi động lại server không đặt lại.
+model RateLimit {
+  key         String    @id
+  count       Int       @default(0)
+  windowStart DateTime
+  lockedUntil DateTime?
+
+  @@map("rate_limits")
+}
+
+// Mã dự phòng dùng thay OTP khi mất thiết bị (block9). Chỉ lưu HMAC-SHA256 có pepper, không lưu mã gốc.
+model RecoveryCode {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("recovery_codes")
+}
+
+// Bằng chứng đã qua bước password của API khi tài khoản bật MFA (slide 37). Chuỗi ngẫu nhiên, DB chỉ lưu hash, dùng một lần.
+// Chỉ POST /api/auth/mfa nhận chuỗi này; nó không phải JWT nên không dùng được ở route dữ liệu.
+model MfaChallenge {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("mfa_challenges")
 }
