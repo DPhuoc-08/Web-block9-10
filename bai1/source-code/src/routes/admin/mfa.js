@@ -1,7 +1,7 @@
 // Quản lý MFA của chính người đang đăng nhập (/admin/profile/mfa). Nằm dưới /admin nên requireLogin đã chặn phiên chờ MFA.
 // Danh tính chỉ lấy từ res.locals.currentUser. GET chỉ đọc; mọi thao tác ghi là POST rồi 303.
 import { Router } from "express";
-import { confirmEnrollment, readEnrollment, startEnrollment } from "../../auth/mfa.js";
+import { confirmEnrollment, disableMfa, mfaSummary, readEnrollment, reauthenticate, regenerateCodes, startEnrollment, startReplacement } from "../../auth/mfa.js";
 import { holdCodes, takeCodes } from "../../auth/recovery-display.js";
 import { minutesOf } from "../../auth/pages.js";
 import { one, withFlash } from "../../forms.js";
@@ -53,6 +53,49 @@ router.get("/codes", (req, res) => {
   const held = takeCodes(req.sessionID);
   if (!held) return res.redirect(303, withFlash(PROFILE, { msg: "mfa-codes-gone" }));
   res.render("admin/mfa/codes", { title: "Lưu mã khôi phục", codes: held.codes, kind: held.kind });
+});
+
+// ---------- Thay thiết bị, tạo lại mã, tắt MFA: bắt buộc xác thực lại (slide 23) ----------
+const REAUTH = {
+  replace: { title: "Đổi thiết bị", notice: { kind: "info", text: "Xác nhận đây là bạn để chuyển sang thiết bị mới. Thiết bị cũ vẫn dùng được cho tới khi thiết bị mới được xác nhận." }, button: "Tiếp tục" },
+  regenerate: { title: "Tạo lại mã khôi phục", notice: { kind: "info", text: "Sau khi tạo mới, các mã cũ không còn dùng được." }, button: "Tạo mã mới" },
+  disable: { title: "Tắt xác thực hai lớp", notice: { kind: "error", text: "Sau khi tắt, tài khoản chỉ còn được bảo vệ bằng mật khẩu." }, button: "Tắt xác thực hai lớp", danger: true },
+};
+
+function renderReauth(res, action, { status = 200, banner = null, code = null } = {}) {
+  res.status(status).render("admin/mfa/reauth", { title: REAUTH[action].title, action, ...REAUTH[action], banner, code });
+}
+
+// Chỉ nhận đúng ba việc đã khai báo; chưa bật MFA thì không có gì để xác thực lại.
+async function guardReauth(req, res, next) {
+  if (!Object.hasOwn(REAUTH, req.params.action)) return res.status(404).render("404", { title: "Không tìm thấy", heading: "Không tìm thấy trang", text: "Thao tác này không tồn tại." });
+  if (!(await mfaSummary(res.locals.currentUser.id)).enabled) return res.redirect(303, PROFILE);
+  next();
+}
+
+router.get("/reauth/:action", guardReauth, (req, res) => renderReauth(res, req.params.action));
+
+router.post("/reauth/:action", guardReauth, async (req, res) => {
+  const { action } = req.params;
+  const userId = res.locals.currentUser.id;
+  const result = await reauthenticate(userId, one(req.body.password), one(req.body.factor).trim());
+  if (!result.ok) {
+    if (result.reason === "locked") {
+      res.set("Retry-After", String(result.retryAfter));
+      return renderReauth(res, action, { status: 429, code: "RATE_LIMITED", banner: { kind: "error", text: `Sai quá nhiều lần. Vui lòng thử lại sau ${minutesOf(result.retryAfter)} phút.` } });
+    }
+    return renderReauth(res, action, { code: "INVALID_OTP", banner: { kind: "error", text: "Mật khẩu hoặc mã không đúng." } });
+  }
+  if (action === "replace") {
+    await startReplacement(userId);
+    return res.redirect(303, `${BASE}/setup`);
+  }
+  if (action === "disable") {
+    await disableMfa(userId);
+    return res.redirect(303, withFlash(PROFILE, { msg: "mfa-disabled" }));
+  }
+  holdCodes(req.sessionID, { codes: await regenerateCodes(userId), kind: "regenerated" });
+  res.redirect(303, `${BASE}/codes`);
 });
 
 export default router;

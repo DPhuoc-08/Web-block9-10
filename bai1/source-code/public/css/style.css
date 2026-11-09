@@ -734,8 +734,10 @@ html:not(.js) .js-only { display: none; }
 .mfa-actions .btn { width: 100%; }
 .focus-card { max-width: 560px; margin: 24px auto 56px; padding: 28px; display: grid; gap: 18px; }
 .focus-wide { max-width: 640px; }
+.focus-narrow { max-width: 480px; }
 .focus-card h1 { font-size: 1.6rem; font-weight: 700; }
 .focus-card h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.focus-card strong { color: var(--text); }
 .step-label { margin: 0; font-size: .8rem; font-weight: 600; color: var(--muted); }
 .mfa-qr-row { display: flex; gap: 20px; align-items: flex-start; }
 .mfa-qr { flex: none; width: 180px; height: 180px; image-rendering: pixelated; }

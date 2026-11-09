@@ -150,3 +150,27 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - Bộ đếm sai password được xoá khi password đúng (giữ nguyên block8); bước MFA có bộ đếm riêng nên kẻ biết password vẫn bị giới hạn.
 
 **Đã kiểm tra:** `check-mfa` phần B, C: **36 ĐẠT, 0 CHƯA ĐẠT**: phiên chờ không vào được `/admin/*`, bản ghi phiên không có `userId`, sid đổi, dùng lại mã bị từ chối, `next` được giữ, sai 5 lần `429` dù mã đúng và chung với recovery code, huỷ, hết hạn 5 phút, reset password không tắt MFA, không tạo phiên, xoá cả phiên đang chờ, recovery code dùng lần hai bị từ chối, viết thường và thiếu gạch vẫn khớp.
+
+## Bước 13, 13a, 14 — Thay, tắt MFA và giao diện MFA
+**Đã làm:** `GET`, `POST /admin/profile/mfa/reauth/:action` cho `replace`, `regenerate`, `disable`; trang M9. Giao diện M4–M9 làm cùng lúc với logic vì bản Figma đã duyệt trước khi bắt đầu, nên không cần bước form trần. `check-mfa` phần D.
+
+**Quyết định và lý do:**
+- So password trước, yếu tố thứ hai sau: nhập sai password không làm mất một recovery code.
+- Sai ở bước xác thực lại tính chung bộ đếm MFA: nếu tách riêng, đây thành đường dò mã thứ hai.
+- Thay thiết bị không đổi nhóm recovery code: slide 22 chỉ vô hiệu nhóm cũ khi sinh nhóm mới, và "Tạo lại mã" là thao tác riêng.
+- Một ô nhận cả TOTP lẫn recovery code, server phân biệt theo định dạng, đúng slide 23 ("một mã TOTP hoặc recovery code").
+
+**Đã kiểm tra:**
+- `check-mfa` toàn bộ **75 ĐẠT, 0 CHƯA ĐẠT**; `check-policy` **32**; `check-rbac` **159**; `check-ssr` **124**; `check-auth` **135**, đều 0 CHƯA ĐẠT.
+- Chụp Chrome headless M4–M9 ở 1280 / 820 / 375px, M7 và M8 thêm 320px: không cuộn ngang, đúng bố cục Figma.
+- Sau kiểm thử: md5 món `1eacda6b…`, 4 tài khoản, không có tài khoản bật MFA, `recovery_codes` và `rate_limits` rỗng.
+- `npm audit` vẫn 5 mục như bước 1, `otpauth` và `qrcode` không thêm mục nào.
+
+**Chưa chắc:** chưa quét QR bằng ứng dụng authenticator thật trên điện thoại. Script chỉ tính mã bằng cùng thư viện, nên chưa chứng minh được ứng dụng thật đọc được QR.
+
+## Kiểm tra mã nguồn (slide 55)
+1. **Password băm bằng Argon2id?** Có. `src/auth/password.js:10` tạo, `:23` so. Không có MD5, SHA-256 trực tiếp cho password.
+2. **Recovery code lưu hash; TOTP secret có bị ghi log hoặc trả lại sau thiết lập?** Lưu HMAC-SHA256 (`src/auth/recovery.js`, ghi ở `src/auth/mfa.js:86`). Secret chỉ đọc khi có `mfaPendingSecret` (`mfa.js`, `readEnrollment`), đã bật thì `GET /setup` chuyển về hồ sơ. Không có `console.*` nào in secret, mã; `check-mfa` phần A dò log server. `src/db.js:28` chỉ in tham số SQL khi tự bật `LOG_SQL=1`, và tham số chỉ là hash, bản mã.
+3. **Phiên chờ MFA vào được `/admin` không?** Không. `req.session.userId` chỉ được gán ở `routes/auth/login.js:131` (sau nhánh `mfaEnabled` ở `:127`), `routes/auth/mfa.js:43` (sau khi qua mã), `routes/admin/profile.js:112` (đổi mật khẩu, đã là phiên đầy đủ). Kích hoạt và reset không gán. `check-mfa` phần B thử cả `/admin/*`, sau reset.
+4. **PATCH đọc lại món từ DB trước khi kiểm tra?** Có. `guardDish` (`routes/admin/dishes.js:31`) đọc DB ở `PATCH /:id` (`:375`), `/availability` (`:384`); câu ghi còn mang điều kiện ABAC (`:300`, `:393`).
+5. **Route chỉ ẩn nút mà server không kiểm tra; GET đổi dữ liệu?** Không có route quản trị nào thiếu `requirePermission` (đếm bằng `grep`: 0). Các `GET` chỉ đọc; `GET /admin/profile/mfa/codes` chỉ xoá bản sao trong RAM, không ghi database.

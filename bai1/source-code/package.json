@@ -12,7 +12,8 @@
     "check:ssr": "node scripts/check-ssr.mjs",
     "check:auth": "node scripts/check-auth.mjs",
     "check:policy": "node scripts/check-policy.mjs",
-    "check:rbac": "node scripts/check-rbac.mjs"
+    "check:rbac": "node scripts/check-rbac.mjs",
+    "check:mfa": "node scripts/check-mfa.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

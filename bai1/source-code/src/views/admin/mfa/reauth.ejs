@@ -1,0 +1,20 @@
+<%- include("../../partials/header", { title }) %>
+<%#
+  Xác thực lại (Figma M9): một mẫu cho ba việc. Bắt buộc password và một yếu tố thứ hai dù phiên đã đầy đủ (slide 23). Một ô
+  nhận cả mã TOTP lẫn recovery code; server phân biệt theo định dạng.
+-%>
+<section class="panel focus-card focus-narrow" aria-labelledby="reauth-title">
+  <h1 id="reauth-title"><%= title %></h1>
+  <%- include("../../auth/_banner", { banner: notice }) %>
+  <%- include("../../auth/_banner", { banner }) %>
+  <form class="mfa-form" method="post" action="/admin/profile/mfa/reauth/<%= action %>" novalidate data-once<% if (code) { %> data-error-code="<%= code %>"<% } %>>
+    <input type="hidden" name="_csrf" value="<%= csrf() %>">
+    <%- include("../../auth/_field", { name: "password", label: "Mật khẩu hiện tại", type: "password", autocomplete: "current-password", placeholder: "Nhập mật khẩu", toggle: true }) %>
+    <%- include("../../auth/_field", { name: "factor", label: "Mã từ ứng dụng hoặc mã khôi phục", type: "text", autocomplete: "off", placeholder: "6 chữ số hoặc XXXXX-XXXXX", hint: "Sai 5 lần sẽ bị tạm khoá 15 phút." }) %>
+    <div class="form-actions">
+      <button type="submit" class="btn <%= locals.danger ? "btn-danger" : "btn-primary" %>" data-busy-label="Đang xác nhận…"><%= button %></button>
+      <a class="btn" href="/admin/profile">Huỷ</a>
+    </div>
+  </form>
+</section>
+<%- include("../../partials/footer") %>

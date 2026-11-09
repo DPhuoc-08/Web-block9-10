@@ -1,7 +1,7 @@
 // Kiểm tra MFA theo bảng nghiệm thu Bài 1 (slide 57; plan mục 10.1). Script tự chạy server thật ở cổng 3100.
 //   node scripts/check-mfa.mjs        → mọi phần
 //   node scripts/check-mfa.mjs B      → chỉ phần B
-// A: thiết lập. B: đăng nhập có MFA. C: recovery code.
+// A: thiết lập. B: đăng nhập có MFA. C: recovery code. D: xác thực lại để thay, tắt MFA, tạo lại mã.
 // Dùng tài khoản seed viewer; mọi cột MFA được đặt lại ở cuối, secret lấy từ chính trang thiết lập.
 import "./lib/test-env.mjs";
 import * as OTPAuth from "otpauth";
@@ -244,12 +244,96 @@ async function partC() {
   results.push(r.counts);
 }
 
+async function partD() {
+  const r = reporter("D. Xác thực lại");
+  await resetMfa();
+  const c = await signedIn();
+  r.ok((await c.get("/admin/profile/mfa/reauth/disable")).status === 303, "Chưa bật MFA: không có gì để xác thực lại");
+  const { secret, codes } = await enable(c);
+  const u = await userRow();
+  await clearLastStep(u.id);
+  const open = async (a) => c.get(`/admin/profile/mfa/reauth/${a}`);
+  const send = (a, pw, factor) => c.post(`/admin/profile/mfa/reauth/${a}`, [["password", pw], ["factor", factor]]);
+
+  r.ok((await c.get("/admin/profile/mfa/reauth/bay")).status === 404, "Thao tác lạ → 404");
+  await open("disable");
+  let a = await send("disable", "sai-mat-khau", codes[0]);
+  r.ok(errorCode(a) === "INVALID_OTP" && (await userRow()).mfaEnabled, "Sai password: không tắt được");
+  r.ok((await prisma.recoveryCode.count({ where: { userId: u.id, usedAt: { not: null } } })) === 0, "Sai password không làm mất recovery code");
+  await open("disable");
+  a = await send("disable", password, "000000");
+  r.ok(errorCode(a) === "INVALID_OTP" && (await userRow()).mfaEnabled, "Đúng password, sai mã: không tắt được");
+  await open("disable");
+  a = await send("disable", password, "");
+  r.ok((await userRow()).mfaEnabled, "Thiếu yếu tố thứ hai: không tắt được");
+  await clearMfaCounter(u.id);
+
+  // Thay thiết bị: secret cũ còn hiệu lực tới khi secret mới được xác nhận.
+  await open("replace");
+  a = await send("replace", password, totpFor(secret));
+  r.ok(a.status === 303 && a.location === "/admin/profile/mfa/setup", "Thay thiết bị: xác thực lại → trang thiết lập", a.location);
+  const page = await c.get("/admin/profile/mfa/setup");
+  const fresh = secretOnPage(page.text);
+  let row = await userRow();
+  r.ok(fresh && fresh !== secret && row.mfaPendingSecret && row.mfaEnabled && !page.text.includes("Bước 1 / 2"), "Có secret chờ, vẫn đang bật, không ghi Bước 1 / 2");
+  const sealedOld = row.mfaSecret;
+  await clearLastStep(u.id);
+  const stillOld = await pendingLogin();
+  await stillOld.c.get("/login/mfa");
+  r.ok((await stillOld.c.post("/login/mfa", [["otp", totpFor(secret)]])).status === 303, "Chưa xác nhận: secret cũ vẫn đăng nhập được");
+  r.ok((await userRow()).mfaSecret === sealedOld, "Secret đang dùng không bị ghi đè");
+  await c.get("/admin/profile/mfa/setup");
+  a = await c.post("/admin/profile/mfa/setup/confirm", [["otp", totpFor(fresh)]]);
+  row = await userRow();
+  r.ok(a.status === 303 && (a.location ?? "").includes("mfa-replaced") && row.mfaSecret !== sealedOld && row.mfaPendingSecret === null, "Xác nhận: chuyển sang secret mới", a.location);
+  r.ok((await prisma.recoveryCode.count({ where: { userId: u.id } })) === 10, "Thay thiết bị không đổi nhóm recovery code");
+  await clearLastStep(u.id);
+  const oldGone = await pendingLogin();
+  await oldGone.c.get("/login/mfa");
+  a = await oldGone.c.post("/login/mfa", [["otp", totpFor(secret)]]);
+  r.ok(errorCode(a) === "INVALID_OTP", "Sau khi đổi: mã từ secret cũ bị từ chối");
+  await clearMfaCounter(u.id);
+
+  // Tạo lại recovery code: nhóm cũ vô hiệu.
+  await clearLastStep(u.id);
+  await open("regenerate");
+  a = await send("regenerate", password, totpFor(fresh));
+  r.ok(a.status === 303 && a.location === "/admin/profile/mfa/codes", "Tạo lại mã → trang mã", a.location);
+  const shown = await c.get("/admin/profile/mfa/codes");
+  const newCodes = codesOnPage(shown.text);
+  r.ok(newCodes.length === 10 && shown.text.includes("Đã tạo nhóm mã mới") && !shown.text.includes("Bước 2 / 2"), "Hiện 10 mã mới, đúng thông báo");
+  const stale = await pendingLogin();
+  await stale.c.get("/login/mfa/recovery");
+  a = await stale.c.post("/login/mfa/recovery", [["code", codes[1]]]);
+  r.ok(errorCode(a) === "INVALID_OTP", "Mã của nhóm cũ không còn dùng được");
+  await clearMfaCounter(u.id);
+
+  // Giới hạn thử ở bước xác thực lại dùng chung bộ đếm.
+  let last;
+  for (let i = 0; i < 5; i++) { await open("disable"); last = await send("disable", "sai", "000000"); }
+  r.ok(last.status === 429 && (await userRow()).mfaEnabled, "Sai 5 lần ở bước xác thực lại → 429", last.status);
+  await clearMfaCounter(u.id);
+
+  // Tắt bằng recovery code.
+  await open("disable");
+  a = await send("disable", password, newCodes[0]);
+  row = await userRow();
+  r.ok(a.status === 303 && (a.location ?? "").includes("mfa-disabled") && !row.mfaEnabled && row.mfaSecret === null, "Đúng password + recovery code: tắt được", a.location);
+  r.ok((await prisma.recoveryCode.count({ where: { userId: u.id } })) === 0, "Tắt MFA xoá recovery code");
+  const plain = client();
+  await plain.get("/login");
+  a = await plain.post("/login", [["email", email], ["password", password]]);
+  r.ok(a.status === 303 && a.location === "/admin/dishes", "Tắt xong đăng nhập không cần mã", a.location);
+  results.push(r.counts);
+}
+
 await prisma.rateLimit.deleteMany({ where: { key: { startsWith: "login:ip:" } } });
 await startServer({ MAIL_TRANSPORT: "file" });
 try {
   if (run("A")) await partA();
   if (run("B")) await partB();
   if (run("C")) await partC();
+  if (run("D")) await partD();
 } finally {
   await resetMfa();
   await stopServer();
