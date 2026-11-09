@@ -1,0 +1,27 @@
+<%- include("_start") %>
+<%# Bước MFA khi đăng nhập (Figma M4). Một ô nhập thật, ui.js vẽ 6 ô bên trên như trang kích hoạt; tắt JS vẫn dùng được. -%>
+<form class="auth-form" method="post" action="/login/mfa" novalidate data-once<% if (code) { %> data-error-code="<%= code %>"<% } %>>
+  <input type="hidden" name="_csrf" value="<%= csrf() %>">
+  <div class="auth-head">
+    <h1>Xác thực hai lớp</h1>
+    <p>Mở ứng dụng xác thực trên điện thoại và nhập mã 6 số đang hiển thị.</p>
+  </div>
+  <%- include("_banner") %>
+  <div class="auth-fields">
+    <div class="a-field<%= otpError ? " invalid" : "" %>">
+      <div class="a-label-row"><label for="f-otp">Mã xác thực</label></div>
+      <div class="otp" data-otp>
+        <input id="f-otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="Nhập 6 chữ số" aria-describedby="f-otp-hint"<% if (otpError) { %> aria-invalid="true"<% } %>>
+      </div>
+      <p class="a-hint" id="f-otp-hint">Mã gồm 6 chữ số, đổi sau mỗi 30 giây.</p>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary btn-block" data-busy-label="Đang kiểm tra…"<% if (locked) { %> disabled<% } %>>Xác nhận</button>
+  <hr class="auth-divider">
+  <p class="auth-foot">Mất điện thoại? <a href="/login/mfa/recovery">Dùng mã khôi phục</a></p>
+</form>
+<form class="auth-cancel" method="post" action="/login/mfa/cancel">
+  <input type="hidden" name="_csrf" value="<%= csrf() %>">
+  <button type="submit" class="link-button">Huỷ và về đăng nhập</button>
+</form>
+<%- include("_end") %>

@@ -11,6 +11,7 @@ import { can, canEditDish } from "./policy/permissions.js";
 import { startCleanup } from "./auth/cleanup.js";
 import { requireLogin } from "./auth/require-login.js";
 import loginRouter from "./routes/auth/login.js";
+import mfaLoginRouter from "./routes/auth/mfa.js";
 import registerRouter from "./routes/auth/register.js";
 import passwordResetRouter from "./routes/auth/password-reset.js";
 import menuRouter from "./routes/menu.js";
@@ -133,6 +134,7 @@ app.get("/", (req, res) => res.redirect("/dishes"));
 // Trang công khai: thực đơn, chi tiết món, đăng nhập / đăng ký / quên mật khẩu.
 app.use(menuRouter);
 app.use(loginRouter);
+app.use(mfaLoginRouter);
 app.use(registerRouter);
 app.use(passwordResetRouter);
 // Khu quản trị: requireLogin đã chặn ở trên (sau loadUser, trước csrf).

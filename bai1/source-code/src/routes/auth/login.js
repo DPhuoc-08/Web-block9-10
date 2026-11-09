@@ -31,6 +31,7 @@ const LOGIN_MSG = {
   activated: { kind: "success", text: "Tài khoản đã được kích hoạt. Mời bạn đăng nhập." },
   "password-reset": { kind: "success", text: "Đã đổi mật khẩu. Hãy đăng nhập bằng mật khẩu mới." },
   "logged-out": { kind: "success", text: "Bạn đã đăng xuất." },
+  "mfa-expired": { kind: "info", text: "Phiên xác thực đã hết hạn. Hãy đăng nhập lại." },
 };
 
 // Lỗi nhập ở form tài khoản trả 200 (plan 12, theo bảng của đề); data-error-code trên form để script kiểm tra.
@@ -95,7 +96,7 @@ router.post("/login", async (req, res) => {
 
   // 4. So mật khẩu. Email không có tài khoản vẫn chạy verify với hash giả → cùng thời gian, cùng một câu thông báo:
   //    người ngoài không phân biệt được "sai email" với "sai mật khẩu" (không dò được email nào đã đăng ký).
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, status: true } });
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, status: true, mfaEnabled: true } });
   const ok = await verifyPassword(user?.passwordHash ?? null, password);
   if (!ok) {
     // Sai → tăng bộ đếm theo email (giải đúng CAPTCHA KHÔNG xoá bộ đếm). Đủ 10 lần → khoá 5 phút.
@@ -120,6 +121,13 @@ router.post("/login", async (req, res) => {
   // 5. Chỉ đăng nhập THÀNH CÔNG mới xoá bộ đếm theo email (không xoá giới hạn IP).
   await reset(failKey(email));
   await regenerate(req);
+  // Password đúng nhưng đã bật MFA: phiên chỉ có mfaPending, KHÔNG có userId, nên chưa phải phiên đầy đủ. Mọi đường cấp phiên
+  // phải đi qua nhánh này (slide 20); userId chỉ được gán sau khi qua bước MFA (routes/auth/mfa.js).
+  if (user.mfaEnabled) {
+    req.session.mfaPending = { userId: user.id, at: Date.now(), next };
+    await save(req);
+    return res.redirect(303, "/login/mfa");
+  }
   req.session.userId = user.id;
   req.session.loginAt = Date.now();
   await save(req); // ghi xong bản ghi phiên rồi mới redirect: request kế tiếp chắc chắn tra ra phiên

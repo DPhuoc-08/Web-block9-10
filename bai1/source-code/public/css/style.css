@@ -766,3 +766,17 @@ html:not(.js) .js-only { display: none; }
 @media (max-width: 359px) {
   .code-list { grid-template-columns: 1fr; }
 }
+.auth-cancel { width: 100%; max-width: 400px; margin-top: 12px; text-align: center; }
+.link-button { min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
+.auth-back { justify-self: start; font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; }
+.recovery-input { width: 100%; height: 56px; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.25rem; font-weight: 500; letter-spacing: 1px; }
+.recovery-input::placeholder { font-weight: 400; }
+.a-field.invalid .recovery-input { border-color: var(--danger); }
+.recovery-nudge { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--primary-soft); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
+.recovery-nudge p { margin: 2px 0 0; }
+.recovery-nudge .btn { flex: none; }
+@media (max-width: 600px) {
+  .recovery-nudge { flex-direction: column; align-items: stretch; }
+  .auth-foot a { display: inline-flex; align-items: center; min-height: 44px; }
+}

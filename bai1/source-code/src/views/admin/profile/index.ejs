@@ -2,6 +2,16 @@
 <%# Hồ sơ của chính người đang đăng nhập (/admin/profile). Thông tin tài khoản chỉ đọc; chỉ tên hiển thị sửa được. -%>
 <% const shownName = profile.username ?? profile.email; -%>
 <%- include("../../partials/admin-nav", { current: "" }) %>
+<%# Figma M5b: vừa đăng nhập bằng mã khôi phục, thường là đã mất thiết bị (ghi chú 22). -%>
+<% if (recoveryJustUsed && mfa.enabled) { -%>
+<div class="recovery-nudge" role="status">
+  <div>
+    <strong>Bạn vừa đăng nhập bằng mã khôi phục</strong>
+    <p>Còn <%= mfa.remaining %> mã dùng được. Nếu đã mất điện thoại, hãy đổi thiết bị và tạo lại mã khôi phục.</p>
+  </div>
+  <a class="btn btn-primary" href="/admin/profile/mfa/reauth/replace">Đổi thiết bị</a>
+</div>
+<% } -%>
 <div class="profile">
   <section class="panel profile-card" aria-labelledby="profile-title">
     <div class="profile-head">

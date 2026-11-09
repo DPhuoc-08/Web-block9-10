@@ -1,0 +1,26 @@
+<%- include("_start") %>
+<%# Nhập recovery code (Figma M5). Một ô nhập, chữ đơn cách canh giữa để dễ soát từng ký tự; viết thường, thiếu dấu gạch vẫn khớp. -%>
+<form class="auth-form" method="post" action="/login/mfa/recovery" novalidate data-once<% if (code) { %> data-error-code="<%= code %>"<% } %>>
+  <input type="hidden" name="_csrf" value="<%= csrf() %>">
+  <a class="auth-back" href="/login/mfa">← Nhập mã từ ứng dụng</a>
+  <div class="auth-head">
+    <h1>Nhập mã khôi phục</h1>
+    <p>Dùng một trong các mã bạn đã lưu khi bật xác thực hai lớp. Mỗi mã chỉ dùng được một lần.</p>
+  </div>
+  <%- include("_banner") %>
+  <div class="auth-fields">
+    <div class="a-field<%= otpError ? " invalid" : "" %>">
+      <div class="a-label-row"><label for="f-code">Mã khôi phục</label></div>
+      <input id="f-code" class="recovery-input" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" placeholder="XXXXX-XXXXX" aria-describedby="f-code-hint"<% if (otpError) { %> aria-invalid="true"<% } %>>
+      <p class="a-hint" id="f-code-hint">Gồm 10 ký tự. Viết thường hoặc thiếu dấu gạch vẫn được.</p>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary btn-block" data-busy-label="Đang kiểm tra…"<% if (locked) { %> disabled<% } %>>Đăng nhập</button>
+  <hr class="auth-divider">
+  <p class="auth-foot">Mất cả điện thoại và mã khôi phục? Hãy liên hệ quản trị viên nhà hàng.</p>
+</form>
+<form class="auth-cancel" method="post" action="/login/mfa/cancel">
+  <input type="hidden" name="_csrf" value="<%= csrf() %>">
+  <button type="submit" class="link-button">Huỷ và về đăng nhập</button>
+</form>
+<%- include("_end") %>

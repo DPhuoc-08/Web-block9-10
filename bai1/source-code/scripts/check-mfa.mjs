@@ -1,13 +1,15 @@
 // Kiểm tra MFA theo bảng nghiệm thu Bài 1 (slide 57; plan mục 10.1). Script tự chạy server thật ở cổng 3100.
 //   node scripts/check-mfa.mjs        → mọi phần
 //   node scripts/check-mfa.mjs B      → chỉ phần B
-// A: thiết lập. Dùng tài khoản seed viewer; mọi cột MFA được đặt lại ở cuối, secret lấy từ chính trang thiết lập.
+// A: thiết lập. B: đăng nhập có MFA. C: recovery code.
+// Dùng tài khoản seed viewer; mọi cột MFA được đặt lại ở cuối, secret lấy từ chính trang thiết lập.
 import "./lib/test-env.mjs";
 import * as OTPAuth from "otpauth";
 import { prisma } from "../src/db.js";
 import { client, reporter } from "./lib/client.mjs";
 import { login } from "./lib/auth.mjs";
 import { startServer, stopServer, serverLog } from "./lib/server.mjs";
+import { generateToken, sha256 } from "../src/auth/secrets.js";
 
 const only = process.argv.slice(2).map((s) => s.toUpperCase());
 const run = (part) => only.length === 0 || only.includes(part);
@@ -104,10 +106,150 @@ async function partA() {
   results.push(r.counts);
 }
 
+// Đăng nhập password, dừng ở bước MFA. `next` như form đăng nhập gửi kèm.
+async function pendingLogin(next = "") {
+  const c = client();
+  await c.get("/login");
+  const res = await c.post("/login", [["email", email], ["password", password], ...(next ? [["next", next]] : [])]);
+  return { c, res };
+}
+const errorCode = (res) => res.text.match(/data-error-code="([A-Z_]+)"/)?.[1] ?? null;
+
+async function partB() {
+  const r = reporter("B. Đăng nhập có MFA");
+  await resetMfa();
+  const setup = await signedIn();
+  const { secret } = await enable(setup);
+  const u = await userRow();
+  await prisma.session.deleteMany({ where: { userId: u.id } });
+
+  const { c, res } = await pendingLogin();
+  r.ok(res.status === 303 && res.location === "/login/mfa", "Password đúng, đã bật MFA → 303 /login/mfa", `${res.status} ${res.location}`);
+  const sidAfterPassword = c.jar.get("sid");
+  const [row] = await prisma.$queryRaw`SELECT data FROM sessions WHERE "userId" = ${u.id}`;
+  r.ok(row && row.data.mfaPending?.userId === u.id && row.data.userId === undefined, "Bản ghi phiên chỉ có mfaPending, không có userId");
+  for (const path of ["/admin", "/admin/dishes", "/admin/chefs/new", "/admin/profile", "/admin/profile/mfa/setup"]) {
+    const a = await c.get(path);
+    r.ok(a.status === 303 && (a.location ?? "").includes("/login"), `Phiên chờ MFA không vào được ${path}`, `${a.status} ${a.location}`);
+  }
+  const mfaPage = await c.get("/login/mfa");
+  r.ok(mfaPage.status === 200, "Trang nhập mã mở được bằng phiên chờ");
+  const write = await c.post("/admin/dishes/1?_method=DELETE", []);
+  r.ok(write.status === 303 && (write.location ?? "").includes("/login"), "Phiên chờ gửi ghi → /login, không ghi được", write.status);
+  await c.get("/login/mfa");
+
+  let a = await c.post("/login/mfa", [["otp", "000000"]]);
+  r.ok(a.status === 200 && errorCode(a) === "INVALID_OTP", "Mã sai: INVALID_OTP, vẫn ở bước MFA", errorCode(a));
+  const code = totpFor(secret, 1); // bước kế tiếp: mã lúc bật MFA đã bị đánh dấu dùng rồi
+  a = await c.post("/login/mfa", [["otp", code]]);
+  r.ok(a.status === 303 && a.location === "/admin/dishes", "Mã đúng → 303 vào quản trị", `${a.status} ${a.location}`);
+  r.ok(c.jar.get("sid") !== sidAfterPassword, "sid đổi khi qua bước MFA");
+  r.ok((await c.get("/admin/dishes")).status === 200, "Phiên đầy đủ vào được quản trị");
+
+  // Dùng lại mã đã chấp nhận (cùng cửa sổ).
+  const second = await pendingLogin();
+  await second.c.get("/login/mfa");
+  a = await second.c.post("/login/mfa", [["otp", code]]);
+  r.ok(a.status === 200 && errorCode(a) === "INVALID_OTP", "Dùng lại mã vừa được chấp nhận → từ chối", `${a.status} ${errorCode(a)}`);
+
+  // Giữ trang đang mở qua bước MFA.
+  await clearLastStep(u.id);
+  const withNext = await pendingLogin("/admin/chefs");
+  await withNext.c.get("/login/mfa");
+  a = await withNext.c.post("/login/mfa", [["otp", totpFor(secret)]]);
+  r.ok(a.status === 303 && a.location === "/admin/chefs", "Sau MFA về đúng trang đang mở", a.location);
+
+  // Giới hạn thử: chung bộ đếm OTP và recovery code; đạt ngưỡng thì 429 dù mã đúng.
+  await clearLastStep(u.id);
+  await clearMfaCounter(u.id);
+  const lock = await pendingLogin();
+  await lock.c.get("/login/mfa");
+  let last;
+  for (let i = 0; i < 4; i++) last = await lock.c.post("/login/mfa", [["otp", "000000"]]);
+  r.ok(last.status === 200, "Sai 4 lần: vẫn được thử", last.status);
+  await lock.c.get("/login/mfa/recovery");
+  last = await lock.c.post("/login/mfa/recovery", [["code", "AAAAA-AAAAA"]]);
+  r.ok(last.status === 429 && errorCode(last) === "RATE_LIMITED", "Lần sai thứ 5 (recovery code, chung bộ đếm) → 429", last.status);
+  r.ok(Boolean(last.headers.get("retry-after")), "429 có Retry-After");
+  await lock.c.get("/login/mfa/recovery");
+  last = await lock.c.post("/login/mfa", [["otp", totpFor(secret)]]);
+  r.ok(last.status === 429, "Đang khoá: mã đúng vẫn 429", last.status);
+  const lockedPage = await lock.c.get("/login/mfa");
+  r.ok(lockedPage.status === 200, "Đang khoá vẫn xem được trang");
+  await clearMfaCounter(u.id);
+
+  // Huỷ, hết hạn.
+  const cancel = await pendingLogin();
+  await cancel.c.get("/login/mfa");
+  a = await cancel.c.post("/login/mfa/cancel");
+  r.ok(a.status === 303 && a.location === "/login", "Huỷ → về đăng nhập", a.location);
+  r.ok((await cancel.c.get("/login/mfa")).status === 303, "Huỷ xong không còn phiên chờ");
+
+  await prisma.session.deleteMany({ where: { userId: u.id } });
+  const old = await pendingLogin();
+  await prisma.$executeRaw`UPDATE sessions SET data = jsonb_set(data, '{mfaPending,at}', to_jsonb((extract(epoch from now()) * 1000 - 360000)::bigint)) WHERE "userId" = ${u.id}`;
+  a = await old.c.get("/login/mfa");
+  r.ok(a.status === 303 && a.location === "/login?msg=mfa-expired", "Phiên chờ quá 5 phút → đăng nhập lại", a.location);
+
+  // Reset password không tắt MFA, xoá cả phiên chờ, không tạo phiên.
+  await prisma.session.deleteMany({ where: { userId: u.id } });
+  const waiting = await pendingLogin();
+  const token = generateToken();
+  await prisma.passwordReset.create({ data: { userId: u.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 15 * 60_000) } });
+  const resetter = client();
+  const q = `/reset?token=${token}`;
+  await resetter.get(q);
+  const newPassword = `${password}-moi`;
+  a = await resetter.post("/reset", [["token", token], ["password", newPassword], ["confirmPassword", newPassword], ["passwordConfirm", newPassword]]);
+  r.ok(a.status === 303, "Reset password thành công", `${a.status} ${a.location}`);
+  r.ok(resetter.jar.size === 0 || (await resetter.get("/admin/dishes")).status === 303, "Reset không tạo phiên đăng nhập");
+  r.ok((await userRow()).mfaEnabled === true, "Reset không tắt MFA");
+  const w = await waiting.c.get("/login/mfa");
+  r.ok(w.status === 303, "Reset xoá cả phiên đang chờ MFA", w.status);
+  const fresh = client();
+  await fresh.get("/login");
+  a = await fresh.post("/login", [["email", email], ["password", newPassword]]);
+  r.ok(a.status === 303 && a.location === "/login/mfa", "Reset xong đăng nhập vẫn qua bước MFA", a.location);
+  await prisma.user.update({ where: { id: u.id }, data: { passwordHash: u.passwordHash } });
+  results.push(r.counts);
+}
+
+async function partC() {
+  const r = reporter("C. Recovery code");
+  await resetMfa();
+  const setup = await signedIn();
+  const { codes } = await enable(setup);
+  const u = await userRow();
+  const { c } = await pendingLogin();
+  r.ok((await c.get("/login/mfa/recovery")).status === 200, "Trang nhập mã khôi phục mở bằng phiên chờ");
+  let a = await c.post("/login/mfa/recovery", [["code", "AAAAA-AAAAA"]]);
+  r.ok(a.status === 200 && errorCode(a) === "INVALID_OTP", "Mã không có thật: INVALID_OTP");
+  a = await c.post("/login/mfa/recovery", [["code", codes[0]]]);
+  r.ok(a.status === 303 && a.location === "/admin/profile?msg=mfa-recovery-used", "Mã đúng → về hồ sơ", a.location);
+  const used = await prisma.recoveryCode.count({ where: { userId: u.id, usedAt: { not: null } } });
+  r.ok(used === 1, "usedAt được ghi", used);
+  const page = await c.get(a.location);
+  r.ok(page.text.includes("Bạn vừa đăng nhập bằng mã khôi phục") && page.text.includes("Còn 9 mã"), "Hồ sơ nhắc đổi thiết bị và báo còn 9 mã");
+  r.ok(page.text.includes("9 / 10"), "Thẻ bảo mật hiện 9 / 10");
+
+  const again = await pendingLogin();
+  await again.c.get("/login/mfa/recovery");
+  a = await again.c.post("/login/mfa/recovery", [["code", codes[0]]]);
+  r.ok(a.status === 200 && errorCode(a) === "INVALID_OTP", "Dùng mã lần hai → từ chối", errorCode(a));
+
+  const loose = await pendingLogin();
+  await loose.c.get("/login/mfa/recovery");
+  a = await loose.c.post("/login/mfa/recovery", [["code", codes[1].toLowerCase().replace("-", "")]]);
+  r.ok(a.status === 303, "Viết thường, thiếu dấu gạch vẫn khớp", a.status);
+  results.push(r.counts);
+}
+
 await prisma.rateLimit.deleteMany({ where: { key: { startsWith: "login:ip:" } } });
 await startServer({ MAIL_TRANSPORT: "file" });
 try {
   if (run("A")) await partA();
+  if (run("B")) await partB();
+  if (run("C")) await partC();
 } finally {
   await resetMfa();
   await stopServer();
@@ -117,4 +259,3 @@ const pass = results.reduce((s, c) => s + c.pass, 0);
 const fail = results.reduce((s, c) => s + c.fail, 0);
 console.log(`\nTỔNG: ${pass} ĐẠT, ${fail} CHƯA ĐẠT`);
 process.exitCode = fail ? 1 : 0;
-export { enable, signedIn, totpFor, clearLastStep };

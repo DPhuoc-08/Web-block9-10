@@ -21,7 +21,10 @@ export class PrismaSessionStore extends session.Store {
   set(sid, sess, cb) {
     const data = JSON.parse(JSON.stringify(sess)); // Session/Cookie của express-session → JSON thuần cho cột jsonb
     const expiresAt = sess.cookie?.expires ? new Date(sess.cookie.expires) : new Date(Date.now() + 2 * 3600_000);
-    const userId = Number.isInteger(sess.userId) ? sess.userId : null;
+    // Cột userId phục vụ việc xoá mọi phiên của một user, nên ghi cả phiên chờ MFA: đặt lại mật khẩu phải xoá được phiên đó.
+    // Danh tính vẫn đọc từ sess.userId, phiên chờ không có trường này.
+    const owner = sess.userId ?? sess.mfaPending?.userId;
+    const userId = Number.isInteger(owner) ? owner : null;
     this.prisma.session
       .upsert({ where: { sid }, create: { sid, data, userId, expiresAt }, update: { data, userId, expiresAt } })
       .then(() => cb(null), cb);

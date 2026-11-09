@@ -38,6 +38,7 @@ async function renderProfile(res, { status = 200, values = null, errors = {} } =
     values: values ?? { username: user.username ?? "" },
     errors,
     mfa: await mfaSummary(res.locals.currentUser.id),
+    recoveryJustUsed: res.req.query.msg === "mfa-recovery-used",
   });
 }
 

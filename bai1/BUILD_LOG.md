@@ -138,3 +138,15 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - Recovery code hiện bằng PRG, mã gốc giữ trong RAM tối đa 60 giây, đọc một lần là xoá (12.11).
 
 **Đã kiểm tra:** `check-mfa` phần A: **19 ĐẠT, 0 CHƯA ĐẠT**: `GET` không tạo secret; DB chỉ có bản mã; mã sai không bật; 10 HMAC; bảng `sessions` và log không chứa mã gốc; mở lại trang mã không hiện lại; đang bật thì không tạo secret mới, không hiện lại secret.
+
+## Bước 11, 12 — Đăng nhập có MFA và recovery code
+**Đã làm:** `POST /login` có MFA chỉ gán `mfaPending` (kèm `next`), không gán `userId`. `routes/auth/mfa.js`, `require-mfa-pending.js`; trang M4, M5; lời nhắc M5b ở hồ sơ. `session-store.js` ghi cột `userId` từ cả phiên chờ. `check-mfa` phần B, C.
+
+**Quyết định và lý do:**
+- Phiên chờ không có `userId`, nên `loadUser` và `requireLogin` không cần sửa gì mà vẫn từ chối (slide 20). Không cần cờ riêng để nhớ kiểm tra ở từng route.
+- `regenerate` hai lần: sau password và sau mã đúng, để sid có từ trước không thành phiên đầy đủ.
+- Bộ đếm sai chung cho OTP và recovery code theo user, đạt ngưỡng thì `429` dù mã đúng.
+- Chặn dùng lại mã bằng `updateMany` có điều kiện, không đọc rồi so trong code, để hai request đồng thời chỉ một thắng.
+- Bộ đếm sai password được xoá khi password đúng (giữ nguyên block8); bước MFA có bộ đếm riêng nên kẻ biết password vẫn bị giới hạn.
+
+**Đã kiểm tra:** `check-mfa` phần B, C: **36 ĐẠT, 0 CHƯA ĐẠT**: phiên chờ không vào được `/admin/*`, bản ghi phiên không có `userId`, sid đổi, dùng lại mã bị từ chối, `next` được giữ, sai 5 lần `429` dù mã đúng và chung với recovery code, huỷ, hết hạn 5 phút, reset password không tắt MFA, không tạo phiên, xoá cả phiên đang chờ, recovery code dùng lần hai bị từ chối, viết thường và thiếu gạch vẫn khớp.
