@@ -2,6 +2,7 @@
 // nút lọc ở thanh danh mục của thực đơn, nên trước đây gõ sai tên là không sửa được.
 // Danh sách không có tìm kiếm, số trang: số tag ít (16 khi seed), hiện hết một trang là đủ.
 import { Router } from "express";
+import { requirePermission } from "../../auth/require-permission.js";
 import { prisma, isNotFound, isUniqueViolation, nameTaken } from "../../db.js";
 import { parseId } from "../../validators/id.js";
 import { hasErrors } from "../../validators/common.js";
@@ -16,7 +17,7 @@ const DUPLICATE = "Đã có tag tên này.";
 const notFound = (res, text = "Tag không tồn tại hoặc đã bị xoá.") =>
   res.status(404).render("404", { title: "Không tìm thấy tag", heading: "Không tìm thấy tag", text });
 
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("tag:read"), async (req, res) => {
   const savedRaw = one(req.query.saved);
   res.render("admin/tags/index", {
     title: "Quản trị tag",
@@ -46,19 +47,19 @@ async function submit(req, res, id, currentName = null) {
   }
 }
 
-router.get("/new", (req, res) => renderForm(res, { values: { name: "" } }));
-router.post("/", (req, res) => submit(req, res, null));
+router.get("/new", requirePermission("tag:create"), (req, res) => renderForm(res, { values: { name: "" } }));
+router.post("/", requirePermission("tag:create"), (req, res) => submit(req, res, null));
 
 const findTag = (id) => prisma.tag.findUnique({ where: { id }, select: { id: true, name: true } });
 
-router.get("/:id/edit", async (req, res) => {
+router.get("/:id/edit", requirePermission("tag:update"), async (req, res) => {
   const id = parseId(req.params.id);
   const tag = id === null ? null : await findTag(id);
   if (!tag) return notFound(res);
   renderForm(res, { id, values: { name: tag.name }, currentName: tag.name });
 });
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requirePermission("tag:update"), async (req, res) => {
   const id = parseId(req.params.id);
   const tag = id === null ? null : await findTag(id);
   if (!tag) return notFound(res);
@@ -73,14 +74,14 @@ async function deleteView(id) {
 
 const renderDelete = (res, view, { status = 200, error = null } = {}) => res.status(status).render("admin/tags/delete", { title: "Xoá tag", ...view, error });
 
-router.get("/:id/delete", async (req, res) => {
+router.get("/:id/delete", requirePermission("tag:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   const view = id === null ? null : await deleteView(id);
   if (!view) return notFound(res, "Tag cần xoá không tồn tại hoặc đã bị xoá.");
   renderDelete(res, view);
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("tag:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   const view = id === null ? null : await deleteView(id);
   if (!view) return notFound(res, "Tag này đã bị xoá trước đó.");

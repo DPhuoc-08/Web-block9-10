@@ -1,6 +1,7 @@
 // Quản trị nguyên liệu (SSR) — chuyển từ api/src/routes/ingredients.js và các trang admin nguyên liệu của block7.
 // Tên không trùng (không phân biệt hoa thường). Nguyên liệu đang được món nào dùng thì KHÔNG cho xoá → 409.
 import { Router } from "express";
+import { requirePermission } from "../../auth/require-permission.js";
 import { prisma, isNotFound, isUniqueViolation, isForeignKeyViolation, nameTaken } from "../../db.js";
 import { parseId } from "../../validators/id.js";
 import { hasErrors } from "../../validators/common.js";
@@ -17,7 +18,7 @@ const withCount = { _count: { select: { dishes: true } } };
 const notFound = (res, text = "Nguyên liệu không tồn tại hoặc đã bị xoá.") =>
   res.status(404).render("404", { title: "Không tìm thấy nguyên liệu", heading: "Không tìm thấy nguyên liệu", text });
 
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("ingredient:read"), async (req, res) => {
   const view = await adminList(req, res, {
     base: BASE,
     noun: "nguyên liệu",
@@ -53,16 +54,16 @@ async function submit(req, res, id) {
   }
 }
 
-router.get("/new", (req, res) => renderForm(res, { values: { name: "", unit: "" }, back: safeBack(req.query.back, BASE) }));
-router.post("/", (req, res) => submit(req, res, null));
+router.get("/new", requirePermission("ingredient:create"), (req, res) => renderForm(res, { values: { name: "", unit: "" }, back: safeBack(req.query.back, BASE) }));
+router.post("/", requirePermission("ingredient:create"), (req, res) => submit(req, res, null));
 
-router.get("/:id/edit", async (req, res) => {
+router.get("/:id/edit", requirePermission("ingredient:update"), async (req, res) => {
   const id = parseId(req.params.id);
   const ingredient = id === null ? null : await prisma.ingredient.findUnique({ where: { id } });
   if (!ingredient) return notFound(res);
   renderForm(res, { id, values: { name: ingredient.name, unit: ingredient.unit ?? "" }, back: safeBack(req.query.back, BASE) });
 });
-router.patch("/:id", (req, res) => {
+router.patch("/:id", requirePermission("ingredient:update"), (req, res) => {
   const id = parseId(req.params.id);
   return id === null ? notFound(res) : submit(req, res, id);
 });
@@ -75,14 +76,14 @@ async function deleteView(id) {
   return { ingredient, dishes };
 }
 
-router.get("/:id/delete", async (req, res) => {
+router.get("/:id/delete", requirePermission("ingredient:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   const view = id === null ? null : await deleteView(id);
   if (!view) return notFound(res, "Nguyên liệu cần xoá không tồn tại hoặc đã bị xoá.");
   res.render("admin/ingredients/delete", { title: "Xoá nguyên liệu", ...view, error: null, back: safeBack(req.query.back, BASE) });
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("ingredient:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   const back = safeBack(one(req.body.back), BASE);
   const view = id === null ? null : await deleteView(id);

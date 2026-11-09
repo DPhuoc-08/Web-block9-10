@@ -2,6 +2,7 @@
 // Tên không trùng (không phân biệt hoa thường); chuyên môn là danh sách tag (≥ 1).
 // Xoá đầu bếp còn món: phải chọn người nhận, chuyển món + xoá trong MỘT transaction; không chọn → 409.
 import { Router } from "express";
+import { requirePermission } from "../../auth/require-permission.js";
 import { prisma, isNotFound, isUniqueViolation, isForeignKeyViolation, nameTaken } from "../../db.js";
 import { parseId } from "../../validators/id.js";
 import { hasErrors } from "../../validators/common.js";
@@ -21,7 +22,7 @@ const toChef = ({ _count, tags, ...chef }) => ({ ...chef, tags: flatTags(tags), 
 const notFound = (res, text = "Đầu bếp không tồn tại hoặc đã bị xoá.") =>
   res.status(404).render("404", { title: "Không tìm thấy đầu bếp", heading: "Không tìm thấy đầu bếp", text });
 
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("chef:read"), async (req, res) => {
   const view = await adminList(req, res, {
     base: BASE,
     noun: "đầu bếp",
@@ -77,19 +78,19 @@ async function submit(req, res, id) {
   }
 }
 
-router.get("/new", async (req, res) => {
+router.get("/new", requirePermission("chef:create"), async (req, res) => {
   renderForm(res, { values: { name: "", tagIds: [], newTags: "" }, tags: await tagList(), back: safeBack(req.query.back, BASE) });
 });
-router.post("/", (req, res) => submit(req, res, null));
+router.post("/", requirePermission("chef:create"), (req, res) => submit(req, res, null));
 
-router.get("/:id/edit", async (req, res) => {
+router.get("/:id/edit", requirePermission("chef:update"), async (req, res) => {
   const id = parseId(req.params.id);
   const [chef, tags] = await Promise.all([id === null ? null : prisma.chef.findUnique({ where: { id }, include: { tags: TAG_SELECT } }), tagList()]);
   if (!chef) return notFound(res);
   const values = { name: chef.name, tagIds: chef.tags.map((l) => String(l.tag.id)), newTags: "" };
   renderForm(res, { id, values, tags, back: safeBack(req.query.back, BASE) });
 });
-router.patch("/:id", (req, res) => {
+router.patch("/:id", requirePermission("chef:update"), (req, res) => {
   const id = parseId(req.params.id);
   return id === null ? notFound(res) : submit(req, res, id);
 });
@@ -105,14 +106,14 @@ async function deleteView(id) {
   return { chef, dishes, others };
 }
 
-router.get("/:id/delete", async (req, res) => {
+router.get("/:id/delete", requirePermission("chef:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   const view = id === null ? null : await deleteView(id);
   if (!view) return notFound(res, "Đầu bếp cần xoá không tồn tại hoặc đã bị xoá.");
   res.render("admin/chefs/delete", { title: "Xoá đầu bếp", ...view, transferTo: "", error: null, back: safeBack(req.query.back, BASE) });
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("chef:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   const back = safeBack(one(req.body.back), BASE);
   const view = id === null ? null : await deleteView(id);

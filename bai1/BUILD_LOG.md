@@ -72,3 +72,10 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - Phương án đã bỏ: đặt quyền ngay trong template. Template chỉ ẩn nút, server mới là nơi chặn.
 
 **Đã kiểm tra:** `node scripts/check-policy.mjs`: **32 ĐẠT, 0 CHƯA ĐẠT**.
+
+## Bước 6 — Gắn cổng RBAC cho mọi route quản trị
+**Đã làm:** gắn `requirePermission` cho từng route của `dishes`, `chefs`, `ingredients`, `tags`: 29 route, kể cả route đọc, `GET /new`, `/:id/edit`, `/:id/delete`, `PATCH /:id/availability`. `scripts/check-rbac.mjs` phần A, B.
+
+**Quyết định và lý do:** gắn theo từng route thay vì một middleware chung cho `/admin`, vì mỗi route cần một quyền khác nhau. GET mở form dùng cùng quyền với thao tác ghi tương ứng (slide 52). Trang hồ sơ chỉ cần đăng nhập vì mọi role đều được quản lý tài khoản của chính mình.
+
+**Đã kiểm tra:** `check-rbac` phần A, B: **72 ĐẠT, 0 CHƯA ĐẠT**. Chưa đăng nhập: cả 29 route `303 /login`. Viewer: route đọc `200`, form và ghi `403`. Editor: mọi route xoá `403`. Mọi request đều gửi trực tiếp; md5 dữ liệu không đổi.

@@ -2,6 +2,7 @@
 // GET chỉ hiển thị; ghi dữ liệu chỉ qua POST / PATCH / DELETE (method-override), ghi xong luôn redirect 303
 // (Post/Redirect/Get) để Reload không gửi lại request ghi.
 import { Router } from "express";
+import { requirePermission } from "../../auth/require-permission.js";
 import { prisma, isNotFound, isForeignKeyViolation, isUniqueViolation, nameTaken } from "../../db.js";
 import { parseId } from "../../validators/id.js";
 import { hasErrors } from "../../validators/common.js";
@@ -48,7 +49,7 @@ const listUrlOf = (state) => {
 
 // ---------- Danh sách ----------
 // /admin/dishes?q=&mode=&available=&chef=&page= — 20 món/trang, id tăng dần (block7 plan 12); toàn văn / gần đúng xếp điểm rồi id.
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("dish:read"), async (req, res) => {
   const state = {
     q: one(req.query.q).trim(), mode: one(req.query.mode).trim() || "basic", page: one(req.query.page).trim(),
     available: one(req.query.available).trim(), chef: one(req.query.chef).trim(),
@@ -291,20 +292,20 @@ async function submit(req, res, id) {
   }
 }
 
-router.get("/new", async (req, res) => {
+router.get("/new", requirePermission("dish:create"), async (req, res) => {
   renderForm(res, { values: EMPTY, options: await loadOptions(), back: safeBack(req.query.back, BASE) });
 });
 
-router.post("/", (req, res) => submit(req, res, null));
+router.post("/", requirePermission("dish:create"), (req, res) => submit(req, res, null));
 
-router.get("/:id/edit", async (req, res) => {
+router.get("/:id/edit", requirePermission("dish:update"), async (req, res) => {
   const id = parseId(req.params.id);
   const [dish, options] = await Promise.all([id === null ? null : getDish(id), loadOptions()]);
   if (!dish) return notFound(res);
   renderForm(res, { id, values: valuesFromDish(dish), options, back: safeBack(req.query.back, BASE) });
 });
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requirePermission("dish:update"), async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res);
   return submit(req, res, id);
@@ -313,7 +314,7 @@ router.patch("/:id", async (req, res) => {
 // ---------- Đổi nhanh tình trạng (plan 12.4) ----------
 // Việc hằng ngày của nhà hàng: một nút ngay trên danh sách, không phải mở cả form sửa. Vẫn là form POST có _csrf, không
 // cần JavaScript. Form gửi giá trị ĐÍCH (không phải "đảo trạng thái") → bấm hai lần hay hai tab cùng bấm vẫn ra đúng ý.
-router.patch("/:id/availability", async (req, res) => {
+router.patch("/:id/availability", requirePermission("dish:update"), async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res);
   const raw = one(req.body.available);
@@ -331,14 +332,14 @@ router.patch("/:id/availability", async (req, res) => {
 
 // ---------- Xoá ----------
 // Trang xác nhận chỉ đọc; chỉ form "Xoá" (DELETE) mới ghi. Liên kết món–nguyên liệu, món–tag tự xoá (Cascade).
-router.get("/:id/delete", async (req, res) => {
+router.get("/:id/delete", requirePermission("dish:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   const dish = id === null ? null : await prisma.dish.findUnique({ where: { id }, select: { id: true, name: true } });
   if (!dish) return notFound(res, "Món cần xoá không tồn tại hoặc đã bị xoá.");
   res.render("admin/dishes/delete", { title: "Xoá món", dish, back: safeBack(req.query.back, BASE) });
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("dish:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res, "Món cần xoá không tồn tại hoặc đã bị xoá.");
   try {
