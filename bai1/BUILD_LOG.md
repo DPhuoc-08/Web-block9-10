@@ -166,7 +166,28 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - Sau kiểm thử: md5 món `1eacda6b…`, 4 tài khoản, không có tài khoản bật MFA, `recovery_codes` và `rate_limits` rỗng.
 - `npm audit` vẫn 5 mục như bước 1, `otpauth` và `qrcode` không thêm mục nào.
 
-**Chưa chắc:** chưa quét QR bằng ứng dụng authenticator thật trên điện thoại. Script chỉ tính mã bằng cùng thư viện, nên chưa chứng minh được ứng dụng thật đọc được QR.
+**Chưa chắc:** chưa quét QR bằng ứng dụng authenticator thật trên điện thoại. Script chỉ tính mã bằng cùng thư viện, nên chưa chứng minh được ứng dụng thật đọc được QR. (Đã làm ở bước 15.)
+
+## Bước 15 — Nghiệm thu Bài 1, mốc "đạt Bài 1"
+**Đã làm:** chạy lại toàn bộ `check-*` trên code cuối; người dùng quét QR bằng ứng dụng thật; thu đủ 10 kịch bản của slide 56, 57 bằng Chrome thật và request trực tiếp; seed lại.
+
+**Đã kiểm tra (09/11/2026):**
+- `check-policy` **32**, `check-mfa` **75**, `check-rbac` **159**, `check-auth` **135**, `check-ssr` **124**, đều 0 CHƯA ĐẠT. Kết quả lưu ở `evidence/curl/check-*.txt`.
+- **Ứng dụng thật:** người dùng quét QR bằng Microsoft Authenticator trên điện thoại, nhập mã, đăng xuất và đăng nhập lại bằng mã từ app: thành công. Đọc DB sau đó thấy tài khoản viewer có `mfaEnabled = true` và 10 mã khôi phục chưa dùng.
+- **Trình duyệt:** `collect-evidence.mjs` đi qua 10 kịch bản bằng Chrome headless, mọi kiểm tra trong `evidence/curl`, `evidence/db` đều ĐẠT; đăng nhập bằng mã khôi phục và dùng lại mã được làm ở đây, không làm tay trên điện thoại.
+- Seed lại sau cùng: 1.206 món (1.200 published, 6 draft), 4 tài khoản, 0 phiên, 0 bộ đếm, không còn `recovery_codes`.
+
+**Mốc đạt Bài 1:** đủ bảng 10.1 và 5 câu của slide 55. Sang Bài 2 được.
+
+**Chưa có:** ảnh chụp thật của cửa sổ DevTools. Network và Application có bản chữ đọc từ Chrome qua DevTools Protocol (`evidence/network/network-log.md`), giống cách block8.
+
+### Lỗi phát hiện trong lúc làm (do agent viết)
+**`LOG_SQL=1` vẫn in tham số của bảng `recovery_codes`.**
+- Cách tái hiện: `LOG_SQL=1`, chạy `prisma.recoveryCode.findFirst({ where: { codeHash: "..." } })`: dòng `params:` có giá trị hash.
+- Nguyên nhân: danh sách bảng ẩn tham số ở `src/db.js` có từ block8; lúc thêm bảng `recovery_codes` ở bước 2 mình không thêm tên bảng này vào.
+- Mức độ: chỉ lộ HMAC khi tự bật `LOG_SQL`, không lộ mã gốc. Vẫn sửa vì trái với quy tắc đang áp cho mọi bảng xác thực.
+- Cách sửa: thêm `recovery_codes` vào `SENSITIVE`.
+- Bằng chứng sau khi sửa: cùng câu truy vấn, số dòng log chứa giá trị hash từ 1 xuống 0, dòng `params` là `[ẩn — bảng xác thực]`.
 
 ## Kiểm tra mã nguồn (slide 55)
 1. **Password băm bằng Argon2id?** Có. `src/auth/password.js:10` tạo, `:23` so. Không có MD5, SHA-256 trực tiếp cho password.

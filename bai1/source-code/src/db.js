@@ -20,7 +20,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, ssl: 
 // Block8: câu SQL chạm bảng xác thực (sessions, users, …) KHÔNG in tham số — tham số ở đó là sid, CSRF token, hash mật
 // khẩu / mã / token; in ra log là ai đọc được log cũng chiếm được phiên (lỗi phát hiện ở bước 16, BUILD_LOG).
 const logSql = process.env.LOG_SQL === "1";
-const SENSITIVE = /"(sessions|users|activation_challenges|password_resets|rate_limits)"|\b(sessions|users|activation_challenges|password_resets|rate_limits)\b/;
+const SENSITIVE = /"(sessions|users|activation_challenges|password_resets|rate_limits|recovery_codes)"|\b(sessions|users|activation_challenges|password_resets|rate_limits|recovery_codes)\b/;
 export const prisma = new PrismaClient({ adapter, log: logSql ? [{ emit: "event", level: "query" }] : [] });
 if (logSql) {
   prisma.$on("query", (e) => {
