@@ -2,6 +2,7 @@
 //   node scripts/check-rbac.mjs        → mọi phần
 //   node scripts/check-rbac.mjs C      → chỉ phần C
 // A: chưa đăng nhập. B: thiếu role. C: thuộc tính món (ABAC), trường do server đặt, đổi quyền sau khi mở form.
+// E: giao diện theo quyền (chỉ là tiện dùng, server đã chặn ở các phần trên).
 // D: ai thấy món nháp (12.2): thực đơn công khai, ba kiểu tìm, số món theo tag, URL trực tiếp, danh sách quản trị. Mọi ca đều gửi request trực tiếp, không qua giao diện, rồi đọc lại database.
 // Bản ghi thử có tiền tố "[TEST B9]" và được xoá ở cuối.
 import "./lib/test-env.mjs";
@@ -259,6 +260,37 @@ async function partD() {
 }
 
 // Script đăng nhập nhiều lần từ cùng một máy: xoá bộ đếm theo IP của các lần chạy trước để không bị 429 giữa chừng.
+async function partE() {
+  const r = reporter("E. Giao diện theo quyền");
+  const viewer = await signIn("SEED_VIEWER_EMAIL");
+  const editor = await signIn("SEED_EDITOR_A_EMAIL");
+  const admin = await signIn("SEED_ADMIN_EMAIL");
+  const list = "/admin/dishes";
+  const v = (await viewer.get(list)).text;
+  r.ok(!v.includes("+ Thêm món") && !v.includes(">Sửa<") && !v.includes(">Xoá<"), "Viewer: không có nút Thêm, Sửa, Xoá");
+  r.ok(v.includes("chỉ có quyền xem") && !v.includes("status-filter"), "Viewer: có dòng chỉ xem, không có bộ lọc trạng thái");
+  r.ok(!/<td class="title"[^>]*><a /.test(v), "Viewer: tên món không là link");
+  for (const res of ["chefs", "ingredients", "tags"]) {
+    const t = (await viewer.get(`/admin/${res}`)).text;
+    r.ok(!t.includes(">Sửa<") && !t.includes(">Xoá<") && !t.includes("+ Thêm"), `Viewer /admin/${res}: không có nút ghi`);
+    const e = (await editor.get(`/admin/${res}`)).text;
+    r.ok(e.includes(">Sửa<") && !e.includes(">Xoá<"), `Editor /admin/${res}: có Sửa, không có Xoá`);
+  }
+  const e = (await editor.get(list)).text;
+  r.ok(e.includes("+ Thêm món") && !e.includes(">Xoá<") && e.includes("status-filter"), "Editor: có Thêm, không có Xoá, có bộ lọc trạng thái");
+  const draft = (await editor.get(`${list}?status=draft`)).text;
+  r.ok(draft.includes(">Sửa<") && draft.includes("Nháp"), "Editor: món nháp của mình có nút Sửa và nhãn Nháp");
+  r.ok(e.includes("Chỉ xem") && !/<td class="title"[^>]*><a /.test(e), "Editor: món published của mình và của người khác chỉ xem, tên không là link");
+  const ef = (await editor.get(`${list}/new`)).text;
+  r.ok(!ef.includes('name="chefId"') && !ef.includes('name="status"') && !ef.includes('name="newChef"'), "Form của Editor: không có ô đầu bếp, trạng thái");
+  r.ok(ef.includes("thuộc đầu bếp của bạn") && ef.includes("Lưu nháp"), "Form của Editor: có câu giải thích và nút Lưu nháp");
+  const af = (await admin.get(`${list}/1/edit`)).text;
+  r.ok(af.includes('name="chefId"') && af.includes('name="status"'), "Form của Admin: có ô đầu bếp, trạng thái");
+  const al = (await admin.get(list)).text;
+  r.ok(al.includes(">Xoá<") && al.includes(">Sửa<"), "Admin: có Sửa, Xoá");
+  results.push(r.counts);
+}
+
 await prisma.rateLimit.deleteMany({ where: { key: { startsWith: "login:ip:" } } });
 await startServer({ MAIL_TRANSPORT: "file" });
 try {
@@ -266,6 +298,7 @@ try {
   if (run("B")) await partB();
   if (run("C")) await partC();
   if (run("D")) await partD();
+  if (run("E")) await partE();
 } finally {
   await stopServer();
   await prisma.$disconnect();

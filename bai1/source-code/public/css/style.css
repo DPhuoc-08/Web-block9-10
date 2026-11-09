@@ -691,3 +691,36 @@ html:not(.js) .js-only { display: none; }
 .resend { display: grid; gap: 10px; }
 .resend .auth-foot { font-size: .88rem; }
 .btn:disabled { opacity: .55; cursor: default; }
+
+/* ===== Block 9: phân quyền (Figma "Block 9 · Phân quyền và MFA", M1–M3) ===== */
+.notice { background: var(--primary-soft); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; }
+.form-panel .notice { margin: 12px 0 0; }
+.badge.draft { background: var(--art-nuoc-bg); color: var(--art-nuoc-ink); }
+.badge.published { background: var(--surface-2); color: var(--muted); }
+.status-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.status-filter { display: flex; flex-wrap: wrap; gap: 8px; }
+.status-filter a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-size: .85rem; font-weight: 600; transition: border-color .15s ease, background-color .15s ease; }
+.status-filter a:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+.status-filter a[aria-current] { background: var(--primary-soft); border-color: transparent; color: var(--primary); }
+.publish-panel { background: var(--surface-2); border-radius: var(--radius); padding: 14px 16px; }
+.publish-panel select { background: var(--bg); }
+.forbidden { border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 24px; }
+.forbidden-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--danger-soft); color: var(--danger); }
+.forbidden-actions { justify-content: center; }
+@media (max-width: 600px) {
+  .status-filter a { min-height: 44px; }
+  .forbidden { margin: 24px auto; }
+  .forbidden-actions { width: 100%; flex-direction: column; }
+  .forbidden-actions .btn { width: 100%; }
+}
+/* Bảng món có thêm cột Trạng thái: ở màn rộng bỏ cột Tag (theo bản Figma đã duyệt, tag vẫn tìm được và vẫn hiện trên thẻ ở
+   màn nhỏ) để cụm nút không bị đẩy ra ngoài khung cuộn. */
+@media (min-width: 821px) {
+  .col-tag { display: none; }
+}
+@media (min-width: 821px) and (max-width: 1100px) {
+  td.actions { white-space: normal; }
+  td.actions .row-form { display: block; margin-bottom: 6px; }
+  td.actions .btn + .btn { margin-left: 0; }
+  td.actions .btn { margin: 2px 2px 2px 0; }
+}

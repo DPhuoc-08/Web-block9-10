@@ -7,10 +7,30 @@
 <%- include("../../partials/admin-nav", { current: "dishes" }) %>
 <div class="toolbar">
   <h1 id="ket-qua" tabindex="-1" class="list-anchor">Món ăn</h1>
+<% if (can("dish:create")) { -%>
   <a class="btn btn-primary" href="<%= newHref %>">+ Thêm món</a>
+<% } -%>
 </div>
 
+<%# Thông báo theo quyền: ẩn nút chỉ để tiện dùng, server vẫn chặn ở từng route. -%>
+<% if (!can("dish:update")) { -%>
+<p class="notice" role="note">Tài khoản của bạn chỉ có quyền xem.</p>
+<% } else if (!can("dish:create")) { -%>
+<p class="notice" role="note">Tài khoản Editor này chưa được gắn với đầu bếp nào nên chưa thêm hay sửa món được. Hãy liên hệ quản trị viên.</p>
+<% } -%>
+
 <%- include("../../partials/admin-search", { base: "/admin/dishes", label: "Tìm món", total: result ? result.total : null }) %>
+
+<div class="status-row">
+<% if (can("dish:update")) { -%>
+  <nav class="status-filter" aria-label="Lọc theo trạng thái">
+<% for (const s of statusFilters) { %>    <a href="<%= statusHref(s.value) %>"<% if (s.value === state.status) { %> aria-current="true"<% } %>><%= s.label %></a>
+<% } -%>
+  </nav>
+<% } -%>
+<% if (result) { %>  <span class="muted"><%= result.total.toLocaleString("vi-VN") %> món</span>
+<% } -%>
+</div>
 
 <% if (invalid) { -%>
 <div class="panel empty" role="alert">
@@ -38,12 +58,14 @@
         <th>Ảnh</th>
         <th>Tên</th>
         <th>Giá</th>
-        <th>Tag</th>
+        <th class="col-tag">Tag</th>
         <th>Đầu bếp</th>
         <th>Tình trạng</th>
+        <th>Trạng thái</th>
 <% if (scored) { %>        <th>Điểm</th>
 <% } -%>
-        <th><span class="sr-only">Thao tác</span></th>
+<% if (can("dish:update")) { %>        <th><span class="sr-only">Thao tác</span></th>
+<% } -%>
       </tr>
     </thead>
     <tbody>
@@ -52,14 +74,17 @@
       <tr<% if (d.id === savedId) { %> class="just-saved"<% } %>>
         <td class="num" data-label="Mã"><%= d.id %></td>
         <td class="thumb" data-label="Ảnh"><%- include("../../partials/dish-image", { src: d.imageUrl, alt: "", cls: "table-thumb", tags: d.tags, label: false, lazy: true }) %></td>
-        <td class="title" data-label="Tên"><a href="<%= editHref(d.id) %>"><%= d.name %></a></td>
+        <td class="title" data-label="Tên"><% if (canEditDish(d)) { %><a href="<%= editHref(d.id) %>"><%= d.name %></a><% } else { %><%= d.name %><% } %></td>
         <td data-label="Giá"><%= formatPrice(d.price) %></td>
-        <td data-label="Tag"><%= tagNames(d.tags) %></td>
+        <td class="col-tag" data-label="Tag"><%= tagNames(d.tags) %></td>
         <td data-label="Đầu bếp"><%= d.chef.name %></td>
         <td data-label="Tình trạng"><span class="badge <%= d.available ? "on" : "off" %>"><%= d.available ? "Đang phục vụ" : "Tạm hết" %></span></td>
+        <td data-label="Trạng thái"><span class="badge <%= d.status %>"><%= d.status === "draft" ? "Nháp" : "Đã xuất bản" %></span></td>
 <% if (scored) { %>        <td class="num" data-label="Điểm"><%= d.score.toFixed(3) %></td>
 <% } -%>
+<% if (can("dish:update")) { const editable = canEditDish(d); -%>
         <td class="actions">
+<% if (editable) { -%>
 <%# Đổi nhanh tình trạng: form POST thật, gửi giá trị đích và URL danh sách đang xem. -%>
           <form class="row-form" method="post" action="/admin/dishes/<%= d.id %>/availability?_method=PATCH" data-once>
             <input type="hidden" name="_csrf" value="<%= csrf() %>">
@@ -68,8 +93,13 @@
             <button type="submit" class="btn btn-sm" data-busy-label="Đang đổi…"><%= d.available ? "Đặt tạm hết" : "Mở phục vụ" %></button>
           </form>
           <a class="btn btn-sm" href="<%= editHref(d.id) %>">Sửa</a>
+<% } if (can("dish:delete")) { -%>
           <a class="btn btn-sm danger-text" href="<%= deleteHref(d.id) %>">Xoá</a>
+<% } if (!editable) { -%>
+          <span class="muted">Chỉ xem</span>
+<% } -%>
         </td>
+<% } -%>
       </tr>
 <% } -%>
     </tbody>

@@ -108,3 +108,20 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - Nguyên nhân: ô tìm kiếm in lại từ khoá, nên tên món nháp luôn có trong HTML trả về.
 - Cách sửa: dò theo id trong link thẻ món và cột Mã, thêm ca đối chứng chứng minh cách dò thấy được món published.
 - Bằng chứng sau khi sửa: 143 ĐẠT, ca "Đối chứng: món published hiện trên thực đơn" ĐẠT.
+
+## Bước 8 — Giao diện theo quyền (Figma M1, M2, M3)
+**Đã làm:** danh sách món có cột và nhãn Trạng thái, bộ lọc Tất cả / Nháp / Đã xuất bản, tổng số món; nút Sửa, Đổi nhanh, Xoá, Thêm, link tên món hiện theo `can`, `canEditDish`. Form của Editor không có ô đầu bếp, trạng thái, nút là "Lưu nháp"; form của Admin có khối Trạng thái đầu form. Trang đầu bếp, nguyên liệu, tag ẩn nút theo quyền. Trang "Không đủ quyền" theo M3.
+
+**Quyết định và lý do:** ở màn rộng bỏ cột Tag theo Figma đã duyệt; tag vẫn tìm được và vẫn hiện trên thẻ ở màn nhỏ.
+
+**Đã kiểm tra:** chụp Chrome headless 1280 / 820 / 375px cho Admin, Editor, Viewer: không cuộn ngang, kể cả 320px. Đo bảng món ở 1440, 1280, 1100, 1024, 900, 821px: không tràn trong khung. `check-rbac` phần E.
+
+### Lỗi phát hiện trong lúc làm (do agent viết)
+**Thêm cột Trạng thái đẩy nút Xoá ra ngoài khung bảng.**
+- Cách tái hiện: đăng nhập Admin, mở `/admin/dishes` ở 1280px: nút Xoá không thấy được nếu không cuộn trong khung bảng.
+- Nguyên nhân: bảng đã gần đầy, thêm một cột làm `.table-wrap` tràn; lúc viết chỉ kiểm tra toàn trang không cuộn ngang, nên không phát hiện tràn trong khung.
+- Cách sửa: bỏ cột Tag ở màn rộng theo Figma; từ 821–1100px cho cụm nút xuống dòng.
+- Bằng chứng sau khi sửa: `scrollWidth - clientWidth` của `.table-wrap` bằng 0 ở cả 6 cỡ đã đo.
+
+## Bước 9 — Mốc "đạt phân quyền"
+**Đã kiểm tra:** `check-policy` **32 ĐẠT**; `check-rbac` **159 ĐẠT, 0 CHƯA ĐẠT**; `check-ssr` **124 ĐẠT, 0 CHƯA ĐẠT**; `check-auth` **135 ĐẠT, 0 CHƯA ĐẠT**.

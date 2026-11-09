@@ -1,11 +1,22 @@
 <%- include("partials/header", { title }) %>
 
 <%# Hai trường hợp: thiếu quyền (forPermission) hoặc CSRF (thiếu / sai token, request từ trang khác). Đều không đổi dữ liệu. -%>
-<div class="message" role="alert">
+<div class="message<%= locals.forPermission ? " forbidden" : "" %>" role="alert">
+<% if (locals.forPermission) { -%>
+  <span class="forbidden-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+<% } else { -%>
   <div class="code">403</div>
+<% } -%>
   <h1><%= locals.heading ?? "Yêu cầu bị từ chối" %></h1>
   <p class="muted"><%= locals.text ?? "Biểu mẫu đã hết hạn hoặc không được gửi từ trang của nhà hàng. Hãy mở lại trang rồi thử lần nữa." %></p>
+<% if (locals.forPermission) { -%>
+  <div class="form-actions forbidden-actions">
+    <a class="btn btn-primary" href="/admin/dishes">Về danh sách món</a>
+    <a class="btn" href="/dishes">Về thực đơn</a>
+  </div>
+<% } else { -%>
   <a class="btn btn-primary" href="/dishes">Về thực đơn</a>
+<% } -%>
 </div>
 
 <%- include("partials/footer") %>

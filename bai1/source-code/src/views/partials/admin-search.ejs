@@ -33,8 +33,10 @@
     </select>
   </label>
 <% } -%>
+<% if (state.status) { %>  <input type="hidden" name="status" value="<%= state.status %>">
+<% } -%>
   <button type="submit" class="btn">Tìm</button>
-<% if (state.q || state.mode !== "basic" || state.available || state.chef) { %>  <a class="btn" href="<%= base %>">Xoá tìm kiếm</a>
+<% if (state.q || state.mode !== "basic" || state.available || state.chef || state.status) { %>  <a class="btn" href="<%= base %>">Xoá tìm kiếm</a>
 <% } -%>
 </form>
 <% if (errors.q) { %><p class="error search-count" id="admin-q-error"><%= errors.q %></p>
