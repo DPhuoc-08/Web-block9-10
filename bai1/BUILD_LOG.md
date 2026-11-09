@@ -79,3 +79,14 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 **Quyết định và lý do:** gắn theo từng route thay vì một middleware chung cho `/admin`, vì mỗi route cần một quyền khác nhau. GET mở form dùng cùng quyền với thao tác ghi tương ứng (slide 52). Trang hồ sơ chỉ cần đăng nhập vì mọi role đều được quản lý tài khoản của chính mình.
 
 **Đã kiểm tra:** `check-rbac` phần A, B: **72 ĐẠT, 0 CHƯA ĐẠT**. Chưa đăng nhập: cả 29 route `303 /login`. Viewer: route đọc `200`, form và ghi `403`. Editor: mọi route xoá `403`. Mọi request đều gửi trực tiếp; md5 dữ liệu không đổi.
+
+## Bước 7 — ABAC và ghi không tách rời
+**Đã làm:** `guardDish` (tải món từ DB, xét thuộc tính) cho `GET /:id/edit`, `PATCH /:id`, `PATCH /:id/availability`. `saveDish`: câu ghi đầu tiên là `updateMany` mang điều kiện `editableDishWhere`. `withServerFields`: với người không có `dish:publish`, `chefId`, `status`, `newChef` trong body bị bỏ qua. `check-rbac` phần C.
+
+**Quyết định và lý do:**
+- **Điều kiện nằm trong câu ghi đầu tiên, trước khi tạo tag, nguyên liệu mới** (ghi chú 12): món đổi trạng thái giữa cổng và câu ghi thì không dòng nào khớp, ném lỗi, transaction rollback, không có bản ghi mồ côi.
+- **Bỏ qua trường do server đặt thay vì báo lỗi** (slide 52), kể cả `chefId = "new"`.
+- Admin không gửi `status` thì thêm mới là `published`, sửa giữ nguyên: giữ hành vi block8, `check-ssr` đăng nhập admin vẫn chạy.
+- Đổi nhanh Tạm hết là `update`, chịu cùng điều kiện (12.4).
+
+**Đã kiểm tra:** `check-rbac` phần C: **21 ĐẠT, 0 CHƯA ĐẠT**, gồm: Editor sai chủ, món `published`, form đã mở rồi Admin đổi status, hạ role sau khi mở form, hidden field `role`/`chefId`/`status`, Editor chưa gắn đầu bếp, hai request đồng thời không lỗi 500, bị từ chối thì không tạo tag thừa.

@@ -2,7 +2,8 @@
 // GET chỉ hiển thị; ghi dữ liệu chỉ qua POST / PATCH / DELETE (method-override), ghi xong luôn redirect 303
 // (Post/Redirect/Get) để Reload không gửi lại request ghi.
 import { Router } from "express";
-import { requirePermission } from "../../auth/require-permission.js";
+import { requirePermission, forbidden } from "../../auth/require-permission.js";
+import { can, canEditDish, editableDishWhere } from "../../policy/permissions.js";
 import { prisma, isNotFound, isForeignKeyViolation, isUniqueViolation, nameTaken } from "../../db.js";
 import { parseId } from "../../validators/id.js";
 import { hasErrors } from "../../validators/common.js";
@@ -24,6 +25,27 @@ const MODES = [
 
 const notFound = (res, text = "Món cần sửa không tồn tại hoặc đã bị xoá.") =>
   res.status(404).render("404", { title: "Không tìm thấy món", heading: "Không tìm thấy món", text });
+
+// Cổng 3 và 4 cho route sửa một món (cổng 1 ở requireLogin, cổng 2 ở requirePermission): tải món từ DATABASE rồi mới xét
+// thuộc tính. Không có món → 404, có món nhưng không thoả → 403. Không tin chefId, status gửi từ form.
+async function guardDish(req, res, next) {
+  const id = parseId(req.params.id);
+  if (id === null) return notFound(res);
+  const dish = await prisma.dish.findUnique({ where: { id }, select: { id: true, chefId: true, status: true } });
+  if (!dish) return notFound(res);
+  if (!canEditDish(res.locals.currentUser, dish)) return forbidden(res, "attribute");
+  res.locals.gatedDish = dish;
+  next();
+}
+
+// Câu ghi có điều kiện không khớp dòng nào: quyền hoặc trạng thái đã đổi sau lúc qua cổng. Ném ra để transaction rollback.
+class DishWriteRefused extends Error {}
+
+// Sau khi câu ghi bị từ chối, đọc lại để phân biệt món đã bị xoá (404) với không còn quyền (403).
+async function refuse(res, id) {
+  const row = await prisma.dish.findUnique({ where: { id }, select: { id: true } });
+  return row ? forbidden(res, "attribute") : notFound(res, "Món này không còn tồn tại (có thể vừa bị xoá ở nơi khác).");
+}
 
 // Bộ lọc tình trạng (plan 12.4). Giá trị là hợp đồng trên URL, form GET gửi đúng các giá trị này.
 const AVAILABILITY = [
@@ -134,7 +156,7 @@ async function loadOptions() {
 }
 
 // Giá trị form giữ dạng chuỗi như ô nhập (giá, id); hiện lại đúng những gì người dùng đã gõ khi có lỗi.
-const EMPTY = { name: "", price: "", description: "", imageUrl: "", imageCredit: "", available: true, chefId: "", tagIds: [], ingredientIds: [], newTags: "", newIngredients: "", newChef: "" };
+const EMPTY = { name: "", price: "", description: "", imageUrl: "", imageCredit: "", available: true, status: "published", chefId: "", tagIds: [], ingredientIds: [], newTags: "", newIngredients: "", newChef: "" };
 
 const valuesFromDish = (dish) => ({
   ...EMPTY,
@@ -144,10 +166,18 @@ const valuesFromDish = (dish) => ({
   imageUrl: dish.imageUrl ?? "",
   imageCredit: dish.imageCredit ?? "",
   available: dish.available,
+  status: dish.status,
   chefId: String(dish.chef.id),
   tagIds: dish.tags.map((t) => String(t.id)),
   ingredientIds: dish.ingredients.map((i) => String(i.id)),
 });
+
+// Trường do server đặt (slide 52): với người không có quyền dish:publish, chefId và status trong body bị bỏ qua, kể cả
+// giá trị "new" (thêm nhanh đầu bếp). Món mới nhận chefId của tài khoản; món đang sửa giữ nguyên chefId đã đọc từ DB.
+function withServerFields(values, user, gatedDish) {
+  if (can(user, "dish:publish")) return values;
+  return { ...values, status: "", chefId: String(gatedDish ? gatedDish.chefId : user.chefId), newChef: "" };
+}
 
 const valuesFromBody = (body) => ({
   name: one(body.name),
@@ -157,6 +187,7 @@ const valuesFromBody = (body) => ({
   imageCredit: one(body.imageCredit),
   // Checkbox không tick thì trình duyệt không gửi gì → false.
   available: one(body.available) === "on",
+  status: one(body.status),
   chefId: one(body.chefId),
   tagIds: many(body.tagIds),
   ingredientIds: many(body.ingredientIds),
@@ -219,6 +250,9 @@ async function validateForm(values) {
   input.tagIds ??= [];
   input.ingredientIds ??= [];
 
+  // Chỉ Admin gửi status tới được đây (withServerFields xoá của người khác). Bỏ trống: thêm mới → published, sửa → giữ nguyên.
+  if (values.status && values.status !== "draft" && values.status !== "published") errors.status = "Trạng thái phải là Nháp hoặc Đã xuất bản.";
+
   if (!hasErrors(errors)) await checkDishRefs(prisma, input);
 
   // Tên mới trùng tên đã có (không phân biệt hoa thường, như block7) → báo cạnh ô, không tạo bản ghi thứ hai.
@@ -232,19 +266,30 @@ async function validateForm(values) {
   if (ingredientsTaken.length) errors.newIngredients = `Đã có nguyên liệu: ${ingredientsTaken.join(", ")}. Hãy chọn trong danh sách.`;
   if (chefTaken.length) errors.newChef = `Đã có đầu bếp “${newChef}”. Hãy chọn trong danh sách.`;
 
-  return { input, newTags, newIngredients, newChef: wantsNewChef ? newChef : null };
+  return { input, newTags, newIngredients, newChef: wantsNewChef ? newChef : null, status: values.status || null };
 }
 
 // Ghi món cùng các bản ghi mới trong MỘT transaction: lỗi ở bất kỳ bước nào → không còn tag / nguyên liệu /
 // đầu bếp "mồ côi" được tạo dở.
-async function saveDish(id, { input, newTags, newIngredients, newChef }) {
+async function saveDish(id, { input, newTags, newIngredients, newChef, status }, user) {
+  const publisher = can(user, "dish:publish");
   return prisma.$transaction(
     async (tx) => {
+      const { chefId: formChefId, ...fields } = input.data;
+      // Điều kiện ABAC nằm NGAY trong câu ghi đầu tiên, chạy trước khi tạo tag, nguyên liệu mới: nếu giữa lúc qua cổng và lúc
+      // ghi mà món đổi status hoặc đổi đầu bếp thì không dòng nào khớp, transaction rollback, không để lại bản ghi thừa.
+      // Câu ghi giữ khoá dòng tới hết transaction nên không thể bị chen ngang giữa kiểm tra và ghi.
+      if (id !== null) {
+        const where = editableDishWhere(user, id);
+        const { count } = where ? await tx.dish.updateMany({ where, data: fields }) : { count: 0 };
+        if (count === 0) throw new DishWriteRefused();
+      }
+
       const tagIds = [...input.tagIds];
       for (const name of newTags) tagIds.push((await tx.tag.create({ data: { name } })).id);
       const ingredientIds = [...input.ingredientIds];
       for (const name of newIngredients) ingredientIds.push((await tx.ingredient.create({ data: { name } })).id);
-      let chefId = input.data.chefId;
+      let chefId = formChefId;
       // Đầu bếp mới bắt buộc ≥ 1 chuyên môn (block7) → nhận các tag của món (như form block7).
       if (newChef) chefId = (await tx.chef.create({ data: { name: newChef, tags: { create: tagIds.map((tagId) => ({ tagId })) } } })).id;
 
@@ -252,11 +297,13 @@ async function saveDish(id, { input, newTags, newIngredients, newChef }) {
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
         ingredients: { create: ingredientIds.map((ingredientId) => ({ ingredientId })) },
       };
-      if (id === null) return tx.dish.create({ data: { ...input.data, chefId, ...links } });
-      // Sửa: thay toàn bộ liên kết (deleteMany + create trong cùng lệnh update, như block7).
+      // Thêm mới: món của Editor luôn là draft; Admin chọn, không chọn thì published như block8.
+      if (id === null) return tx.dish.create({ data: { ...fields, chefId, status: publisher ? (status ?? "published") : "draft", ...links } });
+      // Sửa: thay toàn bộ liên kết. Chỉ Admin được đổi chefId, status.
+      const owner = publisher ? { chefId, ...(status ? { status } : {}) } : {};
       return tx.dish.update({
         where: { id },
-        data: { ...input.data, chefId, tags: { deleteMany: {}, ...links.tags }, ingredients: { deleteMany: {}, ...links.ingredients } },
+        data: { ...owner, tags: { deleteMany: {}, ...links.tags }, ingredients: { deleteMany: {}, ...links.ingredients } },
       });
     },
     { maxWait: 10_000, timeout: 20_000 },
@@ -265,7 +312,8 @@ async function saveDish(id, { input, newTags, newIngredients, newChef }) {
 
 // Xử lý chung cho thêm (id = null) và sửa.
 async function submit(req, res, id) {
-  const values = valuesFromBody(req.body);
+  const user = res.locals.currentUser;
+  const values = withServerFields(valuesFromBody(req.body), user, res.locals.gatedDish);
   const back = safeBack(one(req.body.back), BASE);
   const checked = await validateForm(values);
   // Input sai → 400, không ghi DB, render lại form giữ nguyên giá trị đã nhập (kể cả ô đã tick, tên mới đã gõ).
@@ -273,11 +321,12 @@ async function submit(req, res, id) {
     return renderForm(res, { status: 400, id, values, errors: checked.input.errors, options: await loadOptions(), back });
   }
   try {
-    const saved = await saveDish(id, checked);
+    const saved = await saveDish(id, checked, user);
     // Thêm mới → trang 1 của danh sách + thông báo (món mới nằm ở trang cuối, block7 plan 12); sửa → đúng trang đang làm.
     // saved=<id> → danh sách tô dòng vừa lưu. Luôn đợi ghi xong rồi mới redirect.
     return res.redirect(303, withFlash(id === null ? BASE : back, { msg: id === null ? "dish-created" : "dish-updated", saved: saved.id }));
   } catch (err) {
+    if (err instanceof DishWriteRefused) return refuse(res, id);
     if (id !== null && isNotFound(err)) return notFound(res, "Món này không còn tồn tại (có thể vừa bị xoá ở nơi khác).");
     // Đầu bếp / nguyên liệu / tag vừa bị xoá, hoặc tên mới vừa được thêm ở tab khác giữa lúc kiểm tra và lúc ghi.
     if (isForeignKeyViolation(err) || isUniqueViolation(err)) {
@@ -298,14 +347,14 @@ router.get("/new", requirePermission("dish:create"), async (req, res) => {
 
 router.post("/", requirePermission("dish:create"), (req, res) => submit(req, res, null));
 
-router.get("/:id/edit", requirePermission("dish:update"), async (req, res) => {
+router.get("/:id/edit", requirePermission("dish:update"), guardDish, async (req, res) => {
   const id = parseId(req.params.id);
   const [dish, options] = await Promise.all([id === null ? null : getDish(id), loadOptions()]);
   if (!dish) return notFound(res);
   renderForm(res, { id, values: valuesFromDish(dish), options, back: safeBack(req.query.back, BASE) });
 });
 
-router.patch("/:id", requirePermission("dish:update"), async (req, res) => {
+router.patch("/:id", requirePermission("dish:update"), guardDish, async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res);
   return submit(req, res, id);
@@ -314,19 +363,17 @@ router.patch("/:id", requirePermission("dish:update"), async (req, res) => {
 // ---------- Đổi nhanh tình trạng (plan 12.4) ----------
 // Việc hằng ngày của nhà hàng: một nút ngay trên danh sách, không phải mở cả form sửa. Vẫn là form POST có _csrf, không
 // cần JavaScript. Form gửi giá trị ĐÍCH (không phải "đảo trạng thái") → bấm hai lần hay hai tab cùng bấm vẫn ra đúng ý.
-router.patch("/:id/availability", requirePermission("dish:update"), async (req, res) => {
+router.patch("/:id/availability", requirePermission("dish:update"), guardDish, async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res);
   const raw = one(req.body.available);
   if (raw !== "true" && raw !== "false") {
     return res.status(400).render("404", { code: 400, title: "Yêu cầu không hợp lệ", heading: "Yêu cầu không hợp lệ", text: "Tình trạng món phải là Đang phục vụ hoặc Tạm hết." });
   }
-  try {
-    await prisma.dish.update({ where: { id }, data: { available: raw === "true" } });
-  } catch (err) {
-    if (isNotFound(err)) return notFound(res, "Món này không còn tồn tại (có thể vừa bị xoá ở nơi khác).");
-    throw err;
-  }
+  // Là thao tác update nên chịu cùng điều kiện ABAC (12.4), đặt ngay trong câu ghi.
+  const where = editableDishWhere(res.locals.currentUser, id);
+  const { count } = where ? await prisma.dish.updateMany({ where, data: { available: raw === "true" } }) : { count: 0 };
+  if (count === 0) return refuse(res, id);
   res.redirect(303, withFlash(safeBack(one(req.body.back), BASE), { msg: "dish-availability", saved: id }));
 });
 
