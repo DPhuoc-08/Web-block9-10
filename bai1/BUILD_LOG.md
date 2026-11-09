@@ -56,3 +56,8 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - md5 của 1.200 món đầu trùng với trước khi seed (`b3a70368…`): id, tên, giá, tình trạng, đầu bếp không đổi.
 - 1.200 món published (id 1–1200), 6 món draft (id 1201–1206). 4 tài khoản active, Editor A gắn đầu bếp id 1, Editor B id 2, viewer và admin `chefId` rỗng, `mfaEnabled = false`.
 - Món có đầu bếp không đúng chuyên môn: 0.
+
+## Bước 4 — Hồi quy trên nền mới
+**Đã kiểm tra:** chạy server thật trên DB đã seed. `check-ssr`: **124 ĐẠT, 0 CHƯA ĐẠT**. `check-auth`: **135 ĐẠT, 0 CHƯA ĐẠT**. Sau khi chạy, md5 toàn bộ món vẫn `1eacda6b…`, 4 tài khoản, `rate_limits` rỗng: không có dữ liệu thử sót lại.
+
+**Ghi nhận:** ở bước này thực đơn công khai chưa lọc món nháp nên `check-ssr` vẫn khớp. Sau bước 7a phải sửa các ca đếm SQL của thực đơn (plan bước 7a).
