@@ -26,4 +26,19 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 
 **Đã kiểm tra:** `prisma validate` đạt; `buildSeed()` của Bài 2 và block7 trùng md5 (1.200 món, 60 đầu bếp, 250 nguyên liệu, 16 tag); import đủ 12 mô-đun; `grep` trong `src/auth`, `src/policy` không có `session`, `csrf`, `res.render`, `req.`, `res.` thật (chỉ một comment và biến `res` của `fetch`).
 
-**Chưa làm:** `db push`, `setup-search.sql`, seed: chờ `api/.env` của project mới.
+
+**Database (sau khi có `.env`):** đã kiểm tra `DATABASE_URL` khác project của Bài 1. `prisma migrate diff` chỉ có `CREATE` và thêm khoá ngoại, không có `DROP`. `db push`, `setup-search.sql`, seed xong: 1.206 món (1.200 published, 6 draft), 60 đầu bếp, 250 nguyên liệu, 16 tag, 4 tài khoản. md5 của 1.200 món published trùng với database Bài 1. Tìm toàn văn và gần đúng có dấu chạy đúng.
+
+## Bước 21–24 — JWT, đăng nhập, challenge MFA, tài khoản, quản lý MFA
+**Đã làm:** `auth/jwt.js`, `require-jwt.js`, `require-permission.js`, `cleanup.js`; `routes/auth.js` (login, mfa, me, register, activate, resend, forgot, reset), `routes/mfa.js` (status, setup, confirm, replace, recovery-codes, disable). CORS có `Authorization`, `exposedHeaders: ["Retry-After"]`. `scripts/check-api.mjs` phần A–D.
+
+**Quyết định và lý do:**
+- Giữ nguyên thứ tự kiểm tra của Bài 1, kể cả `hit` khi sai và hash giả khi email không có; chỉ đổi form + redirect thành JSON.
+- Trường CAPTCHA trong body JSON tên `captchaToken`. Sai password trả thêm `captchaRequired` để `web` biết hiện CAPTCHA.
+- Bước xác thực lại dùng một mã lỗi `INVALID_OTP` cho cả sai password và sai mã: `reauthenticate` chép nguyên từ Bài 1, không phân biệt; vẫn đúng yêu cầu trả `200` để `web` không đăng xuất nhầm.
+- Reset mật khẩu huỷ cả challenge đang chờ, tương ứng với việc Bài 1 xoá phiên chờ.
+- Thêm `GET /api/auth/mfa/status` vì trang bảo mật của `web` cần biết đã bật chưa, còn bao nhiêu mã.
+- Tắt MFA không cấp token mới: token đang dùng hết hiệu lực, `web` đưa về đăng nhập.
+- Token hết hạn chỉ trả `TOKEN_EXPIRED` khi chữ ký đúng; token giả đã hết hạn vẫn là `UNAUTHENTICATED`.
+
+**Đã kiểm tra:** `check-api` A–D: **116 ĐẠT, 1 CHƯA ĐẠT**. Ca chưa đạt ("Challenge gửi tới route dữ liệu") là cổng của bước 25, chưa làm tại thời điểm này.

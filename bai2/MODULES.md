@@ -6,7 +6,11 @@ Nguồn: `bai1/source-code/`. Đích: `bai2/api/`. Cập nhật theo từng bư�
 | :--- | :--- | :--- |
 | `src/auth/email.js`, `username.js`, `password.js`, `secrets.js`, `mailer.js`, `recaptcha.js`, `rate-limit.js` | Chép nguyên | Không |
 | `src/auth/totp.js`, `secret-box.js`, `recovery.js` | Chép nguyên | Không |
-| `src/auth/mfa.js` | Chép nguyên | Chưa đổi. Bước 24 thêm tăng `tokenVersion` khi tắt MFA (plan 12.7) |
+| `src/auth/mfa.js` | Chép nguyên | `disableMfa` tăng `tokenVersion`, xoá challenge đang chờ (plan 12.7). Logic còn lại không đổi |
+| `src/routes/auth.js` (từ `routes/auth/login.js`, `register.js`, `password-reset.js`, `mfa.js`) | Đổi cách trả kết quả | Giữ thứ tự kiểm tra, số liệu; form + redirect thành JSON; phiên chờ thành challenge; reset tăng `tokenVersion`, huỷ challenge; link thư lấy từ `WEB_ORIGIN` |
+| `src/routes/mfa.js` (từ `routes/admin/mfa.js`) | Đổi cách trả kết quả | Recovery code trả một lần trong JSON, không có bước `303`; thêm `GET /status` |
+| `src/auth/require-permission.js` | Đổi cách trả kết quả | Trang `403` thành JSON `403` `FORBIDDEN` |
+| `src/auth/cleanup.js` | Chép, sửa ít | Dọn `mfa_challenges` thay cho `sessions` |
 | `src/policy/permissions.js` | Chép nguyên | Không |
 | `prisma/seed-data/block9.js` | Chép nguyên | Không |
 | `prisma/seed.js` | Chép, sửa ít | `TRUNCATE` bỏ `sessions`, thêm `mfa_challenges` |

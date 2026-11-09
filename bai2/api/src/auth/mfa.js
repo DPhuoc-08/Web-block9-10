@@ -113,8 +113,10 @@ export const regenerateCodes = (userId) => prisma.$transaction((tx) => replaceCo
 export const disableMfa = (userId) =>
   prisma.$transaction(
     async (tx) => {
-      await tx.user.update({ where: { id: userId }, data: { mfaEnabled: false, mfaSecret: null, mfaPendingSecret: null, mfaLastStep: null } });
+      // Bài 2 (plan 12.7): tăng tokenVersion trong cùng transaction, nên mọi JWT đã cấp hết hiệu lực ngay khi tắt MFA.
+      await tx.user.update({ where: { id: userId }, data: { mfaEnabled: false, mfaSecret: null, mfaPendingSecret: null, mfaLastStep: null, tokenVersion: { increment: 1 } } });
       await tx.recoveryCode.deleteMany({ where: { userId } });
+      await tx.mfaChallenge.deleteMany({ where: { userId } });
     },
     { maxWait: 10_000, timeout: 15_000 },
   );
