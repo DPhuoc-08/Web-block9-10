@@ -1,0 +1,214 @@
+// Code-first: model trong file này là nguồn của schema.
+// Block8 dùng CHÍNH database của block7 (plan block8 mục 12.1): 7 bảng của block7 giữ nguyên, chỉ THÊM 5 bảng xác thực
+// ở cuối file. Từ nay chỉ chạy `prisma db push` từ block8 — schema block7 không có 5 bảng mới nên Prisma sẽ đòi xoá chúng.
+// Từ block7: loại món và chuyên môn đầu bếp là TAG nhiều-nhiều (bảng tags dùng chung cho cả hai).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+// Prisma 7: chuỗi kết nối không khai báo ở đây mà lấy từ prisma.config (cho CLI)
+// và từ driver adapter trong src/db.js (cho app).
+datasource db {
+  provider = "postgresql"
+}
+
+// Quan hệ giữa các bảng:
+//   Chef 1 ──< n Dish            mỗi món có đúng 1 đầu bếp phụ trách (dishes.chefId là khoá ngoại)
+//   Dish n >──< n Ingredient     qua bảng trung gian dish_ingredients
+//   Dish n >──< n Tag            qua dish_tags  (loại món, đặc điểm, vùng miền)
+//   Chef n >──< n Tag            qua chef_tags  (chuyên môn — cùng bảng tags với loại món)
+
+model Dish {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Int
+  available   Boolean  @default(true)
+  // Ảnh minh hoạ lấy từ nguồn online (link trực tiếp tới file ảnh), kèm ghi công tác giả/giấy phép.
+  imageUrl    String?
+  imageCredit String?
+  createdAt   DateTime @default(now())
+
+  // onDelete: Restrict → database từ chối xoá đầu bếp khi còn món do người đó phụ trách
+  // (app phải chuyển món sang đầu bếp khác trước, xem DELETE /api/chefs/:id?transferTo= trong src/routes/chefs.js).
+  chefId      Int
+  chef        Chef     @relation(fields: [chefId], references: [id], onDelete: Restrict)
+
+  ingredients DishIngredient[]
+  tags        DishTag[]
+
+  @@index([chefId])
+  @@map("dishes")
+}
+
+model Chef {
+  id     Int       @id @default(autoincrement())
+  // @unique là lớp chặn cuối ở database; app còn kiểm tra trùng không phân biệt hoa thường trước khi ghi.
+  name   String    @unique
+  dishes Dish[]
+  tags   ChefTag[]
+
+  @@map("chefs")
+}
+
+model Ingredient {
+  id     Int              @id @default(autoincrement())
+  name   String           @unique
+  unit   String?
+  dishes DishIngredient[]
+
+  @@map("ingredients")
+}
+
+// Tag dùng chung: "Món nước" vừa là loại của món, vừa là chuyên môn của đầu bếp.
+// Chỉ thêm, không sửa/xoá (nhóm chốt) → không cần xử lý tag đang dùng bị xoá.
+model Tag {
+  id     Int       @id @default(autoincrement())
+  name   String    @unique
+  dishes DishTag[]
+  chefs  ChefTag[]
+
+  @@map("tags")
+}
+
+// Bảng trung gian món – nguyên liệu. Khai báo tường minh vì cần 2 hành vi xoá khác nhau ở 2 khoá ngoại:
+//   - xoá món        → Cascade: xoá luôn các dòng liên kết của món đó, nguyên liệu không bị ảnh hưởng
+//   - xoá nguyên liệu → Restrict: database từ chối nếu nguyên liệu còn được món nào dùng
+model DishIngredient {
+  dishId       Int
+  ingredientId Int
+  dish         Dish       @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([dishId, ingredientId])
+  @@index([ingredientId])
+  @@map("dish_ingredients")
+}
+
+// Món – tag. Xoá món → xoá liên kết (Cascade). Tag đang dùng không xoá được (Restrict).
+// @@index([tagId]): lọc "món có tag X" (advanced search, chip tag) đi theo tagId.
+model DishTag {
+  dishId Int
+  tagId  Int
+  dish   Dish @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([dishId, tagId])
+  @@index([tagId])
+  @@map("dish_tags")
+}
+
+// Đầu bếp – tag (chuyên môn). Xoá đầu bếp → xoá liên kết (Cascade).
+model ChefTag {
+  chefId Int
+  tagId  Int
+  chef   Chef @relation(fields: [chefId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([chefId, tagId])
+  @@index([tagId])
+  @@map("chef_tags")
+}
+
+// ===================== Xác thực tài khoản (block8) =====================
+
+// Role do server gán, mặc định viewer; role trong form đăng ký bị bỏ qua. Block8 chưa dùng role để chặn thao tác
+// (mọi tài khoản active dùng được cụm CRUD); editor, admin để sẵn cho phân quyền của block9.
+enum Role {
+  viewer
+  editor
+  admin
+}
+
+// pending: đã đăng ký, chưa nhập đúng OTP → chưa được đăng nhập. active: dùng được ứng dụng.
+enum UserStatus {
+  pending
+  active
+}
+
+// Mục đích của mã: mã kích hoạt chỉ có nghĩa với việc kích hoạt (không dùng được ở nơi khác).
+enum ChallengePurpose {
+  activation
+}
+
+model User {
+  id              Int        @id @default(autoincrement())
+  // Email đã chuẩn hoá (cắt khoảng trắng, chữ thường) — duy nhất, dùng để so sánh ở mọi chức năng.
+  email           String     @unique
+  // Email đúng như người dùng gõ khi đăng ký — chỉ để hiển thị.
+  emailInput      String
+  // Tên hiển thị (plan 12.4): được trùng nhau, không dùng để đăng nhập. Rỗng ở tài khoản tạo trước khi có cột này → hiện email.
+  username        String?
+  // Chuỗi Argon2id (gồm thuật toán, tham số, salt, giá trị băm). Không bao giờ lưu password.
+  passwordHash    String
+  role            Role       @default(viewer)
+  status          UserStatus @default(pending)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime   @default(now())
+
+  activation     ActivationChallenge?
+  passwordResets PasswordReset[]
+  sessions       Session[]
+
+  @@map("users")
+}
+
+// Một dòng cho mỗi tài khoản pending. Gửi lại mã → ghi đè otpHash, expiresAt, usedAt; GIỮ attempts, lockedUntil
+// (gửi lại không mở thêm lượt đoán). Xoá user → xoá dòng này.
+model ActivationChallenge {
+  userId      Int              @id
+  purpose     ChallengePurpose @default(activation)
+  // HMAC-SHA256(OTP_PEPPER, mã 6 số): không lưu mã; lộ bảng mà không có pepper thì không dò được mã.
+  otpHash     String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  attempts    Int              @default(0)
+  lockedUntil DateTime?
+  lastSentAt  DateTime
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activation_challenges")
+}
+
+// Link đặt lại mật khẩu: token gốc chỉ nằm trong email, DB lưu SHA-256 của token. Hạn 15 phút, dùng một lần.
+model PasswordReset {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
+}
+
+// Session ở server (store của express-session). Cookie của trình duyệt chỉ mang sid; dữ liệu nằm ở đây nên
+// khởi động lại server không mất phiên. userId rỗng = phiên ẩn danh (giữ CSRF token của form đăng nhập / đăng ký).
+// Cột userId riêng (không chỉ nằm trong data) để huỷ MỌI phiên của một user khi đặt lại mật khẩu.
+model Session {
+  sid       String   @id
+  userId    Int?
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// Bộ đếm cho giới hạn tần suất và chống brute force, khoá dạng "login-fail:email:<email>", "login:ip:<ip>"...
+// Nằm ở DB (không ở cookie / bộ nhớ tiến trình): xoá cookie, mở tab ẩn danh hay khởi động lại server không đặt lại.
+model RateLimit {
+  key         String    @id
+  count       Int       @default(0)
+  windowStart DateTime
+  lockedUntil DateTime?
+
+  @@map("rate_limits")
+}

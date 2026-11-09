@@ -1,0 +1,31 @@
+{
+  "name": "block8",
+  "version": "1.0.0",
+  "description": "Ứng dụng nhà hàng SSR (Express + EJS + Prisma + Supabase) trên database block7, có tìm kiếm, phân trang và xác thực tài khoản (block8)",
+  "main": "src/app.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "postinstall": "prisma generate",
+    "check:ssr": "node scripts/check-ssr.mjs",
+    "check:auth": "node scripts/check-auth.mjs"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "argon2": "0.45.1",
+    "dotenv": "18.0.8",
+    "ejs": "7.0.1",
+    "express": "5.3.0",
+    "express-session": "1.19.0",
+    "method-override": "3.0.0",
+    "nodemailer": "10.3.1",
+    "pg": "8.23.1",
+    "validator": "13.15.35"
+  },
+  "devDependencies": {
+    "prisma": "7.10.0"
+  }
+}
