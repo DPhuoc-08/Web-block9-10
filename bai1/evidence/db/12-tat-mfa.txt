@@ -1,0 +1,12 @@
+## Sau khi tắt: secret xoá, recovery xoá  (lúc 2026-11-09 07:59:37Z)
+
+users #5  role=viewer  status=active  mfaEnabled=false  mfaLastStep=—
+  passwordHash: vân tay b4298909
+  mfaSecret = —
+  mfaPendingSecret = —
+  recovery_codes: 0 mã, 0 đã dùng
+  password_resets #1: tokenHash=265673…(64 ký tự) hạn=2026-11-09 08:14:20Z usedAt=2026-11-09 07:59:27Z
+  sessions gắn với user: 2
+    sid vân tay 4a53102d  cột userId=5  expiresAt=2026-11-09 09:59:32Z  data có khoá: cookie, mfaPending  → phiên CHỜ MFA (data không có userId)
+    sid vân tay a0785597  cột userId=5  expiresAt=2026-11-09 09:59:37Z  data có khoá: cookie, userId, loginAt, csrfToken  → phiên đầy đủ
+

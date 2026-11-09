@@ -1,0 +1,50 @@
+## Sau lần dùng đầu: đúng một dòng có usedAt  (lúc 2026-11-09 07:59:15Z)
+
+users #5  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59807038
+  passwordHash: vân tay 47da775a
+  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay 3048f01b>
+  mfaPendingSecret = —
+  recovery_codes: 10 mã, 1 đã dùng
+    #1 codeHash=5e49c2…(64 ký tự) usedAt=2026-11-09 07:59:14Z
+    #2 codeHash=98d898…(64 ký tự) usedAt=—
+    #3 codeHash=baed8f…(64 ký tự) usedAt=—
+    #4 codeHash=bc8e94…(64 ký tự) usedAt=—
+    #5 codeHash=9981c2…(64 ký tự) usedAt=—
+    #6 codeHash=07c322…(64 ký tự) usedAt=—
+    #7 codeHash=ea47e4…(64 ký tự) usedAt=—
+    #8 codeHash=950347…(64 ký tự) usedAt=—
+    #9 codeHash=c2b63e…(64 ký tự) usedAt=—
+    #10 codeHash=7d2ad9…(64 ký tự) usedAt=—
+  sessions gắn với user: 4
+    sid vân tay 2dda3002  cột userId=5  expiresAt=2026-11-09 09:59:14Z  data có khoá: cookie, userId, loginAt, csrfToken  → phiên đầy đủ
+    sid vân tay d3478198  cột userId=5  expiresAt=2026-11-09 09:59:00Z  data có khoá: cookie, mfaPending  → phiên CHỜ MFA (data không có userId)
+    sid vân tay 9beed1c1  cột userId=5  expiresAt=2026-11-09 09:59:08Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+    sid vân tay de2b6aa6  cột userId=5  expiresAt=2026-11-09 09:59:10Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+
+ĐẠT: Mã vừa dùng đã có usedAt
+
+## Sau lần dùng hai: usedAt giữ nguyên  (lúc 2026-11-09 07:59:19Z)
+
+users #5  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59807038
+  passwordHash: vân tay 47da775a
+  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay 3048f01b>
+  mfaPendingSecret = —
+  recovery_codes: 10 mã, 2 đã dùng
+    #1 codeHash=5e49c2…(64 ký tự) usedAt=2026-11-09 07:59:14Z
+    #2 codeHash=98d898…(64 ký tự) usedAt=2026-11-09 07:59:18Z
+    #3 codeHash=baed8f…(64 ký tự) usedAt=—
+    #4 codeHash=bc8e94…(64 ký tự) usedAt=—
+    #5 codeHash=9981c2…(64 ký tự) usedAt=—
+    #6 codeHash=07c322…(64 ký tự) usedAt=—
+    #7 codeHash=ea47e4…(64 ký tự) usedAt=—
+    #8 codeHash=950347…(64 ký tự) usedAt=—
+    #9 codeHash=c2b63e…(64 ký tự) usedAt=—
+    #10 codeHash=7d2ad9…(64 ký tự) usedAt=—
+  sessions gắn với user: 6
+    sid vân tay f57168a6  cột userId=5  expiresAt=2026-11-09 09:59:17Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+    sid vân tay 6d29fc58  cột userId=5  expiresAt=2026-11-09 09:59:18Z  data có khoá: cookie, userId, loginAt  → phiên đầy đủ
+    sid vân tay d282609c  cột userId=5  expiresAt=2026-11-09 09:59:19Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+    sid vân tay d3478198  cột userId=5  expiresAt=2026-11-09 09:59:00Z  data có khoá: cookie, mfaPending  → phiên CHỜ MFA (data không có userId)
+    sid vân tay 9beed1c1  cột userId=5  expiresAt=2026-11-09 09:59:08Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+    sid vân tay de2b6aa6  cột userId=5  expiresAt=2026-11-09 09:59:10Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+

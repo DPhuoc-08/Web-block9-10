@@ -1,0 +1,34 @@
+## Sau POST: chỉ có mfaPendingSecret, chưa bật  (lúc 2026-11-09 07:58:52Z)
+
+users #5  role=viewer  status=active  mfaEnabled=false  mfaLastStep=—
+  passwordHash: vân tay 47da775a
+  mfaSecret = —
+  mfaPendingSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay 3048f01b>
+  recovery_codes: 0 mã, 0 đã dùng
+  sessions gắn với user: 1
+    sid vân tay 32a9d1bc  cột userId=5  expiresAt=2026-11-09 09:58:52Z  data có khoá: cookie, userId, loginAt, csrfToken  → phiên đầy đủ
+
+ĐẠT: Mở lại /codes → /admin/profile?msg=mfa-codes-gone
+
+## Đã bật: secret là bản mã, recovery chỉ có hash  (lúc 2026-11-09 07:58:56Z)
+
+users #5  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59807036
+  passwordHash: vân tay 47da775a
+  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay 3048f01b>
+  mfaPendingSecret = —
+  recovery_codes: 10 mã, 0 đã dùng
+    #1 codeHash=5e49c2…(64 ký tự) usedAt=—
+    #2 codeHash=98d898…(64 ký tự) usedAt=—
+    #3 codeHash=baed8f…(64 ký tự) usedAt=—
+    #4 codeHash=bc8e94…(64 ký tự) usedAt=—
+    #5 codeHash=9981c2…(64 ký tự) usedAt=—
+    #6 codeHash=07c322…(64 ký tự) usedAt=—
+    #7 codeHash=ea47e4…(64 ký tự) usedAt=—
+    #8 codeHash=950347…(64 ký tự) usedAt=—
+    #9 codeHash=c2b63e…(64 ký tự) usedAt=—
+    #10 codeHash=7d2ad9…(64 ký tự) usedAt=—
+  sessions gắn với user: 1
+    sid vân tay 32a9d1bc  cột userId=5  expiresAt=2026-11-09 09:58:56Z  data có khoá: cookie, userId, loginAt, csrfToken  → phiên đầy đủ
+
+ĐẠT: DB không có secret gốc và mã gốc
+

@@ -1,0 +1,15 @@
+$ GET /dishes/1204   # khách
+  Cookie: (không có)
+→ 404
+  Trang: "Không tìm thấy món"
+
+ĐẠT: Khách mở URL món nháp → 404
+
+$ GET /dishes/1204   # Admin ở thực đơn công khai
+  Cookie: sid=<đã che · vân tay cc7d7c00>
+→ 404
+  Set-Cookie: sid=<đã che · vân tay cc7d7c00>; Path=/; Expires=Mon, 09 Nov 2026 09:58:42 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không tìm thấy món"
+
+ĐẠT: Admin ở thực đơn công khai cũng không thấy món nháp
+

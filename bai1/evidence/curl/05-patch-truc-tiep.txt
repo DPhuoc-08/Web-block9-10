@@ -1,0 +1,30 @@
+# Không mở form. So với kết quả qua form ở mục 3, 4 và 6
+
+$ POST /admin/dishes/1207?_method=PATCH   # viewer, giống trang 403 khi qua form
+  Cookie: sid=<đã che · vân tay c43e5241>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+tr%E1%BB%B1c+ti%E1%BA%BFp&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay c43e5241>; Path=/; Expires=Mon, 09 Nov 2026 09:58:35 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Viewer PATCH trực tiếp → 403 như qua form
+
+$ POST /admin/dishes/1207?_method=PATCH   # Editor B, món của A
+  Cookie: sid=<đã che · vân tay ea15c503>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+tr%E1%BB%B1c+ti%E1%BA%BFp&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=2&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay ea15c503>; Path=/; Expires=Mon, 09 Nov 2026 09:58:36 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Editor B PATCH trực tiếp món của A → 403 như qua form
+
+ĐẠT: Tên món không đổi
+
+$ POST /admin/dishes/1207?_method=PATCH   # đúng chủ, món nháp: được như qua form
+  Cookie: sid=<đã che · vân tay b72c02d3>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+Nh%C3%A1p+c%E1%BB%A7a+A&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 303  Location: /admin/dishes?msg=dish-updated&saved=1207
+  Set-Cookie: sid=<đã che · vân tay b72c02d3>; Path=/; Expires=Mon, 09 Nov 2026 09:58:36 GMT; HttpOnly; SameSite=Lax
+
+ĐẠT: Editor A PATCH trực tiếp món nháp của mình → 303 như qua form
+

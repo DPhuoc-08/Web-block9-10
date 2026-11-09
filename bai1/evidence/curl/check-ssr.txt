@@ -1,0 +1,139 @@
+
+== A. Thực đơn /dishes ==
+ĐẠT      /dishes → 200
+ĐẠT      /dishes?page=999 → 200
+ĐẠT      /dishes?page=0 → 400
+ĐẠT      /dishes?mode=fuzzy → 400
+ĐẠT      /dishes?q=a&q=b → 400
+ĐẠT      /dishes?mode=advanced&tag=999999 → 400
+ĐẠT      /dishes?mode=advanced&minPrice=abc → 400
+ĐẠT      /dishes?mode=xyz → 400
+ĐẠT      /dishes/1 → 200
+ĐẠT      /dishes/abc → 404
+ĐẠT      /dishes/999999 → 404
+ĐẠT      Form GET có ô trống → 302 về URL gọn /dishes
+ĐẠT      (mặc định): 1200 món theo SQL — trang hiển thị 1200 món / 100 trang
+ĐẠT      q=bún: 59 món theo SQL — trang hiển thị 59 món / 5 trang
+ĐẠT      q=100% (ký tự % là chữ thường): 1 món theo SQL — trang hiển thị 1 món / 1 trang
+ĐẠT      q=_ (ký tự _ là chữ thường): 1 món theo SQL — trang hiển thị 1 món / 1 trang
+ĐẠT      nâng cao: Món nước, 0–60.000đ, còn bán: 97 món theo SQL — trang hiển thị 97 món / 9 trang
+ĐẠT      nâng cao: tạm hết: 180 món theo SQL — trang hiển thị 180 món / 15 trang
+ĐẠT      nâng cao: giá 0: 4 món theo SQL — trang hiển thị 4 món / 1 trang
+ĐẠT      theo nguyên liệu “tôm”: 149 món theo SQL — trang hiển thị 149 món / 13 trang
+ĐẠT      theo đầu bếp “Mai”: 122 món theo SQL — trang hiển thị 122 món / 11 trang
+ĐẠT      toàn văn “nước dùng xương”: 62 món theo SQL — trang hiển thị 62 món / 6 trang
+ĐẠT      gần đúng “bò lúc lắt”: 6 món theo SQL — trang hiển thị 6 món / 1 trang
+
+== B. Quản trị món /admin/dishes ==
+ĐẠT      Tìm “lẩu” (tên hoặc tag) = 61 món theo SQL
+ĐẠT      /admin/dishes?page=61 → 200
+ĐẠT      /admin/dishes?mode=fuzzy → 400
+ĐẠT      /admin/dishes?mode=advanced → 400
+ĐẠT      /admin/dishes/abc/edit → 404
+ĐẠT      /admin/dishes/999999/delete → 404
+ĐẠT      Form sai → 400, lỗi cạnh ô, không ghi
+ĐẠT      Thêm món → 303 trang 1 + thông báo — /admin/dishes?msg=dish-created&saved=1235
+ĐẠT      Thêm nhanh tag / nguyên liệu / đầu bếp khi lưu (bỏ trùng hoa thường)
+ĐẠT      Tag mới trùng tag đã có → 400
+ĐẠT      Sửa → 303 về đúng trang, giá 0, bỏ tick còn phục vụ — /admin/dishes?page=3&msg=dish-updated&saved=1235
+ĐẠT      back trỏ ra ngoài → về /admin/dishes
+ĐẠT      GET trang xác nhận xoá không xoá
+ĐẠT      Xoá → 303 về trang 2
+ĐẠT      Xoá lần hai → 404
+
+== F. Danh sách món: lọc + đổi nhanh tình trạng (plan 12.4) ==
+ĐẠT      Tạm hết: 181 món theo SQL
+ĐẠT      Đầu bếp #1: 24 món theo SQL
+ĐẠT      Tạm hết + đầu bếp: 3 món theo SQL
+ĐẠT      Từ khoá “lẩu” + Tạm hết: 12 món theo SQL
+ĐẠT      Ô lọc giữ giá trị đang chọn
+ĐẠT      Toàn văn “pho” + Tạm hết: 10 món theo SQL
+ĐẠT      Gần đúng “bun bo” + Tạm hết: 3 món theo SQL
+ĐẠT      Gần đúng “bun bo”, không lọc: 16 món theo SQL
+ĐẠT      Bộ lọc thật sự thu hẹp kết quả gần đúng — 16 → 3
+ĐẠT      chef=1 OR 1=1 → 400, không chạm SQL
+ĐẠT      available sai → 400
+ĐẠT      available lặp → 400
+ĐẠT      đầu bếp không có → 400
+ĐẠT      chef lặp → 400
+ĐẠT      Form GET có ô trống → 302 về URL gọn
+ĐẠT      Link số trang giữ bộ lọc
+ĐẠT      Danh sách có nút đổi nhanh dạng form POST
+ĐẠT      Thiếu _csrf → 403, không đổi
+ĐẠT      Giá trị sai → 400, không đổi
+ĐẠT      Đặt tạm hết → 303 về đúng danh sách, DB đổi — /admin/dishes?q=%5BTEST+B8%5D&msg=dish-availability&saved=1237
+ĐẠT      Chỉ đổi tình trạng, các cột và liên kết khác giữ nguyên
+ĐẠT      Trang sau khi đổi: có thông báo, tô dòng, nút thành Mở phục vụ
+ĐẠT      Gửi lại cùng giá trị (hai tab) → vẫn Tạm hết, không bị đảo
+ĐẠT      back trỏ ra ngoài → về /admin/dishes
+ĐẠT      Món không có → 404
+ĐẠT      Trang khách thấy tình trạng mới
+
+== C. Quản trị đầu bếp, nguyên liệu ==
+ĐẠT      Tìm đầu bếp “lẩu” (tên hoặc chuyên môn) = 6 theo SQL
+ĐẠT      Tìm nguyên liệu “kg” (tên hoặc đơn vị) = 187 theo SQL
+ĐẠT      Đầu bếp trùng tên (khác hoa thường) → 400
+ĐẠT      Thêm đầu bếp + tag mới → 2 chuyên môn
+ĐẠT      Xoá đầu bếp còn món, chưa chọn người nhận → 409
+ĐẠT      Chuyển 2 món sang người nhận + xoá (một transaction) → 303
+ĐẠT      Nguyên liệu trùng tên → 400
+ĐẠT      Thêm nguyên liệu, đơn vị trống lưu null
+ĐẠT      Xoá nguyên liệu đang dùng → 409
+ĐẠT      Xoá nguyên liệu chưa dùng → 303
+
+== E. Quản trị tag (plan 12.4) ==
+ĐẠT      Danh sách: 18 tag, “Món nước” dùng trong 227 món theo SQL
+ĐẠT      Thanh quản trị có mục Tag, đang được chọn
+ĐẠT      /admin/tags/abc/edit → 404
+ĐẠT      /admin/tags/999999/edit → 404
+ĐẠT      /admin/tags/999999/delete → 404
+ĐẠT      Tên trống → 400, lỗi cạnh ô
+ĐẠT      Trùng tên (khác hoa thường) → 400, giữ giá trị đã gõ
+ĐẠT      Thêm tag → 303 + thông báo — /admin/tags?msg=tag-created&saved=34
+ĐẠT      Tên có thẻ HTML được escape; dòng vừa lưu được tô
+ĐẠT      Sửa tên → 303, DB đổi
+ĐẠT      Đổi hoa thường của chính tag đó → 303 (không tự trùng với mình)
+ĐẠT      Sửa tag không có → 404
+ĐẠT      Tag loại món có cảnh báo khi đổi tên; tag thường thì không
+ĐẠT      Tag đang dùng: trang xoá không có nút xoá
+ĐẠT      Gửi thẳng lệnh xoá tag đang dùng → 409, tag và liên kết còn nguyên
+ĐẠT      GET trang xác nhận xoá không xoá
+ĐẠT      Xoá tag không ai dùng → 303
+ĐẠT      Xoá lần hai → 404
+
+== D. Tìm tiếng Việt không dấu (plan 12.3) ==
+ĐẠT      cơ bản “pho”: 65 món theo SQL — trang hiển thị 65 món / 6 trang
+ĐẠT      cơ bản “PHO” (không phân biệt hoa thường): 65 món theo SQL — trang hiển thị 65 món / 6 trang
+ĐẠT      cơ bản “phở” (có dấu: như block7): 54 món theo SQL — trang hiển thị 54 món / 5 trang
+ĐẠT      “phở” vẫn 54 món như block7; “pho” có ít nhất từng ấy món — 54 / 65
+ĐẠT      cơ bản “bo” (gồm cả bò, bơ…): 117 món theo SQL — trang hiển thị 117 món / 10 trang
+ĐẠT      cơ bản “bò” (có dấu: không lẫn bơ): 100 món theo SQL — trang hiển thị 100 món / 9 trang
+ĐẠT      “bo” rộng hơn “bò”: món có “bơ” chỉ ra khi gõ không dấu — bo 117, bò 100, bơ 15
+ĐẠT      cơ bản “dau” (đ → d): 55 món theo SQL — trang hiển thị 55 món / 5 trang
+ĐẠT      “dau” khớp cả tên có chữ “đậu” — dau 55, đậu 37
+ĐẠT      cơ bản “ph_” (_ vẫn là ký tự thường): 0 món theo SQL — trang hiển thị 0 món / 0 trang
+ĐẠT      “pho” trang 1: đúng danh sách id, id tăng dần
+ĐẠT      “phở” trang 1: đúng danh sách id như câu ILIKE của block7
+ĐẠT      nâng cao “goi” + Hải sản + 50–150 nghìn + còn bán: 14 món theo SQL — trang hiển thị 14 món / 2 trang
+ĐẠT      Nâng cao “goi”: sắp xếp giá tăng dần rồi id, đúng danh sách
+ĐẠT      theo nguyên liệu “tom”: 149 món theo SQL — trang hiển thị 149 món / 13 trang
+ĐẠT      theo đầu bếp “tran thi”: 21 món theo SQL — trang hiển thị 21 món / 2 trang
+ĐẠT      toàn văn “pho”: 65 món theo SQL — trang hiển thị 65 món / 6 trang
+ĐẠT      toàn văn “nuoc dung xuong”: 62 món theo SQL — trang hiển thị 62 món / 6 trang
+ĐẠT      toàn văn “phở” (có dấu: như block7): 54 món theo SQL — trang hiển thị 54 món / 5 trang
+ĐẠT      Toàn văn “bun bo hue”: món đầu là Bún bò Huế
+ĐẠT      gần đúng “bo luc lat”: 8 món theo SQL — trang hiển thị 8 món / 1 trang
+ĐẠT      Gần đúng “bo luc lat”: món đầu là Bò lúc lắc
+ĐẠT      gần đúng theo nguyên liệu “tom xu”: 136 món theo SQL — trang hiển thị 136 món / 12 trang
+ĐẠT      gần đúng theo đầu bếp “tran thi bit”: 21 món theo SQL — trang hiển thị 21 món / 2 trang
+ĐẠT      Quản trị món “lau” (tên hoặc tag): 61 món theo SQL
+ĐẠT      Quản trị món toàn văn “pho”: 65 món theo SQL
+ĐẠT      Quản trị món gần đúng “bo luc lat”: 8 món theo SQL
+ĐẠT      Quản trị đầu bếp “tran thi”: 1 đầu bếp theo SQL
+ĐẠT      Quản trị đầu bếp “lau” (chuyên môn): 7 đầu bếp theo SQL
+ĐẠT      Quản trị đầu bếp gần đúng “tran thi bit”: 1 đầu bếp theo SQL
+ĐẠT      Quản trị nguyên liệu “tom”: 6 nguyên liệu theo SQL
+ĐẠT      Quản trị nguyên liệu gần đúng “tom xu”: 5 nguyên liệu theo SQL
+
+Sau khi dọn: 1206 món / 60 đầu bếp / 250 nguyên liệu / 16 tag
+TỔNG: 124 ĐẠT, 0 CHƯA ĐẠT

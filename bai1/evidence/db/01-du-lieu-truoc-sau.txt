@@ -1,0 +1,4 @@
+Trước: {"dishes":"d2b127a044cdc1b479991916451b8527","dish_tags":2115,"dish_ingredients":5379}
+Sau:   {"dishes":"d2b127a044cdc1b479991916451b8527","dish_tags":2115,"dish_ingredients":5379}
+ĐẠT: md5 toàn bộ bảng dishes và số dòng bảng nối không đổi
+

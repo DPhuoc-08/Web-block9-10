@@ -1,0 +1,4 @@
+ĐẠT: Sai yếu tố thứ hai: MFA vẫn bật
+
+ĐẠT: Đúng cả hai: MFA đã tắt
+

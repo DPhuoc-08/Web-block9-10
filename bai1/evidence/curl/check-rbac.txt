@@ -1,0 +1,171 @@
+
+== A. Chưa đăng nhập: mọi route quản trị về /login ==
+ĐẠT      GET /admin/dishes — 303 /login?next=%2Fadmin%2Fdishes
+ĐẠT      GET /admin/dishes/new — 303 /login?next=%2Fadmin%2Fdishes%2Fnew
+ĐẠT      POST /admin/dishes — 303 /login
+ĐẠT      GET /admin/dishes/1/edit — 303 /login?next=%2Fadmin%2Fdishes%2F1%2Fedit
+ĐẠT      PATCH /admin/dishes/1 — 303 /login
+ĐẠT      GET /admin/dishes/1/delete — 303 /login?next=%2Fadmin%2Fdishes%2F1%2Fdelete
+ĐẠT      DELETE /admin/dishes/1 — 303 /login
+ĐẠT      GET /admin/chefs — 303 /login?next=%2Fadmin%2Fchefs
+ĐẠT      GET /admin/chefs/new — 303 /login?next=%2Fadmin%2Fchefs%2Fnew
+ĐẠT      POST /admin/chefs — 303 /login
+ĐẠT      GET /admin/chefs/1/edit — 303 /login?next=%2Fadmin%2Fchefs%2F1%2Fedit
+ĐẠT      PATCH /admin/chefs/1 — 303 /login
+ĐẠT      GET /admin/chefs/1/delete — 303 /login?next=%2Fadmin%2Fchefs%2F1%2Fdelete
+ĐẠT      DELETE /admin/chefs/1 — 303 /login
+ĐẠT      GET /admin/ingredients — 303 /login?next=%2Fadmin%2Fingredients
+ĐẠT      GET /admin/ingredients/new — 303 /login?next=%2Fadmin%2Fingredients%2Fnew
+ĐẠT      POST /admin/ingredients — 303 /login
+ĐẠT      GET /admin/ingredients/1/edit — 303 /login?next=%2Fadmin%2Fingredients%2F1%2Fedit
+ĐẠT      PATCH /admin/ingredients/1 — 303 /login
+ĐẠT      GET /admin/ingredients/1/delete — 303 /login?next=%2Fadmin%2Fingredients%2F1%2Fdelete
+ĐẠT      DELETE /admin/ingredients/1 — 303 /login
+ĐẠT      GET /admin/tags — 303 /login?next=%2Fadmin%2Ftags
+ĐẠT      GET /admin/tags/new — 303 /login?next=%2Fadmin%2Ftags%2Fnew
+ĐẠT      POST /admin/tags — 303 /login
+ĐẠT      GET /admin/tags/1/edit — 303 /login?next=%2Fadmin%2Ftags%2F1%2Fedit
+ĐẠT      PATCH /admin/tags/1 — 303 /login
+ĐẠT      GET /admin/tags/1/delete — 303 /login?next=%2Fadmin%2Ftags%2F1%2Fdelete
+ĐẠT      DELETE /admin/tags/1 — 303 /login
+ĐẠT      PATCH /admin/dishes/1/availability — 303 /login
+ĐẠT      Dữ liệu không đổi
+
+== B. Thiếu role: trang 403, dữ liệu không đổi ==
+ĐẠT      Viewer GET /admin/dishes → 200 — 200
+ĐẠT      Viewer GET /admin/dishes/new → 403 — 403
+ĐẠT      Viewer POST /admin/dishes → 403 — 403
+ĐẠT      Viewer GET /admin/dishes/1/edit → 403 — 403
+ĐẠT      Viewer PATCH /admin/dishes/1 → 403 — 403
+ĐẠT      Viewer GET /admin/dishes/1/delete → 403 — 403
+ĐẠT      Viewer DELETE /admin/dishes/1 → 403 — 403
+ĐẠT      Viewer GET /admin/chefs → 200 — 200
+ĐẠT      Viewer GET /admin/chefs/new → 403 — 403
+ĐẠT      Viewer POST /admin/chefs → 403 — 403
+ĐẠT      Viewer GET /admin/chefs/1/edit → 403 — 403
+ĐẠT      Viewer PATCH /admin/chefs/1 → 403 — 403
+ĐẠT      Viewer GET /admin/chefs/1/delete → 403 — 403
+ĐẠT      Viewer DELETE /admin/chefs/1 → 403 — 403
+ĐẠT      Viewer GET /admin/ingredients → 200 — 200
+ĐẠT      Viewer GET /admin/ingredients/new → 403 — 403
+ĐẠT      Viewer POST /admin/ingredients → 403 — 403
+ĐẠT      Viewer GET /admin/ingredients/1/edit → 403 — 403
+ĐẠT      Viewer PATCH /admin/ingredients/1 → 403 — 403
+ĐẠT      Viewer GET /admin/ingredients/1/delete → 403 — 403
+ĐẠT      Viewer DELETE /admin/ingredients/1 → 403 — 403
+ĐẠT      Viewer GET /admin/tags → 200 — 200
+ĐẠT      Viewer GET /admin/tags/new → 403 — 403
+ĐẠT      Viewer POST /admin/tags → 403 — 403
+ĐẠT      Viewer GET /admin/tags/1/edit → 403 — 403
+ĐẠT      Viewer PATCH /admin/tags/1 → 403 — 403
+ĐẠT      Viewer GET /admin/tags/1/delete → 403 — 403
+ĐẠT      Viewer DELETE /admin/tags/1 → 403 — 403
+ĐẠT      Viewer PATCH /admin/dishes/1/availability → 403 — 403
+ĐẠT      Trang 403 nói rõ thiếu quyền
+ĐẠT      Editor GET /admin/dishes/1/delete → 403 — 403
+ĐẠT      Editor DELETE /admin/dishes/1 → 403 — 403
+ĐẠT      Editor GET /admin/chefs/1/delete → 403 — 403
+ĐẠT      Editor DELETE /admin/chefs/1 → 403 — 403
+ĐẠT      Editor GET /admin/ingredients/1/delete → 403 — 403
+ĐẠT      Editor DELETE /admin/ingredients/1 → 403 — 403
+ĐẠT      Editor GET /admin/tags/1/delete → 403 — 403
+ĐẠT      Editor DELETE /admin/tags/1 → 403 — 403
+ĐẠT      Editor mở form thêm /admin/chefs/new (12.3)
+ĐẠT      Editor mở form thêm /admin/ingredients/new (12.3)
+ĐẠT      Editor mở form thêm /admin/tags/new (12.3)
+ĐẠT      Dữ liệu không đổi sau mọi request bị chặn
+
+== C. Thuộc tính món, trường do server đặt, đổi quyền sau khi mở form ==
+ĐẠT      Editor tạo món: bỏ qua chefId, status trong body — 303 chef 1 draft
+ĐẠT      Editor không thêm nhanh được đầu bếp qua chefId = new
+ĐẠT      Món đó vẫn nhận đầu bếp của tài khoản — 1
+ĐẠT      Editor sửa nháp của mình; chefId, status trong body bị bỏ qua — 303 draft
+ĐẠT      role trong body không nâng quyền
+ĐẠT      Editor B mở form món của A → 403
+ĐẠT      Editor B PATCH món của A → 403 — 403
+ĐẠT      Editor B đổi tình trạng món của A → 403 — 403
+ĐẠT      Editor A mở form món published của A → 403
+ĐẠT      Editor A PATCH món published → 403 — 403
+ĐẠT      Editor A đổi nhanh Tạm hết món published → 403 (12.4) — 403
+ĐẠT      Dữ liệu không đổi, không có tag thừa
+ĐẠT      Bị từ chối thì không tạo tag mới
+ĐẠT      Admin đổi status sang published — published
+ĐẠT      Form đã mở, status đổi → PATCH bị từ chối, dữ liệu không đổi — 403
+ĐẠT      Admin đổi được status, chefId — 2 draft
+ĐẠT      Admin gửi status sai → 400 — 400
+ĐẠT      Editor và Admin gửi cùng lúc: không lỗi 500 — 303 303
+ĐẠT      Hạ role sau khi mở form → PATCH 403 (đọc role từ DB mỗi request) — 403
+ĐẠT      Editor chưa gắn đầu bếp không thêm được món
+ĐẠT      Editor chưa gắn đầu bếp không khớp món nào
+
+== D. Ai thấy món nháp (12.2) ==
+ĐẠT      Đối chứng: món published hiện trên thực đơn
+ĐẠT      Khách: thực đơn cơ bản theo tên không có món nháp — 200
+ĐẠT      Khách: thực đơn toàn văn không có món nháp — 200
+ĐẠT      Khách: thực đơn gần đúng theo tên không có món nháp — 200
+ĐẠT      Khách: thực đơn gần đúng theo nguyên liệu không có món nháp — 200
+ĐẠT      Khách: thực đơn gần đúng theo đầu bếp không có món nháp — 200
+ĐẠT      Khách: thực đơn cơ bản theo đầu bếp không có món nháp — 200
+ĐẠT      Khách: thực đơn từ khoá không dấu không có món nháp — 200
+ĐẠT      Khách: mở /dishes/:id của món nháp → 404
+ĐẠT      Viewer: thực đơn cơ bản theo tên không có món nháp — 200
+ĐẠT      Viewer: thực đơn toàn văn không có món nháp — 200
+ĐẠT      Viewer: thực đơn gần đúng theo tên không có món nháp — 200
+ĐẠT      Viewer: thực đơn gần đúng theo nguyên liệu không có món nháp — 200
+ĐẠT      Viewer: thực đơn gần đúng theo đầu bếp không có món nháp — 200
+ĐẠT      Viewer: thực đơn cơ bản theo đầu bếp không có món nháp — 200
+ĐẠT      Viewer: thực đơn từ khoá không dấu không có món nháp — 200
+ĐẠT      Viewer: mở /dishes/:id của món nháp → 404
+ĐẠT      Editor A: thực đơn cơ bản theo tên không có món nháp — 200
+ĐẠT      Editor A: thực đơn toàn văn không có món nháp — 200
+ĐẠT      Editor A: thực đơn gần đúng theo tên không có món nháp — 200
+ĐẠT      Editor A: thực đơn gần đúng theo nguyên liệu không có món nháp — 200
+ĐẠT      Editor A: thực đơn gần đúng theo đầu bếp không có món nháp — 200
+ĐẠT      Editor A: thực đơn cơ bản theo đầu bếp không có món nháp — 200
+ĐẠT      Editor A: thực đơn từ khoá không dấu không có món nháp — 200
+ĐẠT      Editor A: mở /dishes/:id của món nháp → 404
+ĐẠT      Admin: thực đơn cơ bản theo tên không có món nháp — 200
+ĐẠT      Admin: thực đơn toàn văn không có món nháp — 200
+ĐẠT      Admin: thực đơn gần đúng theo tên không có món nháp — 200
+ĐẠT      Admin: thực đơn gần đúng theo nguyên liệu không có món nháp — 200
+ĐẠT      Admin: thực đơn gần đúng theo đầu bếp không có món nháp — 200
+ĐẠT      Admin: thực đơn cơ bản theo đầu bếp không có món nháp — 200
+ĐẠT      Admin: thực đơn từ khoá không dấu không có món nháp — 200
+ĐẠT      Admin: mở /dishes/:id của món nháp → 404
+ĐẠT      Số món theo tag: công khai chỉ đếm published, quản trị đếm tất cả — 224 / 227
+ĐẠT      Admin thấy nháp của A trong quản trị
+ĐẠT      Admin thấy nháp của B trong quản trị
+ĐẠT      Editor A thấy nháp của mình
+ĐẠT      Editor A không thấy nháp của B
+ĐẠT      Editor B không thấy nháp của A
+ĐẠT      Viewer không thấy món nháp trong quản trị
+ĐẠT      Admin thấy nháp khi tìm fulltext
+ĐẠT      Editor A không thấy nháp của B khi tìm fulltext
+ĐẠT      Viewer không thấy nháp khi tìm fulltext
+ĐẠT      Admin thấy nháp khi tìm fuzzy
+ĐẠT      Editor A không thấy nháp của B khi tìm fuzzy
+ĐẠT      Viewer không thấy nháp khi tìm fuzzy
+ĐẠT      Bộ lọc trạng thái sai → 400
+ĐẠT      Admin lọc Nháp thấy món nháp
+ĐẠT      Lọc Đã xuất bản không có món nháp
+ĐẠT      Editor A mở thẳng form nháp của B → 403 (slide 56)
+
+== E. Giao diện theo quyền ==
+ĐẠT      Viewer: không có nút Thêm, Sửa, Xoá
+ĐẠT      Viewer: có dòng chỉ xem, không có bộ lọc trạng thái
+ĐẠT      Viewer: tên món không là link
+ĐẠT      Viewer /admin/chefs: không có nút ghi
+ĐẠT      Editor /admin/chefs: có Sửa, không có Xoá
+ĐẠT      Viewer /admin/ingredients: không có nút ghi
+ĐẠT      Editor /admin/ingredients: có Sửa, không có Xoá
+ĐẠT      Viewer /admin/tags: không có nút ghi
+ĐẠT      Editor /admin/tags: có Sửa, không có Xoá
+ĐẠT      Editor: có Thêm, không có Xoá, có bộ lọc trạng thái
+ĐẠT      Editor: món nháp của mình có nút Sửa và nhãn Nháp
+ĐẠT      Editor: món published của mình và của người khác chỉ xem, tên không là link
+ĐẠT      Form của Editor: không có ô đầu bếp, trạng thái
+ĐẠT      Form của Editor: có câu giải thích và nút Lưu nháp
+ĐẠT      Form của Admin: có ô đầu bếp, trạng thái
+ĐẠT      Admin: có Sửa, Xoá
+
+TỔNG: 159 ĐẠT, 0 CHƯA ĐẠT

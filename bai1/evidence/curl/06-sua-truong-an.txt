@@ -1,0 +1,10 @@
+ĐẠT: Chrome: chefId=1, status=draft, chỉ tên đổi
+
+$ POST /admin/dishes/1207?_method=PATCH   # gửi trực tiếp với chefId của B, status published, role admin
+  Cookie: sid=<đã che · vân tay b72c02d3>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+Nh%C3%A1p+c%E1%BB%A7a+A&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=2&available=on&status=published&role=admin
+→ 303  Location: /admin/dishes?msg=dish-updated&saved=1207
+  Set-Cookie: sid=<đã che · vân tay b72c02d3>; Path=/; Expires=Mon, 09 Nov 2026 09:58:42 GMT; HttpOnly; SameSite=Lax
+
+ĐẠT: Trực tiếp: chefId=1, status=draft, role=editor
+

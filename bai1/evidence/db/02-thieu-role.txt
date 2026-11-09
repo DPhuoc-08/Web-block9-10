@@ -1,0 +1,11 @@
+## Vai trò các tài khoản seed  (lúc 2026-11-09 07:58:16Z)
+
+users #1  email=<email nhóm đã che>  role=viewer  chefId=—  status=active
+users #2  email=<email nhóm đã che>  role=editor  chefId=1  status=active
+users #3  email=<email nhóm đã che>  role=editor  chefId=2  status=active
+users #4  email=<email nhóm đã che>  role=admin  chefId=—  status=active
+
+Trước: {"dishes":"d2b127a044cdc1b479991916451b8527","dish_tags":2115,"dish_ingredients":5379}
+Sau:   {"dishes":"d2b127a044cdc1b479991916451b8527","dish_tags":2115,"dish_ingredients":5379}
+ĐẠT: Dữ liệu không đổi sau mọi request bị chặn
+

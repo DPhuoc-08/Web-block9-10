@@ -1,0 +1,14 @@
+# Admin, /admin/dishes. scrollWidth - clientWidth của .table-wrap: 0 nghĩa là bảng không tràn trong khung
+
+ĐẠT: Rộng 1440px: tràn 0px
+
+ĐẠT: Rộng 1280px: tràn 0px
+
+ĐẠT: Rộng 1100px: tràn 0px
+
+ĐẠT: Rộng 1024px: tràn 0px
+
+ĐẠT: Rộng 900px: tràn 0px
+
+ĐẠT: Rộng 821px: tràn 0px
+

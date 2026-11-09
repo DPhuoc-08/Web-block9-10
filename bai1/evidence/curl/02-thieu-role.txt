@@ -1,0 +1,56 @@
+# Cookie viewer, gửi thẳng; rồi Editor gửi DELETE
+
+$ GET /admin/dishes/new   # viewer
+  Cookie: sid=<đã che · vân tay c43e5241>
+→ 403
+  Set-Cookie: sid=<đã che · vân tay c43e5241>; Path=/; Expires=Mon, 09 Nov 2026 09:58:16 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Viewer GET /admin/dishes/new → 403
+
+$ POST /admin/dishes   # viewer
+  Cookie: sid=<đã che · vân tay c43e5241>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+viewer+ghi&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay c43e5241>; Path=/; Expires=Mon, 09 Nov 2026 09:58:16 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Viewer POST /admin/dishes → 403
+
+$ POST /admin/dishes/1207?_method=PATCH   # viewer
+  Cookie: sid=<đã che · vân tay c43e5241>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+viewer+ghi&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay c43e5241>; Path=/; Expires=Mon, 09 Nov 2026 09:58:16 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Viewer POST /admin/dishes/1207?_method=PATCH → 403
+
+$ POST /admin/dishes/1207?_method=DELETE   # viewer
+  Cookie: sid=<đã che · vân tay c43e5241>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+viewer+ghi&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay c43e5241>; Path=/; Expires=Mon, 09 Nov 2026 09:58:16 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Viewer POST /admin/dishes/1207?_method=DELETE → 403
+
+$ POST /admin/dishes/1207/availability?_method=PATCH   # viewer
+  Cookie: sid=<đã che · vân tay c43e5241>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+viewer+ghi&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay c43e5241>; Path=/; Expires=Mon, 09 Nov 2026 09:58:17 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Viewer POST /admin/dishes/1207/availability?_method=PATCH → 403
+
+$ POST /admin/dishes/1207?_method=DELETE   # Editor không có quyền xoá
+  Cookie: sid=<đã che · vân tay b72c02d3>
+→ 403
+  Set-Cookie: sid=<đã che · vân tay b72c02d3>; Path=/; Expires=Mon, 09 Nov 2026 09:58:17 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Editor DELETE → 403
+
+ĐẠT: Chrome: trang "Không đủ quyền · Nhà hàng"
+

@@ -1,0 +1,13 @@
+ĐẠT: Reset đổi mật khẩu, không đổi MFA
+
+ĐẠT: Chrome đến /login/mfa
+
+ĐẠT: Request trực tiếp: mật khẩu mới → 303 /login/mfa
+
+$ GET /admin/dishes   # cookie sau bước password
+  Cookie: sid=<đã che · vân tay 4a53102d>
+→ 303  Location: /login?next=%2Fadmin%2Fdishes
+  Set-Cookie: sid=<đã che · vân tay 4a53102d>; Path=/; Expires=Mon, 09 Nov 2026 09:59:32 GMT; HttpOnly; SameSite=Lax
+
+ĐẠT: Chưa qua MFA vẫn không vào được quản trị
+

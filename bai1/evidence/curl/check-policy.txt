@@ -1,0 +1,33 @@
+ĐẠT      Viewer đọc được
+ĐẠT      Viewer không tạo món
+ĐẠT      Viewer không sửa món
+ĐẠT      Editor tạo món
+ĐẠT      Editor sửa đầu bếp (12.3)
+ĐẠT      Editor không xoá món
+ĐẠT      Editor không xoá đầu bếp
+ĐẠT      Editor không đổi status, chefId
+ĐẠT      Editor chưa gắn đầu bếp không tạo món
+ĐẠT      Admin xoá món
+ĐẠT      Admin đổi status
+ĐẠT      Chưa đăng nhập không có quyền
+ĐẠT      Role lạ không có quyền
+ĐẠT      Editor A sửa nháp của A
+ĐẠT      Editor B không sửa nháp của A
+ĐẠT      Editor A không sửa món published của A
+ĐẠT      Admin sửa món published
+ĐẠT      Viewer không sửa món
+ĐẠT      chefId rỗng không khớp chefId rỗng
+ĐẠT      Editor chưa gắn đầu bếp không có điều kiện ghi
+ĐẠT      Editor A xem nháp của A
+ĐẠT      Editor B không xem nháp của A
+ĐẠT      Viewer không xem món nháp
+ĐẠT      Khách không xem món nháp
+ĐẠT      Admin xem món nháp
+ĐẠT      Khách xem món published
+ĐẠT      Editor chưa gắn đầu bếp không xem nháp chefId rỗng
+ĐẠT      Thực đơn công khai chỉ published
+ĐẠT      Viewer chỉ published
+ĐẠT      Editor chưa gắn đầu bếp chỉ published
+ĐẠT      Editor A: published hoặc nháp của A
+ĐẠT      Admin không giới hạn
+TỔNG: 32 ĐẠT, 0 CHƯA ĐẠT

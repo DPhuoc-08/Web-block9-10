@@ -1,0 +1,29 @@
+ĐẠT: Log server không chứa secret TOTP
+
+ĐẠT: Log server không chứa mật khẩu seed
+
+ĐẠT: Log server không chứa mật khẩu thử
+
+ĐẠT: Log server không chứa mật khẩu mới
+
+ĐẠT: Log server không chứa recovery code 1
+
+ĐẠT: Log server không chứa recovery code 2
+
+ĐẠT: Log server không chứa recovery code 3
+
+ĐẠT: Log server không chứa recovery code 4
+
+ĐẠT: Log server không chứa recovery code 5
+
+ĐẠT: Log server không chứa recovery code 6
+
+ĐẠT: Log server không chứa recovery code 7
+
+ĐẠT: Log server không chứa recovery code 8
+
+ĐẠT: Log server không chứa recovery code 9
+
+ĐẠT: Log server không chứa recovery code 10
+
+Tổng log: 2 dòng (không đính kèm nguyên văn).

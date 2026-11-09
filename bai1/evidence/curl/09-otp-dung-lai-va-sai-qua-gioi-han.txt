@@ -1,0 +1,15 @@
+ĐẠT: Chrome: mã đã dùng bị từ chối
+
+ĐẠT: Chrome: sai 5 lần bị khoá
+
+$ POST /login/mfa   # mã ĐÚNG trong lúc đang khoá
+  Cookie: sid=<đã che · vân tay de2b6aa6>
+  _csrf=<đã che>&otp=<đã che>
+→ 429  Retry-After: 898
+  Set-Cookie: sid=<đã che · vân tay de2b6aa6>; Path=/; Expires=Mon, 09 Nov 2026 09:59:10 GMT; HttpOnly; SameSite=Lax
+  Trang: "Xác thực hai lớp"  data-error-code="RATE_LIMITED"
+
+ĐẠT: Mã đúng trong lúc khoá vẫn 429 + Retry-After
+
+(Script xoá bộ đếm mfa-fail sau ca này để chạy ca tiếp theo; server không có nhánh bỏ qua.)
+

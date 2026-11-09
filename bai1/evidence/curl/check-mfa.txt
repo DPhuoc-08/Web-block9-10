@@ -1,0 +1,85 @@
+
+== A. Thiết lập MFA ==
+ĐẠT      GET trang thiết lập không tạo secret (GET không đổi dữ liệu) — 303
+ĐẠT      Hồ sơ hiện Chưa bật
+ĐẠT      POST bắt đầu thiết lập → 303 — 303
+ĐẠT      Trang thiết lập có QR và chuỗi nhập tay
+ĐẠT      Trang thiết lập không lưu cache — no-store
+ĐẠT      DB chỉ có bản mã ở mfaPendingSecret, MFA chưa bật
+ĐẠT      Mã sai: báo INVALID_OTP, MFA chưa bật
+ĐẠT      Mã đúng → 303 sang trang mã khôi phục — 303 /admin/profile/mfa/codes
+ĐẠT      DB: đã bật, secret là bản mã, đã ghi bước đã dùng
+ĐẠT      Hiện 10 mã, DB có 10 bản ghi — 10
+ĐẠT      Trang mã không lưu cache
+ĐẠT      DB chỉ có HMAC, chưa dùng
+ĐẠT      Bảng sessions không chứa mã gốc
+ĐẠT      Mở lại trang mã: không hiện lại — /admin/profile?msg=mfa-codes-gone
+ĐẠT      Log server không chứa secret, recovery code
+ĐẠT      Đang bật: POST thiết lập không tạo secret mới
+ĐẠT      Đang bật: không hiện lại secret — 303
+ĐẠT      Hồ sơ hiện Đã bật
+ĐẠT      Cùng một tài khoản
+
+== B. Đăng nhập có MFA ==
+ĐẠT      Password đúng, đã bật MFA → 303 /login/mfa — 303 /login/mfa
+ĐẠT      Bản ghi phiên chỉ có mfaPending, không có userId
+ĐẠT      Phiên chờ MFA không vào được /admin — 303 /login?next=%2Fadmin
+ĐẠT      Phiên chờ MFA không vào được /admin/dishes — 303 /login?next=%2Fadmin%2Fdishes
+ĐẠT      Phiên chờ MFA không vào được /admin/chefs/new — 303 /login?next=%2Fadmin%2Fchefs%2Fnew
+ĐẠT      Phiên chờ MFA không vào được /admin/profile — 303 /login?next=%2Fadmin%2Fprofile
+ĐẠT      Phiên chờ MFA không vào được /admin/profile/mfa/setup — 303 /login?next=%2Fadmin%2Fprofile%2Fmfa%2Fsetup
+ĐẠT      Trang nhập mã mở được bằng phiên chờ
+ĐẠT      Phiên chờ gửi ghi → /login, không ghi được — 303
+ĐẠT      Mã sai: INVALID_OTP, vẫn ở bước MFA — INVALID_OTP
+ĐẠT      Mã đúng → 303 vào quản trị — 303 /admin/dishes
+ĐẠT      sid đổi khi qua bước MFA
+ĐẠT      Phiên đầy đủ vào được quản trị
+ĐẠT      Dùng lại mã vừa được chấp nhận → từ chối — 200 INVALID_OTP
+ĐẠT      Sau MFA về đúng trang đang mở — /admin/chefs
+ĐẠT      Sai 4 lần: vẫn được thử — 200
+ĐẠT      Lần sai thứ 5 (recovery code, chung bộ đếm) → 429 — 429
+ĐẠT      429 có Retry-After
+ĐẠT      Đang khoá: mã đúng vẫn 429 — 429
+ĐẠT      Đang khoá vẫn xem được trang
+ĐẠT      Huỷ → về đăng nhập — /login
+ĐẠT      Huỷ xong không còn phiên chờ
+ĐẠT      Phiên chờ quá 5 phút → đăng nhập lại — /login?msg=mfa-expired
+ĐẠT      Reset password thành công — 303 /login?msg=password-reset
+ĐẠT      Reset không tạo phiên đăng nhập
+ĐẠT      Reset không tắt MFA
+ĐẠT      Reset xoá cả phiên đang chờ MFA — 303
+ĐẠT      Reset xong đăng nhập vẫn qua bước MFA — /login/mfa
+
+== C. Recovery code ==
+ĐẠT      Trang nhập mã khôi phục mở bằng phiên chờ
+ĐẠT      Mã không có thật: INVALID_OTP
+ĐẠT      Mã đúng → về hồ sơ — /admin/profile?msg=mfa-recovery-used
+ĐẠT      usedAt được ghi — 1
+ĐẠT      Hồ sơ nhắc đổi thiết bị và báo còn 9 mã
+ĐẠT      Thẻ bảo mật hiện 9 / 10
+ĐẠT      Dùng mã lần hai → từ chối — INVALID_OTP
+ĐẠT      Viết thường, thiếu dấu gạch vẫn khớp — 303
+
+== D. Xác thực lại ==
+ĐẠT      Chưa bật MFA: không có gì để xác thực lại
+ĐẠT      Thao tác lạ → 404
+ĐẠT      Sai password: không tắt được
+ĐẠT      Sai password không làm mất recovery code
+ĐẠT      Đúng password, sai mã: không tắt được
+ĐẠT      Thiếu yếu tố thứ hai: không tắt được
+ĐẠT      Thay thiết bị: xác thực lại → trang thiết lập — /admin/profile/mfa/setup
+ĐẠT      Có secret chờ, vẫn đang bật, không ghi Bước 1 / 2
+ĐẠT      Chưa xác nhận: secret cũ vẫn đăng nhập được
+ĐẠT      Secret đang dùng không bị ghi đè
+ĐẠT      Xác nhận: chuyển sang secret mới — /admin/profile?msg=mfa-replaced
+ĐẠT      Thay thiết bị không đổi nhóm recovery code
+ĐẠT      Sau khi đổi: mã từ secret cũ bị từ chối
+ĐẠT      Tạo lại mã → trang mã — /admin/profile/mfa/codes
+ĐẠT      Hiện 10 mã mới, đúng thông báo
+ĐẠT      Mã của nhóm cũ không còn dùng được
+ĐẠT      Sai 5 lần ở bước xác thực lại → 429 — 429
+ĐẠT      Đúng password + recovery code: tắt được — /admin/profile?msg=mfa-disabled
+ĐẠT      Tắt MFA xoá recovery code
+ĐẠT      Tắt xong đăng nhập không cần mã — /admin/dishes
+
+TỔNG: 75 ĐẠT, 0 CHƯA ĐẠT

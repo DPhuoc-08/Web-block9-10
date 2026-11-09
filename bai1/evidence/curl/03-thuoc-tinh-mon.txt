@@ -1,0 +1,36 @@
+# Editor A: món nháp của đầu bếp B và món đã published của chính mình
+
+$ GET /admin/dishes/1204/edit   # món của đầu bếp khác
+  Cookie: sid=<đã che · vân tay b72c02d3>
+→ 403
+  Set-Cookie: sid=<đã che · vân tay b72c02d3>; Path=/; Expires=Mon, 09 Nov 2026 09:58:24 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Editor A mở form món #1204 → 403 (món của đầu bếp khác)
+
+$ POST /admin/dishes/1204?_method=PATCH   # món của đầu bếp khác
+  Cookie: sid=<đã che · vân tay b72c02d3>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+s%E1%BB%ADa+tr%E1%BB%99m&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay b72c02d3>; Path=/; Expires=Mon, 09 Nov 2026 09:58:24 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Editor A PATCH món #1204 → 403 (món của đầu bếp khác)
+
+$ GET /admin/dishes/1/edit   # món của mình nhưng đã published
+  Cookie: sid=<đã che · vân tay b72c02d3>
+→ 403
+  Set-Cookie: sid=<đã che · vân tay b72c02d3>; Path=/; Expires=Mon, 09 Nov 2026 09:58:24 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Editor A mở form món #1 → 403 (món của mình nhưng đã published)
+
+$ POST /admin/dishes/1?_method=PATCH   # món của mình nhưng đã published
+  Cookie: sid=<đã che · vân tay b72c02d3>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+s%E1%BB%ADa+tr%E1%BB%99m&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on
+→ 403
+  Set-Cookie: sid=<đã che · vân tay b72c02d3>; Path=/; Expires=Mon, 09 Nov 2026 09:58:24 GMT; HttpOnly; SameSite=Lax
+  Trang: "Không đủ quyền"
+
+ĐẠT: Editor A PATCH món #1 → 403 (món của mình nhưng đã published)
+

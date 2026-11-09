@@ -1,0 +1,18 @@
+$ POST /admin/dishes/1207?_method=PATCH   # Admin xuất bản món trong lúc Editor đang mở form
+  Cookie: sid=<đã che · vân tay cc7d7c00>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+Nh%C3%A1p+c%E1%BB%A7a+A&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on&status=published
+→ 303  Location: /admin/dishes?msg=dish-updated&saved=1207
+  Set-Cookie: sid=<đã che · vân tay cc7d7c00>; Path=/; Expires=Mon, 09 Nov 2026 09:58:31 GMT; HttpOnly; SameSite=Lax
+
+ĐẠT: Admin đổi status thành published
+
+ĐẠT: Chrome: 403, tên món không đổi
+
+$ POST /admin/dishes/1207?_method=PATCH   # đưa món về nháp để thử ca hạ role
+  Cookie: sid=<đã che · vân tay cc7d7c00>
+  _csrf=<đã che>&name=%5BTEST+B9%5D+Nh%C3%A1p+c%E1%BB%A7a+A&price=50000&description=m%C3%B4+t%E1%BA%A3&tagIds=2&ingredientIds=1&chefId=1&available=on&status=draft
+→ 303  Location: /admin/dishes?msg=dish-updated&saved=1207
+  Set-Cookie: sid=<đã che · vân tay cc7d7c00>; Path=/; Expires=Mon, 09 Nov 2026 09:58:33 GMT; HttpOnly; SameSite=Lax
+
+ĐẠT: Chrome: 403 vì role đọc lại từ DB, tên món không đổi
+
