@@ -1,6 +1,7 @@
 // Code-first: model trong file này là nguồn của schema.
 // Block8 dùng CHÍNH database của block7 (plan block8 mục 12.1): 7 bảng của block7 giữ nguyên, chỉ THÊM 5 bảng xác thực
 // ở cuối file. Từ nay chỉ chạy `prisma db push` từ block8 — schema block7 không có 5 bảng mới nên Prisma sẽ đòi xoá chúng.
+// Block9 (Bài 1): chỉ THÊM cột và bảng cho phân quyền, MFA (plan mục 3.1). Từ nay chỉ chạy `prisma db push`, seed từ bai1.
 // Từ block7: loại món và chuyên môn đầu bếp là TAG nhiều-nhiều (bảng tags dùng chung cho cả hai).
 
 generator client {
@@ -21,20 +22,23 @@ datasource db {
 //   Chef n >──< n Tag            qua chef_tags  (chuyên môn — cùng bảng tags với loại món)
 
 model Dish {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   name        String
   description String?
   price       Int
-  available   Boolean  @default(true)
+  available   Boolean    @default(true)
+  // Trạng thái biên tập (block9), khác với available (Đang phục vụ / Tạm hết). Luật ABAC dựa vào cột này;
+  // món draft không bao giờ hiện ở thực đơn công khai.
+  status      DishStatus @default(published)
   // Ảnh minh hoạ lấy từ nguồn online (link trực tiếp tới file ảnh), kèm ghi công tác giả/giấy phép.
   imageUrl    String?
   imageCredit String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime   @default(now())
 
   // onDelete: Restrict → database từ chối xoá đầu bếp khi còn món do người đó phụ trách
   // (app phải chuyển món sang đầu bếp khác trước, xem DELETE /api/chefs/:id?transferTo= trong src/routes/chefs.js).
-  chefId      Int
-  chef        Chef     @relation(fields: [chefId], references: [id], onDelete: Restrict)
+  chefId Int
+  chef   Chef @relation(fields: [chefId], references: [id], onDelete: Restrict)
 
   ingredients DishIngredient[]
   tags        DishTag[]
@@ -49,6 +53,8 @@ model Chef {
   name   String    @unique
   dishes Dish[]
   tags   ChefTag[]
+  // Tài khoản Editor phụ trách đầu bếp này (block9).
+  users  User[]
 
   @@map("chefs")
 }
@@ -133,6 +139,11 @@ enum ChallengePurpose {
   activation
 }
 
+enum DishStatus {
+  draft
+  published
+}
+
 model User {
   id              Int        @id @default(autoincrement())
   // Email đã chuẩn hoá (cắt khoảng trắng, chữ thường) — duy nhất, dùng để so sánh ở mọi chức năng.
@@ -148,10 +159,26 @@ model User {
   emailVerifiedAt DateTime?
   createdAt       DateTime   @default(now())
 
+  // Đầu bếp mà tài khoản Editor phụ trách (block9). Rỗng với viewer, admin. Rỗng thì không khớp món nào:
+  // luật ABAC phải kiểm tra khác null trước khi so sánh.
+  chefId Int?
+  chef   Chef? @relation(fields: [chefId], references: [id], onDelete: SetNull)
+
+  // MFA theo từng tài khoản. mfaSecret là bản mã AES-256-GCM, không phải secret gốc.
+  mfaEnabled       Boolean @default(false)
+  mfaSecret        String?
+  // Secret đang chờ xác nhận khi bật hoặc thay thiết bị: chưa có hiệu lực đăng nhập, không ghi đè mfaSecret.
+  mfaPendingSecret String?
+  // Bước thời gian TOTP đã chấp nhận gần nhất, để từ chối dùng lại mã. Int là đủ (khoảng 59 triệu);
+  // BigInt sẽ làm res.json báo lỗi khi mô-đun này chuyển sang api ở Bài 2.
+  mfaLastStep      Int?
+
   activation     ActivationChallenge?
   passwordResets PasswordReset[]
   sessions       Session[]
+  recoveryCodes  RecoveryCode[]
 
+  @@index([chefId])
   @@map("users")
 }
 
@@ -211,4 +238,17 @@ model RateLimit {
   lockedUntil DateTime?
 
   @@map("rate_limits")
+}
+
+// Mã dự phòng dùng thay OTP khi mất thiết bị (block9). Chỉ lưu HMAC-SHA256 có pepper, không lưu mã gốc.
+model RecoveryCode {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("recovery_codes")
 }
