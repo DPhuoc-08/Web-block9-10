@@ -1,0 +1,6 @@
+ĐẠT: Reload: vẫn đăng nhập
+
+Tab mới mở cùng địa chỉ: sessionStorage có 0 khoá, đang ở /login
+
+ĐẠT: Tab mới không có token: phải đăng nhập
+

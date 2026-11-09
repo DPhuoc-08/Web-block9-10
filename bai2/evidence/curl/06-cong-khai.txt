@@ -1,0 +1,30 @@
+$ GET /api/dishes?page=2&pageSize=12&q=c   # tìm kiếm, phân trang, không token
+  Authorization: (không có)
+→ 200
+  {"ok":true,"data":{"items":[{"id":21,"name":"Chè nếp cẩm nước cốt dừa","description":"Món ngọt mát lạnh, vị ngọt vừa phải, thêm nước cốt dừa béo nhẹ.","price":15000,"available":true,"imageUrl":"https://live.staticflickr.com/65535/51714302932_da40b9d5bc_c.jpg",…
+
+ĐẠT: total khớp SQL viết tay (813), response không thêm trường
+
+$ GET /api/dishes?pageSize=100&page=12   # trang cuối
+  Authorization: (không có)
+→ 200
+  {"ok":true,"data":{"items":[{"id":1101,"name":"Đậu hũ chiên xù","description":"Đậu hũ chiên xù giòn rụm, ăn kèm rau sống và tương ớt.","price":60000,"available":true,"imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T08:21:51.914Z","chefId":4,"chef":{"…
+
+ĐẠT: Đúng 1.200 món như block7, trang cuối kết thúc ở id 1200
+
+$ GET /api/dishes?mode=fulltext&q=n%C6%B0%E1%BB%9Bc%20d%C3%B9ng&pageSize=3   # toàn văn
+  Authorization: (không có)
+→ 200
+  {"ok":true,"data":{"items":[{"id":394,"name":"Miến lươn nước","description":"Tô Miến lươn nước nóng, nước dùng trong ngọt thanh, thêm hành lá và tiêu.","price":35000,"available":false,"imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T08:21:51.914Z","c…
+
+$ GET /api/dishes?mode=fuzzy&q=B%C3%B2%20l%C3%BAc%20l%E1%BA%AFt&pageSize=3   # gần đúng
+  Authorization: (không có)
+→ 200
+  {"ok":true,"data":{"items":[{"id":9,"name":"Bò lúc lắc","description":"Bò cắt hạt lựu xào lửa lớn, ăn kèm salad.","price":85000,"available":true,"imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/7/78/Product_Shots_of_Food-Bo_Luc_Lac.jpg/960px-Pro…
+
+ĐẠT: Tìm toàn văn, gần đúng vẫn chạy không token
+
+ĐẠT: Món nháp ở route công khai: NOT_FOUND
+
+ĐẠT: Route công khai: Chrome không gửi Authorization dù đang đăng nhập
+

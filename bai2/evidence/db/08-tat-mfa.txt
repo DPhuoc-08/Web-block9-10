@@ -1,0 +1,8 @@
+## Sau khi tắt  (lúc 2026-11-09 09:05:06Z)
+
+users #33  role=viewer  chefId=—  status=active  mfaEnabled=false  tokenVersion=2  mfaLastStep=—
+  passwordHash: vân tay 0b054f24
+  mfaSecret: —
+  recovery_codes: 0 mã, 0 đã dùng
+  password_resets #4: tokenHash=46792b…(64 ký tự) hạn=2026-11-09 09:19:42Z usedAt=2026-11-09 09:04:43Z
+

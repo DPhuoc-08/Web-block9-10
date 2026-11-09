@@ -1,0 +1,13 @@
+## Sau hai lần dùng  (lúc 2026-11-09 09:04:38Z)
+
+users #33  role=viewer  chefId=—  status=active  mfaEnabled=true  tokenVersion=0  mfaLastStep=59807167
+  passwordHash: vân tay e41342a6
+  mfaSecret: <bản mã, 86 ký tự, vân tay aa339ef8>
+  recovery_codes: 10 mã, 1 đã dùng
+    #91 codeHash=780402…(64 ký tự) usedAt=2026-11-09 09:04:31Z
+    #92 codeHash=cbfe36…(64 ký tự) usedAt=—
+    #93 codeHash=6f68b2…(64 ký tự) usedAt=—
+  mfa_challenges #23: tokenHash=5f628f…(64 ký tự) hạn=2026-11-09 09:08:58Z usedAt=—
+  mfa_challenges #24: tokenHash=db0301…(64 ký tự) hạn=2026-11-09 09:09:04Z usedAt=—
+  mfa_challenges #26: tokenHash=2aaafb…(64 ký tự) hạn=2026-11-09 09:09:36Z usedAt=—
+

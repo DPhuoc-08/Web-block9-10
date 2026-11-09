@@ -1,0 +1,5 @@
+## Sau đăng xuất: web xoá token
+
+sessionStorage: 0 khoá
+localStorage: 0 khoá
+

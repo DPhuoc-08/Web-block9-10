@@ -1,0 +1,5 @@
+## Chờ MFA: chưa có token
+
+sessionStorage: 0 khoá
+localStorage: 0 khoá
+

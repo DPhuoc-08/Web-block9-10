@@ -1,0 +1,4 @@
+ĐẠT: Dùng lần đầu: usedAt có giá trị
+
+ĐẠT: Dùng lần hai bị từ chối
+

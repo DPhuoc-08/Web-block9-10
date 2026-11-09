@@ -1,0 +1,6 @@
+## Đang thiết lập: secret không nằm trong storage
+
+sessionStorage: 1 khoá
+  accessToken = <JWT, dài 205 ký tự, chữ ký đã che>  payload: {"tv":0,"iat":1794215019,"exp":1794216819,"aud":"nhahang-web","iss":"nhahang-api","sub":"33"}
+localStorage: 0 khoá
+

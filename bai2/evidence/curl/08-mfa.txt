@@ -1,0 +1,23 @@
+ĐẠT: Secret không có trong storage, URL, history
+
+ĐẠT: Đăng xuất: xoá token ở trình duyệt
+
+ĐẠT: Chờ MFA: storage không có accessToken, challenge chỉ ở bộ nhớ
+
+$ POST /api/auth/login   # đúng password, đã bật MFA
+  Authorization: (không có)
+  {"email":"mfa.demo@demo.example","password":"<đã che>"}
+→ 200  Cache-Control: no-store
+  {"ok":true,"data":{"next":"mfa","challenge":"<đã che>","expiresIn":300}}
+
+ĐẠT: Có next mfa, không có accessToken
+
+$ GET /api/admin/dishes   # challenge gửi tới route dữ liệu
+  Authorization: Bearer <JWT đã che>
+→ 401
+  {"ok":false,"error":{"code":"<đã che>","message":"Cần đăng nhập để thực hiện thao tác này."}}
+
+ĐẠT: Challenge ở route dữ liệu → 401
+
+ĐẠT: Mã đã dùng bị từ chối
+

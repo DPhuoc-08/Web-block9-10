@@ -1,0 +1,35 @@
+## Đã bật MFA  (lúc 2026-11-09 09:03:50Z)
+
+users #33  role=viewer  chefId=—  status=active  mfaEnabled=true  tokenVersion=0  mfaLastStep=59807166
+  passwordHash: vân tay e41342a6
+  mfaSecret: <bản mã, 86 ký tự, vân tay aa339ef8>
+  recovery_codes: 10 mã, 0 đã dùng
+    #91 codeHash=780402…(64 ký tự) usedAt=—
+    #92 codeHash=cbfe36…(64 ký tự) usedAt=—
+    #93 codeHash=6f68b2…(64 ký tự) usedAt=—
+
+## Sau khi đăng nhập qua MFA  (lúc 2026-11-09 09:04:00Z)
+
+users #33  role=viewer  chefId=—  status=active  mfaEnabled=true  tokenVersion=0  mfaLastStep=59807167
+  passwordHash: vân tay e41342a6
+  mfaSecret: <bản mã, 86 ký tự, vân tay aa339ef8>
+  recovery_codes: 10 mã, 0 đã dùng
+    #91 codeHash=780402…(64 ký tự) usedAt=—
+    #92 codeHash=cbfe36…(64 ký tự) usedAt=—
+    #93 codeHash=6f68b2…(64 ký tự) usedAt=—
+  mfa_challenges #22: tokenHash=89d8f3…(64 ký tự) hạn=2026-11-09 09:08:55Z usedAt=2026-11-09 09:03:59Z
+  mfa_challenges #23: tokenHash=5f628f…(64 ký tự) hạn=2026-11-09 09:08:58Z usedAt=—
+
+## Sau 5 lần sai  (lúc 2026-11-09 09:04:19Z)
+
+users #33  role=viewer  chefId=—  status=active  mfaEnabled=true  tokenVersion=0  mfaLastStep=59807167
+  passwordHash: vân tay e41342a6
+  mfaSecret: <bản mã, 86 ký tự, vân tay aa339ef8>
+  recovery_codes: 10 mã, 0 đã dùng
+    #91 codeHash=780402…(64 ký tự) usedAt=—
+    #92 codeHash=cbfe36…(64 ký tự) usedAt=—
+    #93 codeHash=6f68b2…(64 ký tự) usedAt=—
+  mfa_challenges #23: tokenHash=5f628f…(64 ký tự) hạn=2026-11-09 09:08:58Z usedAt=—
+  mfa_challenges #24: tokenHash=db0301…(64 ký tự) hạn=2026-11-09 09:09:04Z usedAt=—
+  rate_limits mfa-fail:user:33  count=5  lockedUntil=2026-11-09 09:19:12Z
+

@@ -1,0 +1,8 @@
+## Bộ đếm sau 3 lần sai  (lúc 2026-11-09 09:03:12Z)
+
+users #32  role=viewer  chefId=—  status=active  mfaEnabled=false  tokenVersion=0  mfaLastStep=—
+  passwordHash: vân tay c7b7a9de
+  mfaSecret: —
+  recovery_codes: 0 mã, 0 đã dùng
+  rate_limits login-fail:email:brute@demo.example  count=3  lockedUntil=—
+

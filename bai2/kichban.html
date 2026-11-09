@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kịch bản trình bày – Block 9, Bài 2</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1f2933;
+    --muted: #5b6672;
+    --border: #e1e5ea;
+    --accent: #2563eb;
+    --accent-soft: #e8efff;
+    --ok: #15803d;
+    --ok-soft: #e7f6ec;
+    --warn: #b45309;
+    --warn-soft: #fff4e0;
+    --err: #dc2626;
+    --err-soft: #fdecec;
+    --code-bg: #f1f3f6;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 16px; }
+  @media (min-width: 768px) { .wrap { padding: 24px; } }
+
+  header.top { padding: 8px 0 4px; }
+  header.top h1 { margin: 0; font-size: 28px; line-height: 1.25; }
+  header.top p { margin: 4px 0 0; color: var(--muted); }
+  .members {
+    margin: 12px 0 0; padding: 0; list-style: none;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .members li {
+    margin: 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 14px;
+  }
+  .members .mssv { font-family: var(--mono); color: var(--muted); margin-left: 6px; }
+
+  nav.toc {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    margin: 12px -16px 0; padding: 8px 16px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  nav.toc a {
+    text-decoration: none; color: var(--text);
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 12px; font-size: 14px;
+  }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  section.card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-top: 20px;
+    scroll-margin-top: 64px;
+  }
+  section.card > h2 { margin: 0 0 12px; font-size: 22px; }
+  h3 { margin: 20px 0 8px; font-size: 17px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+
+  code, pre { font-family: var(--mono); font-size: 0.9em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  pre {
+    background: var(--code-bg); border-radius: 8px;
+    padding: 12px 14px; overflow-x: auto; margin: 8px 0; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; overflow-wrap: normal; }
+
+  .muted { color: var(--muted); }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    padding: 1px 8px; border-radius: 999px; vertical-align: middle;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .s200 { background: var(--ok-soft); color: var(--ok); }
+  .biz { background: var(--warn-soft); color: var(--warn); }
+  .no { background: var(--err-soft); color: var(--err); }
+
+  .grid { display: grid; gap: 12px; }
+  /* Ô lưới mặc định min-width: auto → giãn theo dòng code dài nhất và đẩy trang tràn ngang ở 375px.
+     min-width: 0 để khối <pre> tự cuộn ngang bên trong ô. */
+  .grid > * { min-width: 0; }
+  @media (min-width: 768px) { .grid.two { grid-template-columns: 1fr 1fr; } .grid.three { grid-template-columns: 1fr 1fr 1fr; } }
+  .box { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .box h3 { margin-top: 0; }
+  .box img { display: block; max-width: 100%; height: auto; }
+  .box.chosen { border-color: var(--accent); background: var(--accent-soft); }
+  .box .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { background: var(--code-bg); font-weight: 600; white-space: nowrap; }
+  td:first-child { font-weight: 600; }
+  td:first-child code { white-space: nowrap; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+  .flow .step {
+    border: 1px solid var(--border); background: var(--card);
+    border-radius: 6px; padding: 4px 10px; font-size: 14px;
+  }
+  .flow .step.key { border-color: var(--accent); background: var(--accent-soft); }
+  .flow .arrow { color: var(--muted); }
+
+  .callout {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    padding: 10px 14px; border-radius: 6px; margin: 8px 0 12px;
+  }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+
+  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0 8px; }
+
+  @media print { nav.toc { display: none; } }
+  @media (max-width: 640px) { .table-wrap table { min-width: 640px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Kịch bản trình bày Block 9, Bài 2</h1>
+  <p>Dữ liệu mới, luồng từng thao tác (request ↔ cổng kiểm tra ↔ bản ghi DB), kịch bản demo theo bảng nghiệm thu, lỗi đã phát hiện</p>
+</header>
+
+<nav class="toc" aria-label="Mục lục">
+  <a href="#du-lieu">1. Dữ liệu mới</a>
+  <a href="#luong">2. Luồng thao tác</a>
+  <a href="#so-do">3. Sơ đồ</a>
+  <a href="#demo">4. Kịch bản demo</a>
+  <a href="#loi">5. Lỗi đã phát hiện</a>
+</nav>
+
+<section class="card" id="du-lieu">
+  <h2>1. Dữ liệu mới</h2>
+  <p>Project Supabase riêng. Schema block 7 thêm các bảng tài khoản như Bài 1, <strong>không có <code>sessions</code></strong>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Bảng</th><th>Cột</th><th>Dùng để</th></tr></thead>
+    <tbody>
+      <tr><td><code>dishes</code></td><td><code>status</code></td><td>ABAC, ẩn món nháp</td></tr>
+      <tr><td><code>users</code></td><td>Như Bài 1, thêm <code>tokenVersion</code></td><td>Thu hồi JWT khi reset mật khẩu, tắt MFA</td></tr>
+      <tr><td><code>mfa_challenges</code></td><td><code>userId</code>, <code>tokenHash</code>, <code>expiresAt</code>, <code>usedAt</code></td><td>Thay cho phiên chờ MFA, dùng một lần</td></tr>
+      <tr><td><code>recovery_codes</code>, <code>activation_challenges</code>, <code>password_resets</code>, <code>rate_limits</code></td><td>Như Bài 1</td><td>Chuyển nguyên logic</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="luong">
+  <h2>2. Luồng từng thao tác</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Thao tác</th><th>Request</th><th>Server kiểm tra</th><th>Kết quả</th></tr></thead>
+    <tbody>
+      <tr><td>Đăng nhập, chưa bật MFA</td><td><code>POST /api/auth/login</code></td><td>IP → khoá → CAPTCHA → password → active</td><td><code>accessToken</code>; <code>web</code> lưu <code>sessionStorage</code></td></tr>
+      <tr><td>Đăng nhập, đã bật MFA</td><td><code>POST /api/auth/login</code> rồi <code>POST /api/auth/mfa</code></td><td>Như trên, rồi challenge + mã</td><td>Bước 1 chỉ có challenge; bước 2 có <code>accessToken</code></td></tr>
+      <tr><td>Editor sửa món nháp của mình</td><td><code>PATCH /api/dishes/:id</code>, Bearer</td><td>JWT → role → đọc món → <code>canEditDish</code> → câu ghi có điều kiện</td><td><code>200</code></td></tr>
+      <tr><td>Thiếu quyền</td><td>Như trên</td><td>Dừng ở role hoặc thuộc tính</td><td><code>403</code>, giữ token, báo ngay trong trang</td></tr>
+      <tr><td>Token bị sửa, hết hạn</td><td>Bất kỳ</td><td>Dừng ở verify</td><td><code>401</code>; <code>web</code> xoá token, nhớ trang, về đăng nhập</td></tr>
+      <tr><td>Reset mật khẩu</td><td><code>POST /api/auth/reset</code></td><td>Token một lần</td><td><code>tokenVersion</code> tăng, MFA giữ nguyên</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="so-do">
+  <h2>3. Sơ đồ luồng</h2>
+  <p>Vẽ từ code thật, mỗi ô ghi <code>file:dòng</code>. Đây là bản nháp, nhóm duyệt trước khi dùng.</p>
+  <div class="grid two">
+    <a class="box" href="evidence/diagrams/1-dang-nhap-jwt-va-noi-luu-token.svg"><span class="label">Sơ đồ 1</span><h3>Đăng nhập JWT và nơi lưu token</h3><img src="evidence/diagrams/1-dang-nhap-jwt-va-noi-luu-token.svg" alt="Sơ đồ đăng nhập JWT"></a>
+    <a class="box" href="evidence/diagrams/2-request-co-bearer.svg"><span class="label">Sơ đồ 2</span><h3>Một request có Bearer</h3><img src="evidence/diagrams/2-request-co-bearer.svg" alt="Sơ đồ request có Bearer"></a>
+  </div>
+</section>
+
+<section class="card" id="demo">
+  <h2>4. Kịch bản demo theo bảng nghiệm thu</h2>
+  <div class="callout warn"><strong>Chuẩn bị:</strong> tắt server của Bài 1 · mở lại project Supabase nếu bị tạm dừng · <code>npx prisma db seed</code> nếu vừa test · chạy <code>api</code> và <code>web</code> · DevTools mở tab Network và Application.</div>
+  <h3>Phần 1: JWT và API (slide 67)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Làm</th><th>Cho xem</th><th>Đối chiếu</th></tr></thead>
+    <tbody>
+      <tr><td>Chưa đăng nhập, mở <code>/admin/dishes</code>; curl <code>POST /api/dishes</code></td><td>Về đăng nhập, nhớ trang; <code>401</code></td><td>ảnh 01, <code>curl/01</code></td></tr>
+      <tr><td>Đăng nhập Viewer, xem Application</td><td>Chỉ có <code>accessToken</code>, payload không có role; không có nút ghi</td><td>ảnh 02, <code>storage/01</code></td></tr>
+      <tr><td>Viewer mở <code>/admin/dishes/new</code>; thêm <code>role=admin</code> vào storage</td><td>Báo thiếu quyền, giữ token; quyền không tăng</td><td>ảnh 03, 12, <code>storage/02</code></td></tr>
+      <tr><td>Editor A mở món của B; mở món đã xuất bản</td><td>Báo thiếu quyền</td><td>ảnh 04, 05, <code>curl/02</code></td></tr>
+      <tr><td>Sửa một ký tự payload trong storage rồi Reload</td><td><code>401</code>, xoá token, về đăng nhập, đăng nhập lại đúng trang cũ</td><td>ảnh 13, <code>curl/04</code></td></tr>
+      <tr><td>Network: thao tác ghi; mở thực đơn khi đang đăng nhập</td><td>Có preflight <code>OPTIONS</code>; <code>GET /api/dishes</code> không có <code>Authorization</code></td><td>Network mục 6, <code>curl/05</code>, <code>curl/06</code></td></tr>
+      <tr><td>Tắt <code>api</code>, tải lại trang quản trị</td><td>Báo lỗi kỹ thuật, không đăng xuất</td><td>ảnh 14</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Phần 2: Tài khoản và MFA (slide 68)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Làm</th><th>Cho xem</th><th>Đối chiếu</th></tr></thead>
+    <tbody>
+      <tr><td>Curl đăng ký kèm <code>role: admin</code></td><td>Bản ghi có role <code>viewer</code></td><td><code>curl/07</code>, <code>db/03</code></td></tr>
+      <tr><td>Tài khoản pending đăng nhập</td><td>Báo chưa kích hoạt, storage không có token</td><td>ảnh 18, <code>storage/05</code></td></tr>
+      <tr><td>Bật MFA ở <code>/admin/security</code>, quét QR</td><td>Mã khôi phục hiện một lần</td><td>ảnh 24, 25, <code>db/05</code></td></tr>
+      <tr><td>Đăng nhập lại</td><td>Có <code>next: "mfa"</code>, không có <code>accessToken</code>; nhập mã mới có token</td><td>ảnh 27, Network 8c, 8d</td></tr>
+      <tr><td>Dùng mã khôi phục hai lần</td><td>Lần hai bị từ chối</td><td>ảnh 31, 32, <code>db/06</code></td></tr>
+      <tr><td>Sai 3 lần rồi curl bỏ CAPTCHA</td><td><code>CAPTCHA_REQUIRED</code>, không có token dù password đúng</td><td><code>curl/07</code></td></tr>
+      <tr><td>Giữ token, reset mật khẩu, dùng lại token</td><td><code>401</code>; đăng nhập vẫn qua MFA</td><td>ảnh 35, <code>curl/10</code>, <code>db/07</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="loi">
+  <h2>5. Lỗi đã phát hiện và cách sửa</h2>
+  <h3>Lỗi chính (đề yêu cầu): lệnh chép nền không loại trừ <code>.env</code></h3>
+  <div class="grid two">
+    <div class="box"><span class="label">Tái hiện</span><p>Trong zsh đặt <code>X="--exclude=.env --exclude=node_modules/"</code> rồi chạy <code>rsync -a $X nguồn/ đích/</code>.</p></div>
+    <div class="box"><span class="label">Nguyên nhân</span><p>zsh không tách biến chưa có ngoặc kép thành nhiều tham số, nên <code>rsync</code> không loại trừ gì.</p></div>
+    <div class="box"><span class="label">Hậu quả</span><p><code>.env</code> của block 7 trỏ vào database của Bài 1 nằm trong <code>bai2/api/</code>. Nếu không phát hiện, seed sẽ xoá sạch database đó.</p></div>
+    <div class="box"><span class="label">Sau khi sửa</span><p>Đã xoá bản chép thừa. <code>git ls-files bai2</code> và số tệp trên đĩa đều là 91, chỉ có hai <code>.env.example</code>.</p></div>
+  </div>
+  <h3>Điểm được chặn trước khi thành lỗi</h3>
+  <ul>
+    <li><strong>Response công khai thêm cột <code>status</code>:</strong> thêm cột vào schema làm cột này tự lọt vào <code>GET /api/dishes</code>, trái slide 67. Route công khai bỏ cột này, <code>check-api</code> phần F kiểm tra.</li>
+    <li><strong><code>LOG_SQL=1</code> của block 7 in mọi tham số:</strong> <code>api</code> nay có bảng chứa hash và bản mã, nên chuyển luôn đoạn ẩn tham số từ Bài 1.</li>
+  </ul>
+</section>
+
+<footer>Block 9, Bài 2 · cập nhật 09/11/2026 · đối chiếu với code thật ở <code>api/</code>, <code>web/</code></footer>
+</div>
+</body>
+</html>

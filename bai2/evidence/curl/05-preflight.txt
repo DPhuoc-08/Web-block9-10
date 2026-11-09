@@ -1,0 +1,13 @@
+$ OPTIONS /api/dishes/1211   # preflight
+  Authorization: (không có)
+  origin: http://localhost:5173
+  access-control-request-method: PATCH
+  access-control-request-headers: authorization, content-type
+→ 204
+  
+
+  access-control-allow-origin: http://localhost:5173
+  access-control-allow-methods: GET,POST,PATCH,DELETE
+  access-control-allow-headers: Content-Type,Authorization
+ĐẠT: Preflight thành công, origin cụ thể, có Authorization
+

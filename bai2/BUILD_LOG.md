@@ -78,3 +78,17 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 **Đã kiểm tra (Chrome thật, `api/scripts/collect-evidence.mjs`):** mọi ca đều ĐẠT: Viewer chỉ đọc; `403` giữ token; sửa role trong storage không tăng quyền; token bị sửa, hết hạn về đăng nhập rồi quay lại đúng trang; API tắt không đăng xuất; route công khai không gửi `Authorization`, không preflight dù đang đăng nhập; MFA, recovery code, reset vẫn qua MFA; Reload giữ phiên, tab mới không có token. Không cuộn ngang ở 1280, 820, 375, 320 cho 11 màn. Đã xem ảnh các màn chính: đúng bản Figma, thực đơn đúng như block7, số món theo tag đã trừ món nháp.
 
 **Chưa chắc:** script không tick được ô CAPTCHA thật và dùng thư qua transport `file`; ca này cần người thử.
+
+## Bước 32, 33, 34 — Nghiệm thu, bằng chứng, tài liệu
+**Đã kiểm tra:** `check-api` **213 ĐẠT, 0 CHƯA ĐẠT** trên code cuối; `collect-evidence` qua Chrome thật, mọi ca ĐẠT; quét `evidence/` không thấy email nhóm, `JWT_SECRET`, `OTP_PEPPER`, `MFA_ENCRYPTION_KEY`, mật khẩu seed, App Password, chuỗi kết nối, JWT; bundle của `web` không chứa các khoá này (`evidence/curl/14`). Seed lại sau cùng.
+
+**Chờ người thử** (nên chưa đánh dấu "đạt Bài 2"): tick ô CAPTCHA thật khi đăng ký, nhận thư Gmail thật từ `api`, quét QR bằng ứng dụng thật ở `web`.
+
+**Lỗi trong lúc thu bằng chứng (script, không phải ứng dụng):** bộ chặn rò rỉ coi chuỗi `admin` do script ghi vào storage là bí mật nên từ chối ghi; đo tràn ngang trang đăng ký bằng cách thu nhỏ cửa sổ sau khi widget CAPTCHA đã dựng ở cỡ lớn, cho kết quả sai. Đã sửa: chỉ coi JWT là bí mật trong storage; mở trang đúng ở 320px rồi mới đo.
+
+## Kiểm tra mã nguồn (slide 66)
+1. **Verify có cố định thuật toán và kiểm tra `exp`; quyền có lấy từ body, payload chưa verify?** Cố định HS256, có `exp`, `iss`, `aud`: `api/src/auth/jwt.js:23`. Quyền lấy từ user đọc DB theo `sub`: `api/src/auth/require-jwt.js:23`, `:25`. `chefId`, `status` trong body của Editor bị bỏ: `api/src/routes/dishes.js:125`; `check-api` phần A, E.
+2. **Tài khoản pending, chờ MFA có nhận JWT ở login?** Không. `signAccessToken` chỉ gọi qua `issueToken` ở `api/src/routes/auth.js:88` (sau kiểm tra active ở `:83` và nhánh MFA ở `:87`) và `:117` (sau khi qua mã, challenge đã tiêu thụ).
+3. **Có endpoint thiếu token, quyền; GET đổi dữ liệu?** Chỉ `GET /api/dishes`, `/:id` không có `requireJwt` (`api/src/routes/dishes.js`, đúng slide 63). Các `router.get` chỉ đọc; `check-api` phần E gọi từng route không token.
+4. **Khoá ký, token, password có trong log, bundle, payload?** Không. `console.*` trong `api/src` chỉ in mã lỗi và SQL đã ẩn tham số bảng xác thực (`api/src/db.js`). Payload chỉ có `sub`, `tv`, `iat`, `exp`, `iss`, `aud` (`check-api` A, `evidence/storage/01`). Bundle: `evidence/curl/14`, `web/src` chỉ đọc `VITE_API_URL`, `VITE_RECAPTCHA_SITE_KEY`. Log: `evidence/curl/13`.
+5. **CORS có `*`?** Không. Một origin từ `CORS_ORIGIN`, `*` bị từ chối lúc khởi động: `api/src/app.js:18`, `:37`.

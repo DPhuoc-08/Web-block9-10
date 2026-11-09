@@ -1,0 +1,28 @@
+$ GET /api/auth/me   # sửa payload, giữ chữ ký cũ
+  Authorization: Bearer <JWT đã che>
+→ 401
+  {"ok":false,"error":{"code":"<đã che>","message":"Cần đăng nhập để thực hiện thao tác này."}}
+
+ĐẠT: Sửa payload → 401 UNAUTHENTICATED
+
+$ GET /api/auth/me   # token đã quá exp
+  Authorization: Bearer <JWT đã che>
+→ 401
+  {"ok":false,"error":{"code":"<đã che>","message":"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."}}
+
+ĐẠT: Quá exp → 401 TOKEN_EXPIRED
+
+ĐẠT: Thêm role=admin vào storage: giao diện không đổi
+
+ĐẠT: Sửa role trong storage rồi gửi request: 403
+
+ĐẠT: 401: xoá token, nhớ trang đang mở: /login?msg=expired&next=%2Fadmin%2Fdishes%2Fnew
+
+ĐẠT: Đăng nhập lại: về đúng trang đang mở
+
+ĐẠT: Token hết hạn: xoá token, về đăng nhập
+
+ĐẠT: API tắt: báo lỗi kỹ thuật, không đăng xuất, giữ token
+
+ĐẠT: API chạy lại: Thử lại tải được, vẫn đăng nhập
+

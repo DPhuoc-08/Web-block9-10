@@ -1,0 +1,227 @@
+
+== A. CORS và verify JWT ==
+ĐẠT      Preflight OPTIONS thành công, không đòi token — 204
+ĐẠT      Allow-Origin là origin cụ thể — http://localhost:5173
+ĐẠT      Allow-Headers có Authorization — content-type,authorization
+ĐẠT      Allow-Methods có PATCH
+ĐẠT      Không bật credentials
+ĐẠT      Origin lạ không nhận Allow-Origin
+ĐẠT      Expose Retry-After
+ĐẠT      Payload chỉ có sub, tv, iat, exp, iss, aud — tv,iat,exp,aud,iss,sub
+ĐẠT      Hạn 30 phút — 1800
+ĐẠT      Token hợp lệ: /me trả đúng người, không lộ cột nhạy cảm
+ĐẠT      Không có header Authorization → 401
+ĐẠT      Sai kiểu Authorization → 401
+ĐẠT      Sửa payload thành role admin, giữ chữ ký cũ → 401 — 401 UNAUTHENTICATED
+ĐẠT      Sửa một ký tự ở chữ ký → 401 — 401 UNAUTHENTICATED
+ĐẠT      alg none → 401 — 401 UNAUTHENTICATED
+ĐẠT      HS512 cùng khoá → 401 (thuật toán cố định) — 401 UNAUTHENTICATED
+ĐẠT      Khoá khác → 401 — 401 UNAUTHENTICATED
+ĐẠT      Sai issuer → 401 — 401 UNAUTHENTICATED
+ĐẠT      Sai audience → 401 — 401 UNAUTHENTICATED
+ĐẠT      Token quá exp → 401 TOKEN_EXPIRED — 401 TOKEN_EXPIRED
+ĐẠT      Token quá exp nhưng sai chữ ký → UNAUTHENTICATED — 401 UNAUTHENTICATED
+ĐẠT      tv lệch tokenVersion → 401 — 401 UNAUTHENTICATED
+ĐẠT      sub không có user → 401 — 401 UNAUTHENTICATED
+ĐẠT      role trong payload bị bỏ qua, role đọc từ DB — viewer
+ĐẠT      Đổi role có hiệu lực ngay, không cần token mới
+ĐẠT      Tài khoản không còn active → 401 — 401 UNAUTHENTICATED
+
+== B. Đăng nhập, challenge MFA ==
+ĐẠT      Đúng: trả accessToken (email chuẩn hoá)
+ĐẠT      Response có token: no-store
+ĐẠT      Sai password: 200, INVALID_CREDENTIALS, không có token
+ĐẠT      Email không có: cùng mã, cùng câu
+ĐẠT      Thiếu password: VALIDATION_FAILED
+ĐẠT      Sai kiểu dữ liệu: VALIDATION_FAILED, không 500
+ĐẠT      Pending: ACCOUNT_NOT_ACTIVATED, không có accessToken — ACCOUNT_NOT_ACTIVATED
+ĐẠT      Sai đến ngưỡng, bỏ CAPTCHA: CAPTCHA_REQUIRED, không có token dù password đúng — CAPTCHA_REQUIRED
+ĐẠT      Bỏ CAPTCHA không làm đổi bộ đếm
+ĐẠT      CAPTCHA qua, password sai: vẫn tăng bộ đếm
+ĐẠT      Sai 10 lần: 429, RATE_LIMITED, Retry-After — 429
+ĐẠT      Đang khoá: password đúng vẫn 429
+ĐẠT      Đã bật MFA: next mfa, có challenge, không có accessToken
+ĐẠT      Response có challenge: no-store
+ĐẠT      Challenge sống 5 phút — 300
+ĐẠT      DB chỉ lưu hash của challenge
+ĐẠT      Challenge gửi tới /me bị từ chối
+ĐẠT      Challenge gửi tới route dữ liệu bị từ chối
+ĐẠT      Access token gửi tới /api/auth/mfa bị từ chối
+ĐẠT      Challenge bịa → 401
+ĐẠT      Sai mã: 200, INVALID_OTP, không có token
+ĐẠT      Thiếu mã: VALIDATION_FAILED
+ĐẠT      Đúng mã: có accessToken
+ĐẠT      Token sau MFA dùng được
+ĐẠT      Challenge đã dùng → 401
+ĐẠT      Mã TOTP đã dùng bị từ chối — INVALID_OTP
+ĐẠT      Challenge hết hạn → 401
+ĐẠT      Sai 5 lần: 429, Retry-After — 429
+ĐẠT      Đang khoá: mã đúng vẫn 429
+ĐẠT      Recovery code (viết thường, thiếu gạch): có token, còn 9 mã — 9
+ĐẠT      DB: usedAt có giá trị
+ĐẠT      Recovery code dùng lần hai bị từ chối
+ĐẠT      CAPTCHA sai: INVALID_CAPTCHA, không có token — INVALID_CAPTCHA
+
+== C. Đăng ký, kích hoạt, quên mật khẩu ==
+ĐẠT      Thiếu CAPTCHA: CAPTCHA_REQUIRED, không tạo user
+ĐẠT      Hai mật khẩu khác nhau: VALIDATION_FAILED
+ĐẠT      role, status, chefId trong body bị bỏ qua — viewer pending
+ĐẠT      Mã chỉ đi qua email, không có trong response
+ĐẠT      DB chỉ lưu HMAC của mã
+ĐẠT      Pending đăng nhập: ACCOUNT_NOT_ACTIVATED
+ĐẠT      Đăng ký lại khi pending: không ghi đè mật khẩu
+ĐẠT      Email mới, pending, active: cùng response
+ĐẠT      Sai mã: INVALID_OTP
+ĐẠT      Kích hoạt đúng: không cấp token
+ĐẠT      DB: active, có emailVerifiedAt
+ĐẠT      Mã đã dùng bị từ chối
+ĐẠT      Kích hoạt xong đăng nhập được
+ĐẠT      Gửi lại trong 60 giây: 429, Retry-After — 429
+ĐẠT      Quá 60 giây gửi lại được
+ĐẠT      Quên mật khẩu: email có và không có cùng response
+ĐẠT      Link trong thư về trang của web
+ĐẠT      Token sai: INVALID_RESET_TOKEN
+ĐẠT      Mật khẩu sai quy tắc: token chưa bị dùng
+ĐẠT      Đặt lại xong: không cấp token
+ĐẠT      Reset không tắt MFA, không đổi role
+ĐẠT      tokenVersion tăng
+ĐẠT      JWT cấp trước khi reset bị từ chối (plan 12.7)
+ĐẠT      Challenge đang chờ bị huỷ khi reset
+ĐẠT      Token đã dùng bị từ chối
+ĐẠT      Reset xong đăng nhập: vẫn qua MFA
+
+== D. Quản lý MFA ==
+ĐẠT      Không token GET /api/auth/mfa/status → 401
+ĐẠT      Không token POST /api/auth/mfa/setup → 401
+ĐẠT      Không token POST /api/auth/mfa/confirm → 401
+ĐẠT      Không token POST /api/auth/mfa/replace → 401
+ĐẠT      Không token POST /api/auth/mfa/recovery-codes → 401
+ĐẠT      Không token POST /api/auth/mfa/disable → 401
+ĐẠT      GET không tạo secret
+ĐẠT      Setup trả secret, URI, QR
+ĐẠT      Setup: no-store
+ĐẠT      DB: bản mã ở mfaPendingSecret, chưa bật
+ĐẠT      Chưa xác nhận: đăng nhập vẫn chưa cần MFA
+ĐẠT      Mã sai: INVALID_OTP, chưa bật
+ĐẠT      Mã đúng: 10 recovery code, no-store
+ĐẠT      DB: đã bật, secret là bản mã
+ĐẠT      DB: 10 HMAC, không có mã gốc
+ĐẠT      Status không lộ secret
+ĐẠT      Đang bật: không tạo secret mới
+ĐẠT      Sai password: 200 (không 401), không tắt
+ĐẠT      Sai password không làm mất recovery code
+ĐẠT      Sai mã: không tắt
+ĐẠT      Thiếu yếu tố thứ hai: không tắt
+ĐẠT      Tạo lại mã: 10 mã mới
+ĐẠT      Nhóm cũ vô hiệu
+ĐẠT      Đổi thiết bị: secret chờ mới
+ĐẠT      Trong lúc đổi: MFA vẫn bật, secret chờ riêng
+ĐẠT      Xác nhận thiết bị mới, giữ nhóm mã
+ĐẠT      Đúng password và mã: tắt, tokenVersion tăng
+ĐẠT      Tắt xong xoá recovery code
+ĐẠT      JWT cũ hết hiệu lực sau khi tắt MFA
+ĐẠT      Đăng nhập lại không cần MFA
+ĐẠT      Log server không chứa password, secret, recovery code
+ĐẠT      Log server không chứa JWT
+
+== E. Token, RBAC, ABAC ở route dữ liệu ==
+ĐẠT      Không token POST /api/dishes → 401 — 401
+ĐẠT      Không token PATCH /api/dishes/1 → 401 — 401
+ĐẠT      Không token DELETE /api/dishes/1 → 401 — 401
+ĐẠT      Không token GET /api/admin/dishes → 401 — 401
+ĐẠT      Không token GET /api/admin/dishes/1 → 401 — 401
+ĐẠT      Không token GET /api/chefs → 401 — 401
+ĐẠT      Không token GET /api/chefs/1 → 401 — 401
+ĐẠT      Không token POST /api/chefs → 401 — 401
+ĐẠT      Không token PATCH /api/chefs/1 → 401 — 401
+ĐẠT      Không token DELETE /api/chefs/1 → 401 — 401
+ĐẠT      Không token GET /api/ingredients → 401 — 401
+ĐẠT      Không token GET /api/ingredients/1 → 401 — 401
+ĐẠT      Không token POST /api/ingredients → 401 — 401
+ĐẠT      Không token PATCH /api/ingredients/1 → 401 — 401
+ĐẠT      Không token DELETE /api/ingredients/1 → 401 — 401
+ĐẠT      Không token GET /api/tags → 401 — 401
+ĐẠT      Không token POST /api/tags → 401 — 401
+ĐẠT      Không token, body hỏng → 401 (cổng đứng trước jsonBody) — 401
+ĐẠT      Viewer, body hỏng → 403 (cổng quyền đứng trước jsonBody) — 403
+ĐẠT      Viewer POST /api/dishes → 403 — 403
+ĐẠT      Viewer PATCH /api/dishes/1 → 403 — 403
+ĐẠT      Viewer DELETE /api/dishes/1 → 403 — 403
+ĐẠT      Viewer POST /api/chefs → 403 — 403
+ĐẠT      Viewer PATCH /api/chefs/1 → 403 — 403
+ĐẠT      Viewer DELETE /api/chefs/1 → 403 — 403
+ĐẠT      Viewer POST /api/ingredients → 403 — 403
+ĐẠT      Viewer PATCH /api/ingredients/1 → 403 — 403
+ĐẠT      Viewer DELETE /api/ingredients/1 → 403 — 403
+ĐẠT      Viewer POST /api/tags → 403 — 403
+ĐẠT      Viewer GET /api/admin/dishes → 200
+ĐẠT      Viewer GET /api/admin/dishes/1 → 200
+ĐẠT      Viewer GET /api/chefs → 200
+ĐẠT      Viewer GET /api/chefs/1 → 200
+ĐẠT      Viewer GET /api/ingredients → 200
+ĐẠT      Viewer GET /api/ingredients/1 → 200
+ĐẠT      Viewer GET /api/tags → 200
+ĐẠT      Editor DELETE /api/dishes/1 → 403 — 403
+ĐẠT      Editor DELETE /api/chefs/1 → 403 — 403
+ĐẠT      Editor DELETE /api/ingredients/1 → 403 — 403
+ĐẠT      Dữ liệu không đổi sau mọi request bị chặn
+ĐẠT      Editor tạo món: bỏ qua chefId, status trong body — 1 draft
+ĐẠT      Editor sửa nháp của mình; chefId, status trong body bị bỏ qua
+ĐẠT      role trong body không nâng quyền
+ĐẠT      PATCH chỉ có tagIds vẫn chạy được
+ĐẠT      Editor B sửa món của A → 403 — 403
+ĐẠT      Editor A sửa món published của mình → 403 — 403
+ĐẠT      Editor A đổi Tạm hết món published → 403 (12.4) — 403
+ĐẠT      Dữ liệu không đổi
+ĐẠT      Admin xuất bản
+ĐẠT      Đổi status xong, Editor gửi PATCH → 403, tên không đổi — 403
+ĐẠT      Hạ role, dùng token cũ → 403 vì role đọc từ DB — 403
+ĐẠT      Status lạ: VALIDATION_FAILED
+ĐẠT      Admin đổi chefId
+ĐẠT      Admin tạo món, không chọn status: published
+ĐẠT      Editor chưa gắn đầu bếp không tạo được món
+ĐẠT      Editor chưa gắn đầu bếp không khớp món nào
+ĐẠT      Món không có: NOT_FOUND
+ĐẠT      Editor thêm đầu bếp được (12.3)
+ĐẠT      Editor thêm tag được (12.3)
+ĐẠT      Admin xoá món
+
+== F. Ai thấy món nháp; route công khai như block7 ==
+ĐẠT      6 món nháp nằm sau 1.200 món — 6
+ĐẠT      Không token: total đúng 1.200 như block7 — 1200
+ĐẠT      Trang cuối chỉ có món gốc, response không có status, canEdit
+ĐẠT      Trang 12 kết thúc đúng ở id 1200
+ĐẠT      Route công khai không đọc token: token rác vẫn 200
+ĐẠT      Admin gửi token tới route công khai cũng không thấy nháp
+ĐẠT      Tìm cơ bản không ra món nháp — 0
+ĐẠT      Tìm nâng cao không ra món nháp — 0
+ĐẠT      Tìm toàn văn không ra món nháp — 0
+ĐẠT      Tìm gần đúng không ra món nháp — 5
+ĐẠT      Tìm gần đúng theo nguyên liệu không ra món nháp
+ĐẠT      Tìm gần đúng theo đầu bếp không ra món nháp — 42
+ĐẠT      Tìm cơ bản: total khớp SQL viết tay — 54
+ĐẠT      URL món nháp ở route công khai: NOT_FOUND
+ĐẠT      Chi tiết công khai giữ dạng block7, không có status
+ĐẠT      include=tags trả 16 tag
+ĐẠT      Số món theo tag chỉ đếm published — 224
+ĐẠT      Không có include: response giữ nguyên
+ĐẠT      include lạ: VALIDATION_FAILED
+ĐẠT      Viewer ở quản trị: 1.200 món
+ĐẠT      Viewer lọc Nháp: 0 món
+ĐẠT      Editor A lọc Nháp: 3 món của mình, canEdit — 3
+ĐẠT      Editor A: 1.200 + 3 nháp
+ĐẠT      Admin lọc Nháp: 6 món — 6
+ĐẠT      Admin: 1.206 món
+ĐẠT      Bộ lọc status lạ: VALIDATION_FAILED
+ĐẠT      Viewer: canEdit false ở mọi món
+ĐẠT      Editor A tìm toàn văn không ra nháp của B
+ĐẠT      Admin tìm gần đúng ra món nháp
+ĐẠT      Viewer mở nháp ở quản trị → 403
+ĐẠT      Editor A mở nháp của B → 403
+ĐẠT      Editor A mở nháp của mình, canEdit true
+ĐẠT      Admin: canEdit true
+ĐẠT      Chi tiết đầu bếp không lộ tên món nháp cho Viewer
+ĐẠT      Editor của món thấy món nháp ở chi tiết đầu bếp
+ĐẠT      Chi tiết nguyên liệu không lộ tên món nháp cho Viewer
+
+TỔNG: 213 ĐẠT, 0 CHƯA ĐẠT

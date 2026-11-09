@@ -1,0 +1,6 @@
+## Viewer đã đăng nhập: chỉ có accessToken, không lưu role, userId
+
+sessionStorage: 1 khoá
+  accessToken = <JWT, dài 204 ký tự, chữ ký đã che>  payload: {"tv":0,"iat":1794214870,"exp":1794216670,"aud":"nhahang-web","iss":"nhahang-api","sub":"1"}
+localStorage: 0 khoá
+

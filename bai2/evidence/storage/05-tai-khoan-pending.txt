@@ -1,0 +1,5 @@
+## Tài khoản pending đăng nhập
+
+sessionStorage: 0 khoá
+localStorage: 0 khoá
+

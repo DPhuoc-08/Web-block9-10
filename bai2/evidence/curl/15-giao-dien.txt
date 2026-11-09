@@ -1,0 +1,30 @@
+ĐẠT: Thiếu quyền: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Danh sách món của Editor: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Form của Editor: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Danh sách món của Admin: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Thực đơn: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Chi tiết món: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Nhập mã kích hoạt: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Trang /forgot: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Trang /register mở ở 320px: không cuộn ngang
+
+ĐẠT: Bảo mật hai lớp: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Thiết lập MFA: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Recovery code: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Bước nhập mã: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Nhập mã khôi phục: không cuộn ngang ở 1280, 820, 375, 320
+
+ĐẠT: Xác thực lại: không cuộn ngang ở 1280, 820, 375, 320
+

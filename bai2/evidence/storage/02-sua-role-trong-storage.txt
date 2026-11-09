@@ -1,0 +1,9 @@
+## Viewer tự thêm role=admin vào storage
+
+sessionStorage: 2 khoá
+  accessToken = <JWT, dài 204 ký tự, chữ ký đã che>  payload: {"tv":0,"iat":1794214939,"exp":1794216739,"aud":"nhahang-web","iss":"nhahang-api","sub":"1"}
+  role = admin
+localStorage: 2 khoá
+  role = admin
+  userId = 1
+

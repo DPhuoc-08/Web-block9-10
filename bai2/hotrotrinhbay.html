@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hỗ trợ trình bày – Block 9, Bài 2</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1f2933;
+    --muted: #5b6672;
+    --border: #e1e5ea;
+    --accent: #2563eb;
+    --accent-soft: #e8efff;
+    --ok: #15803d;
+    --ok-soft: #e7f6ec;
+    --warn: #b45309;
+    --warn-soft: #fff4e0;
+    --err: #dc2626;
+    --err-soft: #fdecec;
+    --code-bg: #f1f3f6;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 16px; }
+  @media (min-width: 768px) { .wrap { padding: 24px; } }
+
+  header.top { padding: 8px 0 4px; }
+  header.top h1 { margin: 0; font-size: 28px; line-height: 1.25; }
+  header.top p { margin: 4px 0 0; color: var(--muted); }
+  .members {
+    margin: 12px 0 0; padding: 0; list-style: none;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .members li {
+    margin: 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 14px;
+  }
+  .members .mssv { font-family: var(--mono); color: var(--muted); margin-left: 6px; }
+
+  nav.toc {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    margin: 12px -16px 0; padding: 8px 16px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  nav.toc a {
+    text-decoration: none; color: var(--text);
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 12px; font-size: 14px;
+  }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  section.card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-top: 20px;
+    scroll-margin-top: 64px;
+  }
+  section.card > h2 { margin: 0 0 12px; font-size: 22px; }
+  h3 { margin: 16px 0 8px; font-size: 16px; }
+  p { margin: 8px 0; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+
+  code { font-family: var(--mono); font-size: 0.9em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .muted { color: var(--muted); }
+
+  .grid { display: grid; gap: 12px; }
+  .grid > * { min-width: 0; }
+  @media (min-width: 768px) { .grid.two { grid-template-columns: 1fr 1fr; } .grid.three { grid-template-columns: 1fr 1fr 1fr; } }
+  .box { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .box h3 { margin: 0 0 6px; }
+  .box p { margin: 4px 0; font-size: 15px; }
+  .box .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .box.chosen { border-color: var(--accent); background: var(--accent-soft); }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 4px; }
+  .stat { flex: 1 1 200px; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .stat strong { display: block; font-size: 24px; line-height: 1.2; color: var(--ok); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  th { background: var(--code-bg); font-weight: 600; white-space: nowrap; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 12px; }
+  .flow .step { border: 1px solid var(--border); background: var(--card); border-radius: 6px; padding: 3px 10px; font-size: 14px; }
+  .flow .step.key { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .flow .arrow { color: var(--muted); }
+
+  .callout { border-left: 4px solid var(--warn); background: var(--warn-soft); padding: 10px 14px; border-radius: 6px; margin: 12px 0 0; }
+
+  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0 8px; }
+  @media print { nav.toc { display: none; } }
+  @media (max-width: 520px) { td:first-child { white-space: normal; } }
+  @media (max-width: 640px) { .table-wrap table { min-width: 640px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Nhà hàng CSR: JWT và phân quyền</h1>
+  <p>Block 9, Bài 2 · api và web ở hai origin, logic xác thực chuyển từ Bài 1, credential là header Authorization</p>
+  <ul class="members" aria-label="Thành viên">
+    <li>Phan Quang Hiệp<span class="mssv">24127039</span></li>
+    <li>Trần Nguyễn Đình Nhân<span class="mssv">24127093</span></li>
+    <li>Lê Nho Duy Phước<span class="mssv">24127508</span></li>
+    <li>Nguyễn Hoàng Mỹ Trang<span class="mssv">24127565</span></li>
+  </ul>
+</header>
+
+<nav class="toc" aria-label="Mục lục">
+  <a href="#muc-tieu">Mục tiêu</a>
+  <a href="#nghiem-thu">Nghiệm thu</a>
+  <a href="#de-chua-khop">Đề chưa khớp</a>
+  <a href="#token">Nơi lưu token</a>
+  <a href="#thu-hoi">JWT khi đổi mật khẩu</a>
+  <a href="#quyet-dinh">Quyết định</a>
+  <a href="#chinh-sach">Chính sách</a>
+  <a href="#cong-nghe">Công nghệ</a>
+</nav>
+
+<section class="card" id="muc-tieu">
+  <h2>Mục tiêu và kết quả</h2>
+  <p>Cùng quy tắc xác thực và phân quyền như Bài 1, nhưng client là SPA ở origin khác nên bằng chứng danh tính đi theo header <code>Authorization</code>.</p>
+  <ul>
+    <li><code>api</code>: đăng nhập trả JWT, verify ở backend, role luôn đọc từ database</li>
+    <li>Tài khoản có MFA nhận challenge ngắn hạn, không nhận token cho tới khi qua mã</li>
+    <li>RBAC, ABAC đúng bảng quy tắc của Bài 1, chép nguyên <code>policy/permissions.js</code></li>
+    <li><code>web</code>: trang tài khoản, MFA, quản trị theo role; route guard và ẩn nút chỉ là giao diện</li>
+    <li>Giữ tìm kiếm, phân trang, hợp đồng lỗi của block 6, 7</li>
+  </ul>
+  <div class="stats">
+    <div class="stat"><strong>213/213</strong><a href="evidence/curl/check-api.txt">check-api</a>: request trực tiếp</div>
+    <div class="stat"><strong>1.200 món</strong><a href="evidence/curl/06-cong-khai.txt">route công khai</a>: như block 7, không token</div>
+  </div>
+  <p class="muted">Toàn bộ bằng chứng: <a href="evidence/README.md">evidence/README.md</a> · kịch bản demo: <a href="kichban.html">kichban.html</a> · mô-đun chuyển: <a href="MODULES.md">MODULES.md</a></p>
+</section>
+
+<section class="card" id="nghiem-thu">
+  <h2>Tiêu chí nghiệm thu (slide 67, 68)</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Kịch bản</th><th>Kết quả</th><th>Chạy thật</th></tr></thead>
+    <tbody>
+      <tr><td>Chưa đăng nhập, gọi <code>POST</code>, <code>PATCH</code>, <code>DELETE</code></td><td><code>401</code></td><td>Đạt</td></tr>
+      <tr><td>Thiếu quyền hoặc thuộc tính không thoả</td><td><code>403</code>, dữ liệu không đổi</td><td>Đạt</td></tr>
+      <tr><td>Gọi API trực tiếp</td><td>Cùng kết quả như qua giao diện</td><td>Đạt</td></tr>
+      <tr><td>JWT bị sửa hoặc hết hạn</td><td><code>401</code></td><td>Đạt</td></tr>
+      <tr><td>Đổi role trong storage hoặc payload</td><td>Quyền không tăng</td><td>Đạt</td></tr>
+      <tr><td>Preflight với <code>Authorization</code></td><td><code>OPTIONS</code> thành công, origin cụ thể</td><td>Đạt</td></tr>
+      <tr><td><code>GET /api/dishes</code> không token</td><td>Như trước khi gắn xác thực</td><td>Đạt</td></tr>
+      <tr><td>Đăng ký với <code>role: admin</code></td><td>Bản ghi có role <code>viewer</code></td><td>Đạt</td></tr>
+      <tr><td>Tài khoản pending đăng nhập</td><td>Không có <code>accessToken</code></td><td>Đạt</td></tr>
+      <tr><td>Password đúng, MFA bật, chưa OTP</td><td>Không có <code>accessToken</code>, có <code>next: "mfa"</code></td><td>Đạt</td></tr>
+      <tr><td>Recovery code dùng lần hai</td><td>Bị từ chối</td><td>Đạt</td></tr>
+      <tr><td>Sai đến ngưỡng, bỏ CAPTCHA</td><td><code>CAPTCHA_REQUIRED</code>, không có <code>accessToken</code></td><td>Đạt</td></tr>
+      <tr><td>Reset password xong, đăng nhập</td><td>Vẫn qua MFA; JWT cũ bị từ chối</td><td>Đạt</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="de-chua-khop">
+  <h2>Chỗ đề chưa khớp với project và cách xử lý</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Đề ghi</th><th>Project của nhóm</th><th>Cách xử lý</th></tr></thead>
+    <tbody>
+      <tr><td>Slide 61: thêm <code>Dish.chefId</code></td><td>Cột này bắt buộc từ block 7</td><td>Chỉ thêm <code>status</code></td></tr>
+      <tr><td>Sơ đồ JWT (slide 31, 35) có <code>role</code> trong payload</td><td>Ghi chú 33 chọn đọc role từ database</td><td>Token không chứa role; <code>web</code> lấy role từ <code>GET /api/auth/me</code></td></tr>
+      <tr><td>Slide 63: chỉ hai route món công khai</td><td>Trang <code>/dishes</code> của block 7 gọi <code>GET /api/tags</code></td><td>Theo đề: <code>GET /api/tags</code> cần token; thanh danh mục lấy tag qua <code>GET /api/dishes?include=tags</code></td></tr>
+      <tr><td>Slide 67: kết quả như trước khi gắn xác thực</td><td>Nhóm ẩn món nháp với khách</td><td>Món nháp seed thêm sau 1.200 món, nên lọc <code>published</code> vẫn đúng 1.200 món, cùng id, cùng <code>total</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="token">
+  <h2>Nơi lưu token</h2>
+  <div class="grid three">
+    <div class="box chosen"><span class="label">Đã chọn</span><h3><code>sessionStorage</code></h3><p>Còn sau Reload, không sang tab mới, mất khi đóng tab.</p></div>
+    <div class="box"><span class="label">Bỏ</span><h3><code>localStorage</code></h3><p>Sống tới khi bị xoá, kể cả sau khi đóng trình duyệt: token bị lấy thì cửa sổ rủi ro dài hơn.</p></div>
+    <div class="box"><span class="label">Bỏ</span><h3>Biến JavaScript</h3><p>Mất đăng nhập mỗi lần Reload, trong khi đề yêu cầu quản trị dùng được bình thường.</p></div>
+  </div>
+  <h3>Rủi ro còn lại</h3>
+  <p>Script chạy trên trang (XSS) đọc được <code>sessionStorage</code>. Nhóm giảm thiểu bằng cách không render HTML thô, token chỉ sống 30 phút, và server có <code>tokenVersion</code> để thu hồi. Đã đo: Reload vẫn đăng nhập, tab mới phải đăng nhập, đăng xuất xoá token (<a href="evidence/curl/12-noi-luu-token.txt">curl/12</a>).</p>
+  <div class="callout"><strong>Không lưu role:</strong> <code>web</code> chỉ giữ token. Sửa role trong storage hay payload không làm quyền tăng, vì <code>api</code> đọc role từ database ở mọi request.</div>
+</section>
+
+<section class="card" id="thu-hoi">
+  <h2>JWT đã cấp khi đổi mật khẩu</h2>
+  <p>Mỗi token mang số <code>tv</code>, so với cột <code>tokenVersion</code> ở mọi request. Reset mật khẩu và tắt MFA tăng cột này trong cùng transaction, nên <strong>mọi JWT đã cấp hết hiệu lực ngay</strong>, và challenge đang chờ bị huỷ.</p>
+  <p>Đổi role có hiệu lực ngay vì role đọc từ database, không cần thu hồi token.</p>
+  <div class="callout warn"><strong>Giới hạn công bố:</strong> đăng xuất chỉ xoá token ở trình duyệt đó. Một bản sao token ở nơi khác vẫn dùng được tới khi hết hạn, tối đa 30 phút, vì nhóm không dùng danh sách token thu hồi. <code>api</code> không có chức năng đổi mật khẩu khi đã đăng nhập, nên reset là đường đổi mật khẩu duy nhất.</div>
+</section>
+
+<section class="card" id="quyet-dinh">
+  <h2>Các quyết định của nhóm</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Điểm</th><th>Chọn</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr><td>Chung hay tách bảng User với Bài 1</td><td><strong>Tách</strong>: project Supabase riêng</td><td>Hai app độc lập đúng như đề; hai schema cùng ghi một database thì <code>db push</code> bên này sẽ đòi xoá cột của bên kia</td></tr>
+      <tr><td>Thời hạn token</td><td>30 phút, không có refresh token</td><td>Không có refresh nên đủ dài để không mất dữ liệu đang nhập ở form món; <code>tokenVersion</code> bù phần thu hồi</td></tr>
+      <tr><td>Đọc món cho trang quản trị</td><td>Route riêng <code>/api/admin/dishes</code>, trả <code>canEdit</code></td><td>Route công khai giữ nguyên kết quả cho mọi người gọi và không đọc token; <code>web</code> không phải chép luật ABAC</td></tr>
+      <tr><td>Trang quản lý MFA trên <code>web</code></td><td>Có làm, ở <code>/admin/security</code></td><td>Slide 60 ghi MFA; không có trang này thì chỉ bật được bằng curl</td></tr>
+      <tr><td>Secret, recovery code ở <code>web</code></td><td>Chỉ ở state của trang</td><td>Không vào URL, lịch sử trình duyệt, storage</td></tr>
+      <tr><td>Món nháp, Editor với đầu bếp, Tạm hết</td><td>Như Bài 1</td><td>Cùng bảng quy tắc (slide 63)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="chinh-sach">
+  <h2>Chính sách nhóm công bố</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Chủ đề</th><th>Giá trị</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr><td>Access token</td><td>HS256, 30 phút</td><td>Thuật toán cố định, không theo <code>alg</code> token tự khai</td></tr>
+      <tr><td>Claim JWT</td><td><code>sub</code>, <code>tv</code>, <code>iat</code>, <code>exp</code>, <code>iss</code>, <code>aud</code></td><td>Payload ai cũng đọc được nên không có role, email</td></tr>
+      <tr><td>Challenge</td><td>5 phút, dùng một lần, database lưu hash</td><td>Đủ mở app lấy mã, ngắn để bước password không thành quyền vào lâu dài</td></tr>
+      <tr><td>TOTP, recovery code, xác thực lại, sai mã</td><td>Như Bài 1</td><td>Chép nguyên logic</td></tr>
+      <tr><td>Đăng nhập sai</td><td>CAPTCHA từ lần 3, khoá 5 phút ở lần 10</td><td>Slide 37: cùng quy tắc với SSR</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="cong-nghe">
+  <h2>Công nghệ</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Thành phần</th><th>Dùng để</th></tr></thead>
+    <tbody>
+      <tr><td>Express 5, Prisma 7, PostgreSQL (Supabase)</td><td><code>api</code>, giữ từ block 7</td></tr>
+      <tr><td>React, Vite, React Router chế độ thư viện</td><td><code>web</code>, giữ từ block 7</td></tr>
+      <tr><td><code>jsonwebtoken</code> 9.0.3</td><td>Ký và verify JWT</td></tr>
+      <tr><td><code>otpauth</code>, <code>qrcode</code>, <code>argon2</code>, <code>nodemailer</code>, <code>validator</code></td><td>Cùng bản với Bài 1</td></tr>
+      <tr><td>reCAPTCHA v2</td><td>Cùng quy tắc với Bài 1</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Cố ý không dùng</h3>
+  <ul>
+    <li>Session, cookie, CSRF ở <code>api</code>: credential là header, trình duyệt không tự gửi</li>
+    <li>Refresh token, danh sách <code>jti</code> thu hồi: ngoài phạm vi; <code>tokenVersion</code> đủ cho reset</li>
+    <li>Passport.js, thư viện UI, thư viện form: luồng đã viết tay và nghiệm thu ở Bài 1</li>
+    <li><code>dangerouslySetInnerHTML</code>: không render HTML thô từ dữ liệu người dùng</li>
+  </ul>
+</section>
+
+<footer>Block 9, Bài 2 · cập nhật 09/11/2026 · chi tiết từng quyết định trong <code>BUILD_LOG.md</code></footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+ĐẠT: Log server không chứa secret TOTP
+
+ĐẠT: Log server không chứa mật khẩu seed
+
+ĐẠT: Log server không chứa mật khẩu thử
+
+ĐẠT: Log server không chứa JWT_SECRET
+
+ĐẠT: Log server không chứa JWT
+
+ĐẠT: Log server không chứa recovery code
+

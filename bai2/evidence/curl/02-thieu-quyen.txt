@@ -1,0 +1,64 @@
+$ POST /api/dishes   # Viewer
+  Authorization: Bearer <JWT đã che>
+  {"name":"[TEST B9] sửa"}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Viewer POST /api/dishes → 403
+
+$ PATCH /api/dishes/1211   # Viewer
+  Authorization: Bearer <JWT đã che>
+  {"name":"[TEST B9] sửa"}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Viewer PATCH /api/dishes/1211 → 403
+
+$ DELETE /api/dishes/1211   # Viewer
+  Authorization: Bearer <JWT đã che>
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Viewer DELETE /api/dishes/1211 → 403
+
+$ DELETE /api/dishes/1211   # Editor
+  Authorization: Bearer <JWT đã che>
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Editor DELETE /api/dishes/1211 → 403
+
+$ PATCH /api/dishes/1211   # Editor B, món của A
+  Authorization: Bearer <JWT đã che>
+  {"name":"[TEST B9] sửa"}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Editor B, món của A PATCH /api/dishes/1211 → 403
+
+$ PATCH /api/dishes/1   # Editor A, món published
+  Authorization: Bearer <JWT đã che>
+  {"name":"[TEST B9] sửa"}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Editor A, món published PATCH /api/dishes/1 → 403
+
+ĐẠT: Dữ liệu không đổi
+
+ĐẠT: Viewer: không có nút ghi, có dòng chỉ xem
+
+ĐẠT: 403: vẫn giữ token
+
+ĐẠT: Editor A lọc Nháp: thấy món của mình, không thấy của B
+
+ĐẠT: Form của Editor: không có ô Trạng thái, Đầu bếp
+
+ĐẠT: Dữ liệu không đổi, vẫn giữ token
+
+ĐẠT: Editor tạo món: server gán đầu bếp và Nháp, về danh sách lọc Nháp
+
+ĐẠT: Admin ở 1280px: bảng không tràn, nút Xoá trong khung
+
+ĐẠT: Form của Admin có ô Trạng thái
+

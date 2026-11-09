@@ -1,0 +1,46 @@
+$ POST /api/auth/register   # gửi kèm role: admin (key thử của Google)
+  Authorization: (không có)
+  {"email":"dangky@demo.example","username":"Người thử","password":"<đã che>","passwordConfirm":"<đã che>","captchaToken":"<đã che>","role":"admin"}
+→ 200
+  {"ok":true,"data":{"next":"activate","resendAfter":60}}
+
+ĐẠT: Bản ghi có role viewer, status pending
+
+$ POST /api/auth/login   # tài khoản pending
+  Authorization: (không có)
+  {"email":"dangky@demo.example","password":"<đã che>"}
+→ 200
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản chưa được kích hoạt. Nhập mã 6 số trong email để kích hoạt."}}
+
+ĐẠT: Pending: ACCOUNT_NOT_ACTIVATED, không có accessToken
+
+ĐẠT: Pending: storage không có token
+
+ĐẠT: Kích hoạt qua web: active, không tự đăng nhập
+
+$ POST /api/auth/login   # sai lần 1
+  Authorization: (không có)
+  {"email":"brute@demo.example","password":"<đã che>"}
+→ 200
+  {"ok":false,"error":{"code":"<đã che>","message":"Email hoặc mật khẩu không đúng.","captchaRequired":false}}
+
+$ POST /api/auth/login   # sai lần 2
+  Authorization: (không có)
+  {"email":"brute@demo.example","password":"<đã che>"}
+→ 200
+  {"ok":false,"error":{"code":"<đã che>","message":"Email hoặc mật khẩu không đúng.","captchaRequired":false}}
+
+$ POST /api/auth/login   # sai lần 3
+  Authorization: (không có)
+  {"email":"brute@demo.example","password":"<đã che>"}
+→ 200
+  {"ok":false,"error":{"code":"<đã che>","message":"Email hoặc mật khẩu không đúng.","captchaRequired":true}}
+
+$ POST /api/auth/login   # đúng password, bỏ CAPTCHA
+  Authorization: (không có)
+  {"email":"brute@demo.example","password":"<đã che>"}
+→ 200
+  {"ok":false,"error":{"code":"<đã che>","message":"Bạn đã nhập sai nhiều lần. Hãy xác nhận bạn không phải người máy.","captchaRequired":true}}
+
+ĐẠT: Sai đến ngưỡng, bỏ CAPTCHA: CAPTCHA_REQUIRED, không có token
+

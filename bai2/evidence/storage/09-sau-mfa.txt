@@ -1,0 +1,6 @@
+## Sau MFA
+
+sessionStorage: 1 khoá
+  accessToken = <JWT, dài 205 ký tự, chữ ký đã che>  payload: {"tv":0,"iat":1794215039,"exp":1794216839,"aud":"nhahang-web","iss":"nhahang-api","sub":"33"}
+localStorage: 0 khoá
+
