@@ -1,7 +1,7 @@
 {
-  "name": "block8",
+  "name": "block9-bai1",
   "version": "1.0.0",
-  "description": "Ứng dụng nhà hàng SSR (Express + EJS + Prisma + Supabase) trên database block7, có tìm kiếm, phân trang và xác thực tài khoản (block8)",
+  "description": "Ứng dụng nhà hàng SSR (Express + EJS + Prisma + Supabase) trên database block7, có tìm kiếm, phân trang, xác thực tài khoản; thêm RBAC, ABAC, MFA (block9, Bài 1)",
   "main": "src/app.js",
   "type": "module",
   "private": true,
