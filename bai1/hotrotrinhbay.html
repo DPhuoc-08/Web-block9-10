@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hỗ trợ trình bày – Block 9, Bài 1</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1f2933;
+    --muted: #5b6672;
+    --border: #e1e5ea;
+    --accent: #2563eb;
+    --accent-soft: #e8efff;
+    --ok: #15803d;
+    --ok-soft: #e7f6ec;
+    --warn: #b45309;
+    --warn-soft: #fff4e0;
+    --err: #dc2626;
+    --err-soft: #fdecec;
+    --code-bg: #f1f3f6;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 16px; }
+  @media (min-width: 768px) { .wrap { padding: 24px; } }
+
+  header.top { padding: 8px 0 4px; }
+  header.top h1 { margin: 0; font-size: 28px; line-height: 1.25; }
+  header.top p { margin: 4px 0 0; color: var(--muted); }
+  .members {
+    margin: 12px 0 0; padding: 0; list-style: none;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .members li {
+    margin: 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 14px;
+  }
+  .members .mssv { font-family: var(--mono); color: var(--muted); margin-left: 6px; }
+
+  nav.toc {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    margin: 12px -16px 0; padding: 8px 16px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  nav.toc a {
+    text-decoration: none; color: var(--text);
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 12px; font-size: 14px;
+  }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  section.card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-top: 20px;
+    scroll-margin-top: 64px;
+  }
+  section.card > h2 { margin: 0 0 12px; font-size: 22px; }
+  h3 { margin: 16px 0 8px; font-size: 16px; }
+  p { margin: 8px 0; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+
+  code { font-family: var(--mono); font-size: 0.9em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .muted { color: var(--muted); }
+
+  .grid { display: grid; gap: 12px; }
+  .grid > * { min-width: 0; }
+  @media (min-width: 768px) { .grid.two { grid-template-columns: 1fr 1fr; } .grid.three { grid-template-columns: 1fr 1fr 1fr; } }
+  .box { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .box h3 { margin: 0 0 6px; }
+  .box p { margin: 4px 0; font-size: 15px; }
+  .box .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .box.chosen { border-color: var(--accent); background: var(--accent-soft); }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 4px; }
+  .stat { flex: 1 1 200px; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .stat strong { display: block; font-size: 24px; line-height: 1.2; color: var(--ok); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  th { background: var(--code-bg); font-weight: 600; white-space: nowrap; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 12px; }
+  .flow .step { border: 1px solid var(--border); background: var(--card); border-radius: 6px; padding: 3px 10px; font-size: 14px; }
+  .flow .step.key { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .flow .arrow { color: var(--muted); }
+
+  .callout { border-left: 4px solid var(--warn); background: var(--warn-soft); padding: 10px 14px; border-radius: 6px; margin: 12px 0 0; }
+
+  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0 8px; }
+  @media print { nav.toc { display: none; } }
+  @media (max-width: 520px) { td:first-child { white-space: normal; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Nhà hàng SSR: phân quyền và MFA</h1>
+  <p>Block 9, Bài 1 · RBAC, ABAC và xác thực hai lớp TOTP trên ứng dụng SSR của block 8</p>
+  <ul class="members" aria-label="Thành viên">
+    <li>Phan Quang Hiệp<span class="mssv">24127039</span></li>
+    <li>Trần Nguyễn Đình Nhân<span class="mssv">24127093</span></li>
+    <li>Lê Nho Duy Phước<span class="mssv">24127508</span></li>
+    <li>Nguyễn Hoàng Mỹ Trang<span class="mssv">24127565</span></li>
+  </ul>
+</header>
+
+<nav class="toc" aria-label="Mục lục">
+  <a href="#muc-tieu">Mục tiêu</a>
+  <a href="#nghiem-thu">Nghiệm thu</a>
+  <a href="#de-chua-khop">Đề chưa khớp</a>
+  <a href="#luong">Luồng chính</a>
+  <a href="#quyet-dinh">Quyết định</a>
+  <a href="#chinh-sach">Chính sách</a>
+  <a href="#cong-nghe">Công nghệ</a>
+</nav>
+
+<section class="card" id="muc-tieu">
+  <h2>Mục tiêu và kết quả</h2>
+  <p>Server tự quyết định ai được làm gì. Ẩn nút chỉ là tiện dùng, gửi thẳng request vẫn bị chặn.</p>
+  <ul>
+    <li>Ba vai trò: Viewer chỉ đọc, Editor tạo và sửa, Admin toàn quyền</li>
+    <li>Editor chỉ sửa món <strong>nháp của đầu bếp mình</strong>; chỉ Admin xuất bản, đổi đầu bếp, xoá</li>
+    <li>MFA TOTP bật theo từng tài khoản, có recovery code dùng một lần</li>
+    <li>Password đúng mà chưa nhập mã thì chưa vào được quản trị</li>
+    <li>Giữ nguyên CRUD và mọi chức năng tài khoản của block 8</li>
+  </ul>
+  <div class="stats">
+    <div class="stat"><strong>159/159</strong><a href="evidence/curl/check-rbac.txt">check-rbac</a>: quyền, thuộc tính, món nháp</div>
+    <div class="stat"><strong>75/75</strong><a href="evidence/curl/check-mfa.txt">check-mfa</a>: thiết lập, đăng nhập, recovery code</div>
+    <div class="stat"><strong>32/32</strong><a href="evidence/curl/check-policy.txt">check-policy</a>: bảng quyền</div>
+    <div class="stat"><strong>135/135</strong><a href="evidence/curl/check-auth.txt">check-auth</a>: tài khoản của block 8</div>
+    <div class="stat"><strong>124/124</strong><a href="evidence/curl/check-ssr.txt">check-ssr</a>: thực đơn, tìm kiếm, CRUD</div>
+  </div>
+  <p class="muted">Toàn bộ bằng chứng: <a href="evidence/README.md">evidence/README.md</a> · kịch bản demo: <a href="kichban.html">kichban.html</a></p>
+</section>
+
+<section class="card" id="nghiem-thu">
+  <h2>Tiêu chí nghiệm thu (slide 56, 57)</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Kịch bản</th><th>Kết quả</th><th>Chạy thật</th></tr></thead>
+    <tbody>
+      <tr><td>Chưa đăng nhập, vào quản trị</td><td><code>303 /login</code></td><td>Đạt</td></tr>
+      <tr><td>Thiếu role để ghi</td><td>Trang <code>403</code>, md5 bảng món không đổi</td><td>Đạt</td></tr>
+      <tr><td>Có role, thuộc tính món không thoả</td><td>Trang <code>403</code> dù có role</td><td>Đạt</td></tr>
+      <tr><td>Mở form, rồi đổi status hoặc hạ role</td><td><code>PATCH</code> bị từ chối, tên món không đổi</td><td>Đạt</td></tr>
+      <tr><td>Gửi <code>PATCH</code> trực tiếp</td><td>Cùng kết quả như qua form</td><td>Đạt</td></tr>
+      <tr><td>Thêm <code>role</code>, <code>chefId</code>, <code>status</code> vào form</td><td>Quyền không tăng, món vẫn của A, vẫn nháp</td><td>Đạt</td></tr>
+      <tr><td>Password đúng, chưa nhập OTP</td><td>Không vào được quản trị, phiên không có <code>userId</code></td><td>Đạt</td></tr>
+      <tr><td>OTP sai quá giới hạn, mã dùng lại</td><td>Sai 5 lần <code>429</code> kể cả mã đúng; mã đã dùng bị từ chối</td><td>Đạt</td></tr>
+      <tr><td>Recovery code dùng lần hai</td><td>Bị từ chối, <code>usedAt</code> giữ nguyên</td><td>Đạt</td></tr>
+      <tr><td>Reset password xong, đăng nhập</td><td>Vẫn qua bước MFA, MFA không bị tắt</td><td>Đạt</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">Quét QR đã thử bằng Microsoft Authenticator trên điện thoại thật. Network và Application (Cookies) đọc từ Chrome qua DevTools Protocol, chưa có ảnh chụp cửa sổ DevTools.</p>
+</section>
+
+<section class="card" id="de-chua-khop">
+  <h2>Chỗ đề chưa khớp với project và cách xử lý</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Đề ghi</th><th>Project của nhóm</th><th>Cách xử lý</th></tr></thead>
+    <tbody>
+      <tr><td>Slide 47: Bài 1 trên SSR của Block 5</td><td>SSR của nhóm là block 8, dựng trên database và backend block 7 (đã công bố ở block 8)</td><td>Cơ chế và bảng nghiệm thu giữ nguyên</td></tr>
+      <tr><td>Slide 50: <code>Dish.chefId</code> là cột mới</td><td>Cột này bắt buộc từ block 7</td><td>Chỉ thêm <code>status</code>, không cần gán lại <code>chefId</code></td></tr>
+      <tr><td>Slide 50: User thêm ba cột</td><td>Slide 21 bắt nhớ bước TOTP đã dùng; ghi chú 18 không cho ghi đè secret đang dùng</td><td>Thêm <code>mfaLastStep</code>, <code>mfaPendingSecret</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="luong">
+  <h2>Luồng chính</h2>
+  <h3>Một request vào khu quản trị</h3>
+  <div class="flow">
+    <span class="step key">Danh tính</span><span class="arrow">→</span>
+    <span class="step">CSRF</span><span class="arrow">→</span>
+    <span class="step key">Role (RBAC)</span><span class="arrow">→</span>
+    <span class="step">Đọc món từ DB</span><span class="arrow">→</span>
+    <span class="step key">Thuộc tính (ABAC)</span><span class="arrow">→</span>
+    <span class="step">Câu ghi có điều kiện</span>
+  </div>
+  <p>Điều kiện ABAC nằm ngay trong câu ghi đầu tiên của transaction. Editor mở form, Admin xuất bản món, Editor gửi form: câu ghi không khớp dòng nào, không đổi gì.</p>
+  <h3>Đăng nhập khi đã bật MFA</h3>
+  <div class="flow">
+    <span class="step">Password đúng</span><span class="arrow">→</span>
+    <span class="step key">Phiên chờ, chưa có userId</span><span class="arrow">→</span>
+    <span class="step">Nhập mã</span><span class="arrow">→</span>
+    <span class="step key">Đổi sid, gán userId</span><span class="arrow">→</span>
+    <span class="step">Vào quản trị</span>
+  </div>
+  <p>Phiên chờ không có <code>userId</code> nên không có người dùng hiện tại, và mọi route <code>/admin/*</code> tự từ chối mà không cần thêm cờ riêng.</p>
+  <div class="grid three">
+    <a class="box" href="evidence/diagrams/1-phan-quyen-bon-cong.svg"><span class="label">Sơ đồ 1</span><p>Bốn cổng và câu ghi có điều kiện</p></a>
+    <a class="box" href="evidence/diagrams/2-mfa-dang-nhap.svg"><span class="label">Sơ đồ 2</span><p>Đăng nhập có MFA</p></a>
+    <a class="box" href="evidence/diagrams/3-mfa-thiet-lap-va-xac-thuc-lai.svg"><span class="label">Sơ đồ 3</span><p>Bật MFA, recovery code, xác thực lại</p></a>
+  </div>
+</section>
+
+<section class="card" id="quyet-dinh">
+  <h2>Các quyết định của nhóm</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Điểm</th><th>Chọn</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr><td>Món nháp</td><td>Thực đơn công khai luôn chỉ có món đã xuất bản, kể cả với Admin. Nháp chỉ hiện ở khu quản trị cho Editor của món và Admin</td><td>Nháp chưa phục vụ khách. Trang công khai không rẽ nhánh theo người xem nên khó lộ nháp. 6 món nháp seed sau 1.200 món nên thực đơn công khai vẫn đúng 1.200 món</td></tr>
+      <tr><td>Editor với đầu bếp, nguyên liệu, tag</td><td>Thêm, sửa được; không xoá; ABAC chỉ áp cho món</td><td>Slide 51 cho Editor đọc, tạo, sửa và chặn xoá; luật ABAC chỉ nói về món</td></tr>
+      <tr><td>Đổi nhanh Tạm hết</td><td>Tính là sửa món, chịu ABAC</td><td>Slide 51 chặn Editor sửa món đã xuất bản, không có ngoại lệ</td></tr>
+      <tr><td>Hiện recovery code một lần</td><td>Vẫn <code>POST</code> → <code>303</code> → <code>GET</code>. Mã gốc chờ trong bộ nhớ tiến trình tối đa 60 giây, gắn với phiên, đọc một lần là xoá</td><td>Đáp ứng cả hai yêu cầu của đề: ghi thành công phải <code>303</code> (Block 5), và chỉ lưu hash, hiện một lần (slide 22). Mã không vào DB, session, log</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><strong>Công bố về recovery code:</strong> mã gốc nằm trong RAM của server vài giây giữa hai request. Server khởi động lại hoặc quá 60 giây mà chưa mở trang thì mã mất; người dùng về hồ sơ và tạo nhóm mới bằng bước xác thực lại.</div>
+</section>
+
+<section class="card" id="chinh-sach">
+  <h2>Chính sách nhóm công bố</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Chủ đề</th><th>Giá trị</th><th>Lý do</th></tr></thead>
+    <tbody>
+      <tr><td>TOTP</td><td>6 chữ số, SHA-1, bước 30 giây, chấp nhận thêm tối đa 1 bước mỗi bên</td><td>Tương thích mọi app authenticator; một bước lân cận theo RFC 6238</td></tr>
+      <tr><td>Sai mã MFA (OTP, recovery code, xác thực lại chung bộ đếm)</td><td>5 lần / 15 phút → khoá 15 phút, <code>429</code></td><td>Mã 6 số chỉ khoảng một triệu giá trị; chung bộ đếm để không có đường dò thứ hai</td></tr>
+      <tr><td>Phiên chờ MFA</td><td>5 phút</td><td>Đủ mở app lấy mã, ngắn để bước password không thành quyền vào lâu dài</td></tr>
+      <tr><td>Recovery code</td><td>10 mã, dạng <code>XXXXX-XXXXX</code>, lưu HMAC-SHA256 với pepper</td><td>50 bit ngẫu nhiên nên HMAC là đủ, không cần băm chậm như password</td></tr>
+      <tr><td>TOTP secret</td><td>AES-256-GCM, khoá ở <code>.env</code>, gắn <code>userId</code> làm AAD</td><td>Phải giải mã được để kiểm tra mã; chép bản mã sang tài khoản khác sẽ thất bại</td></tr>
+      <tr><td>Thay, tắt MFA, tạo lại recovery code</td><td>Password và một mã TOTP hoặc recovery code</td><td>Slide 23, kể cả khi phiên đã đầy đủ</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">Các chính sách của block 8 (password, OTP kích hoạt, CAPTCHA, brute force, session 2 giờ / 12 giờ) giữ nguyên.</p>
+</section>
+
+<section class="card" id="cong-nghe">
+  <h2>Công nghệ</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Thành phần</th><th>Dùng để</th></tr></thead>
+    <tbody>
+      <tr><td>Express 5, EJS, Prisma 7, PostgreSQL (Supabase)</td><td>Giữ nguyên từ block 8</td></tr>
+      <tr><td><code>otpauth</code> 9.5.2</td><td>Sinh và kiểm tra mã TOTP theo RFC 6238</td></tr>
+      <tr><td><code>qrcode</code> 1.5.4</td><td>Vẽ QR ở server, nhúng vào trang</td></tr>
+      <tr><td><code>node:crypto</code></td><td>AES-256-GCM, HMAC-SHA256, số ngẫu nhiên</td></tr>
+      <tr><td>Argon2id (block 8)</td><td>Băm password</td></tr>
+      <tr><td>Figma, Chrome headless</td><td>Vẽ giao diện duyệt trước; thu bằng chứng</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Cố ý không dùng</h3>
+  <ul>
+    <li>Thư viện phân quyền (CASL, accesscontrol): bảng quyền là một file, đọc thẳng được</li>
+    <li>JWT, API JSON: thuộc Bài 2</li>
+    <li>Tự viết thuật toán mã hoá, TOTP: đề cấm (slide 49)</li>
+    <li><code>Math.random</code>, MD5, SHA-256 trực tiếp cho password: không an toàn</li>
+  </ul>
+</section>
+
+<footer>Block 9, Bài 1 · cập nhật 09/11/2026 · chi tiết từng quyết định trong <code>BUILD_LOG.md</code></footer>
+</div>
+</body>
+</html>

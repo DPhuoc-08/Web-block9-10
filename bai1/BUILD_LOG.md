@@ -189,6 +189,19 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - Cách sửa: thêm `recovery_codes` vào `SENSITIVE`.
 - Bằng chứng sau khi sửa: cùng câu truy vấn, số dòng log chứa giá trị hash từ 1 xuống 0, dòng `params` là `[ẩn — bảng xác thực]`.
 
+## Bước 16, 17 — Bằng chứng, sơ đồ, tài liệu
+**Đã làm:** viết lại `scripts/collect-evidence.mjs` theo 10 kịch bản của slide 56, 57 (bản chép từ block8 chỉ thu luồng đăng ký). `evidence/` có ảnh, Network, Application, request trực tiếp, bản ghi DB, thư đặt lại mật khẩu; ba sơ đồ SVG; `README.md`, `hotrotrinhbay.html`, `kichban.html`.
+
+**Quyết định và lý do:**
+- Server thu bằng chứng chạy ở cổng 3100, để không đụng server người dùng đang mở ở 3000.
+- MFA dùng tài khoản thử `@demo.example`: các ca khoá 15 phút, đổi mật khẩu không làm hỏng 4 tài khoản seed.
+- Che QR, secret, recovery code ngay trong trang trước khi chụp, không che sau: ảnh không bao giờ chứa giá trị thật.
+- Mã lúc bật MFA dùng bước liền trước, để bước đăng nhập ngay sau đó có mã mới mà không cần sửa `mfaLastStep`.
+
+**Đã kiểm tra:** mọi dòng trong `evidence/curl`, `evidence/db` ĐẠT. Quét `evidence/` không thấy email nhóm, `SESSION_SECRET`, `OTP_PEPPER`, `MFA_ENCRYPTION_KEY`, mật khẩu seed, App Password, chuỗi kết nối. Đã xem ảnh có che (QR, secret, recovery code). `hotrotrinhbay.html`, `kichban.html` không cuộn ngang ở 1280 và 375px, không ảnh hỏng, mọi link `evidence/` tồn tại. Sơ đồ ghi `file:dòng` lấy từ code hiện tại.
+
+**Chưa chắc:** sơ đồ là bản nháp của mình, nhóm cần duyệt trước khi nộp.
+
 ## Kiểm tra mã nguồn (slide 55)
 1. **Password băm bằng Argon2id?** Có. `src/auth/password.js:10` tạo, `:23` so. Không có MD5, SHA-256 trực tiếp cho password.
 2. **Recovery code lưu hash; TOTP secret có bị ghi log hoặc trả lại sau thiết lập?** Lưu HMAC-SHA256 (`src/auth/recovery.js`, ghi ở `src/auth/mfa.js:86`). Secret chỉ đọc khi có `mfaPendingSecret` (`mfa.js`, `readEnrollment`), đã bật thì `GET /setup` chuyển về hồ sơ. Không có `console.*` nào in secret, mã; `check-mfa` phần A dò log server. `src/db.js:28` chỉ in tham số SQL khi tự bật `LOG_SQL=1`, và tham số chỉ là hash, bản mã.

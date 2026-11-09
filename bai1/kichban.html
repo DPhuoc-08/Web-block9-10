@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kịch bản trình bày – Block 9, Bài 1</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1f2933;
+    --muted: #5b6672;
+    --border: #e1e5ea;
+    --accent: #2563eb;
+    --accent-soft: #e8efff;
+    --ok: #15803d;
+    --ok-soft: #e7f6ec;
+    --warn: #b45309;
+    --warn-soft: #fff4e0;
+    --err: #dc2626;
+    --err-soft: #fdecec;
+    --code-bg: #f1f3f6;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 16px; }
+  @media (min-width: 768px) { .wrap { padding: 24px; } }
+
+  header.top { padding: 8px 0 4px; }
+  header.top h1 { margin: 0; font-size: 28px; line-height: 1.25; }
+  header.top p { margin: 4px 0 0; color: var(--muted); }
+  .members {
+    margin: 12px 0 0; padding: 0; list-style: none;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .members li {
+    margin: 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 14px;
+  }
+  .members .mssv { font-family: var(--mono); color: var(--muted); margin-left: 6px; }
+
+  nav.toc {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    margin: 12px -16px 0; padding: 8px 16px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  nav.toc a {
+    text-decoration: none; color: var(--text);
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 12px; font-size: 14px;
+  }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  section.card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-top: 20px;
+    scroll-margin-top: 64px;
+  }
+  section.card > h2 { margin: 0 0 12px; font-size: 22px; }
+  h3 { margin: 20px 0 8px; font-size: 17px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+
+  code, pre { font-family: var(--mono); font-size: 0.9em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  pre {
+    background: var(--code-bg); border-radius: 8px;
+    padding: 12px 14px; overflow-x: auto; margin: 8px 0; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; overflow-wrap: normal; }
+
+  .muted { color: var(--muted); }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    padding: 1px 8px; border-radius: 999px; vertical-align: middle;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .s200 { background: var(--ok-soft); color: var(--ok); }
+  .biz { background: var(--warn-soft); color: var(--warn); }
+  .no { background: var(--err-soft); color: var(--err); }
+
+  .grid { display: grid; gap: 12px; }
+  /* Ô lưới mặc định min-width: auto → giãn theo dòng code dài nhất và đẩy trang tràn ngang ở 375px.
+     min-width: 0 để khối <pre> tự cuộn ngang bên trong ô. */
+  .grid > * { min-width: 0; }
+  @media (min-width: 768px) { .grid.two { grid-template-columns: 1fr 1fr; } .grid.three { grid-template-columns: 1fr 1fr 1fr; } }
+  .box { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .box h3 { margin-top: 0; }
+  .box img { display: block; max-width: 100%; height: auto; }
+  .box.chosen { border-color: var(--accent); background: var(--accent-soft); }
+  .box .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { background: var(--code-bg); font-weight: 600; white-space: nowrap; }
+  td:first-child { font-weight: 600; }
+  td:first-child code { white-space: nowrap; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+  .flow .step {
+    border: 1px solid var(--border); background: var(--card);
+    border-radius: 6px; padding: 4px 10px; font-size: 14px;
+  }
+  .flow .step.key { border-color: var(--accent); background: var(--accent-soft); }
+  .flow .arrow { color: var(--muted); }
+
+  .callout {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    padding: 10px 14px; border-radius: 6px; margin: 8px 0 12px;
+  }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+
+  footer { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0 8px; }
+
+  @media print { nav.toc { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Kịch bản trình bày Block 9, Bài 1</h1>
+  <p>Dữ liệu mới, luồng từng thao tác (request ↔ cổng kiểm tra ↔ bản ghi DB), kịch bản demo theo bảng nghiệm thu, lỗi đã phát hiện</p>
+</header>
+
+<nav class="toc" aria-label="Mục lục">
+  <a href="#du-lieu">1. Dữ liệu mới</a>
+  <a href="#luong">2. Luồng thao tác</a>
+  <a href="#so-do">3. Sơ đồ</a>
+  <a href="#demo">4. Kịch bản demo</a>
+  <a href="#loi">5. Lỗi đã phát hiện</a>
+</nav>
+
+<section class="card" id="du-lieu">
+  <h2>1. Dữ liệu mới (chỉ thêm, không đổi cột cũ)</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Bảng</th><th>Cột thêm</th><th>Dùng để</th></tr></thead>
+    <tbody>
+      <tr><td><code>dishes</code></td><td><code>status</code>: <code>draft</code> hoặc <code>published</code>, mặc định <code>published</code></td><td>ABAC, ẩn món nháp với khách</td></tr>
+      <tr><td><code>users</code></td><td><code>chefId</code> (rỗng với Viewer, Admin)</td><td>Editor được sửa món của đầu bếp nào</td></tr>
+      <tr><td><code>users</code></td><td><code>mfaEnabled</code>, <code>mfaSecret</code> (bản mã AES-256-GCM)</td><td>Trạng thái và secret TOTP đang dùng</td></tr>
+      <tr><td><code>users</code></td><td><code>mfaPendingSecret</code></td><td>Secret chờ xác nhận, chưa có hiệu lực đăng nhập, không ghi đè secret đang dùng</td></tr>
+      <tr><td><code>users</code></td><td><code>mfaLastStep</code></td><td>Bước TOTP đã chấp nhận gần nhất, để từ chối dùng lại mã</td></tr>
+      <tr><td><code>recovery_codes</code></td><td><code>userId</code>, <code>codeHash</code> (HMAC-SHA256), <code>usedAt</code></td><td>Mã dự phòng dùng một lần</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">Seed: 4 tài khoản <code>active</code> (Viewer, Editor A gắn Nguyễn Văn An, Editor B gắn Trần Thị Bích, Admin); 6 món nháp mang id 1201–1206, ba món mỗi đầu bếp, nằm sau 1.200 món nên thực đơn công khai vẫn đúng như block 7.</p>
+</section>
+
+<section class="card" id="luong">
+  <h2>2. Luồng từng thao tác: request ↔ cổng kiểm tra ↔ bản ghi DB</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Thao tác</th><th>Request</th><th>Server kiểm tra</th><th>DB</th></tr></thead>
+    <tbody>
+      <tr><td>Editor sửa món nháp của mình</td><td><code>POST /admin/dishes/:id?_method=PATCH</code></td><td>Phiên → CSRF → <code>dish:update</code> → đọc món → <code>canEditDish</code> → bỏ <code>chefId</code>, <code>status</code> trong body</td><td><code>UPDATE ... WHERE id, chefId, status='draft'</code>, count = 1 rồi mới ghi tag, nguyên liệu</td></tr>
+      <tr><td>Editor sửa món đã xuất bản</td><td>như trên</td><td>Dừng ở <code>canEditDish</code>: trang <code>403</code></td><td>Không ghi</td></tr>
+      <tr><td>Bật MFA</td><td><code>POST /admin/profile/mfa/setup</code> → <code>GET</code> vẽ QR → <code>POST .../setup/confirm</code></td><td>Mã phải khớp secret chờ</td><td><code>mfaPendingSecret</code> → <code>mfaSecret</code>, <code>mfaEnabled = true</code>, 10 dòng <code>recovery_codes</code></td></tr>
+      <tr><td>Password đúng, đã bật MFA</td><td><code>POST /login</code> → <code>303 /login/mfa</code></td><td>Không gán <code>userId</code></td><td><code>sessions.data</code> có <code>mfaPending</code>, không có <code>userId</code></td></tr>
+      <tr><td>Nhập mã đúng</td><td><code>POST /login/mfa</code> → <code>303</code></td><td>Khoá? → mã đúng? → mã chưa dùng?</td><td><code>mfaLastStep</code> tăng; bản ghi phiên có sid mới, có <code>userId</code></td></tr>
+      <tr><td>Dùng recovery code</td><td><code>POST /login/mfa/recovery</code></td><td>HMAC khớp, <code>usedAt</code> rỗng</td><td><code>usedAt = now</code></td></tr>
+      <tr><td>Tắt MFA</td><td><code>POST /admin/profile/mfa/reauth/disable</code></td><td>Password và một mã</td><td>Xoá secret, xoá recovery code</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="card" id="so-do">
+  <h2>3. Sơ đồ luồng</h2>
+  <p>Vẽ từ code thật: cột trái là luồng chính đúng thứ tự trong code, cột phải là nơi request dừng; mỗi ô ghi <code>file:dòng</code>. Đổi code xong chạy <code>node evidence/diagrams/ve-so-do.mjs</code> từ thư mục <code>bai1/</code>. Đây là bản nháp, nhóm duyệt trước khi dùng.</p>
+  <div class="grid two">
+    <a class="box" href="evidence/diagrams/1-phan-quyen-bon-cong.svg"><span class="label">Sơ đồ 1</span><h3>Bốn cổng và câu ghi có điều kiện</h3><img src="evidence/diagrams/1-phan-quyen-bon-cong.svg" alt="Sơ đồ phân quyền bốn cổng"></a>
+    <a class="box" href="evidence/diagrams/2-mfa-dang-nhap.svg"><span class="label">Sơ đồ 2</span><h3>Đăng nhập có MFA</h3><img src="evidence/diagrams/2-mfa-dang-nhap.svg" alt="Sơ đồ đăng nhập có MFA"></a>
+    <a class="box" href="evidence/diagrams/3-mfa-thiet-lap-va-xac-thuc-lai.svg"><span class="label">Sơ đồ 3</span><h3>Bật MFA, recovery code, xác thực lại</h3><img src="evidence/diagrams/3-mfa-thiet-lap-va-xac-thuc-lai.svg" alt="Sơ đồ bật MFA và xác thực lại"></a>
+  </div>
+</section>
+
+<section class="card" id="demo">
+  <h2>4. Kịch bản demo theo bảng nghiệm thu</h2>
+  <div class="callout warn"><strong>Chuẩn bị:</strong> mở lại project Supabase nếu bị tạm dừng · chạy <code>npx prisma db seed</code> nếu vừa test · <code>npm start</code> · mở ứng dụng xác thực trên điện thoại, xoá mục cũ nếu đã seed lại · hai cửa sổ trình duyệt (Editor, Admin) · DevTools mở tab Network và Application.</div>
+
+  <h3>Phần 1: Phân quyền (slide 56)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Làm</th><th>Cho xem</th><th>Đối chiếu bằng chứng</th></tr></thead>
+    <tbody>
+      <tr><td>Chưa đăng nhập, mở <code>/admin/dishes</code></td><td>Network: <code>303 /login</code></td><td>ảnh 01, <code>curl/01</code></td></tr>
+      <tr><td>Đăng nhập Viewer, xem danh sách, mở <code>/admin/dishes/new</code></td><td>Không có nút ghi; trang “Không đủ quyền”</td><td>ảnh 02, 03, <code>curl/02</code></td></tr>
+      <tr><td>Đăng nhập Editor A, mở <code>/admin/dishes/1204/edit</code> (món của B); mở một món đã xuất bản của mình</td><td>Cả hai đều <code>403</code> dù có role</td><td>ảnh 04, 05, <code>curl/03</code></td></tr>
+      <tr><td>Editor A mở món nháp của mình; cửa sổ Admin xuất bản món đó; Editor bấm Lưu</td><td><code>403</code>, tên món không đổi</td><td>ảnh 07, <code>curl/04</code>, <code>db/04</code></td></tr>
+      <tr><td>Thêm ô ẩn <code>chefId</code>, <code>status</code>, <code>role</code> bằng DevTools rồi lưu</td><td>Lưu được tên, món vẫn của A, vẫn nháp</td><td>ảnh 09, <code>db/06</code></td></tr>
+      <tr><td>Chép request từ Network sang curl, gửi với cookie Viewer</td><td>Cùng <code>403</code> như qua form</td><td><code>curl/05</code></td></tr>
+      <tr><td>Khách mở URL một món nháp</td><td><code>404</code></td><td>ảnh 11, <code>curl/07</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Phần 2: MFA (slide 57)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Làm</th><th>Cho xem</th><th>Đối chiếu bằng chứng</th></tr></thead>
+    <tbody>
+      <tr><td>Viewer vào Hồ sơ, bật MFA, quét QR bằng điện thoại, nhập mã</td><td>Mã khôi phục hiện một lần; Reload không hiện lại</td><td>ảnh 13, 14, <code>db/07</code></td></tr>
+      <tr><td>Đăng xuất, đăng nhập bằng password</td><td>Dừng ở bước nhập mã; mở <code>/admin/dishes</code> bị chặn; Application: có cookie <code>sid</code>, nhưng bản ghi phiên chưa có <code>userId</code></td><td>ảnh 16, 17, <code>curl/08</code>, <code>db/08</code></td></tr>
+      <tr><td>Nhập mã từ điện thoại</td><td>Network: <code>sid</code> mới, vào được quản trị</td><td>Network mục 8c, ảnh 18</td></tr>
+      <tr><td>Đăng xuất, đăng nhập lại ngay, nhập đúng mã vừa dùng</td><td><code>INVALID_OTP</code></td><td>ảnh 19, <code>curl/09</code></td></tr>
+      <tr><td>Nhập sai 5 lần</td><td><code>429</code>, <code>Retry-After</code>, nút bị khoá</td><td>ảnh 20, <code>db/09</code></td></tr>
+      <tr><td>Dùng một mã khôi phục; đăng nhập lại dùng đúng mã đó</td><td>Lần đầu vào được, có nhắc đổi thiết bị; lần hai bị từ chối</td><td>ảnh 22, 23, <code>db/10</code></td></tr>
+      <tr><td>Quên mật khẩu, đặt lại qua email, đăng nhập bằng mật khẩu mới</td><td>Vẫn phải qua bước nhập mã</td><td>ảnh 25, <code>curl/11</code>, <code>db/11</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">Sai 5 lần sẽ khoá tài khoản đó 15 phút, nên demo ca này sau cùng.</p>
+</section>
+
+<section class="card" id="loi">
+  <h2>5. Lỗi đã phát hiện và cách sửa</h2>
+  <h3>Lỗi chính (đề yêu cầu): thêm cột Trạng thái đẩy nút Xoá ra ngoài khung bảng</h3>
+  <div class="grid two">
+    <div class="box"><span class="label">Tái hiện</span><p>Đăng nhập Admin, mở <code>/admin/dishes</code> ở 1280px: nút Xoá không thấy nếu không cuộn trong khung bảng.</p></div>
+    <div class="box"><span class="label">Nguyên nhân</span><p>Bảng đã gần đầy, thêm một cột làm khung tràn. Lúc viết mình chỉ kiểm tra toàn trang không cuộn ngang, nên không thấy tràn bên trong khung.</p></div>
+    <div class="box"><span class="label">Sửa</span><p>Bỏ cột Tag ở màn rộng theo Figma đã duyệt; từ 821 đến 1100px cho cụm nút xuống dòng.</p></div>
+    <div class="box"><span class="label">Sau khi sửa</span><p>Độ tràn bằng 0 ở cả 6 cỡ từ 1440 đến 821px (<code>curl/14</code>, ảnh 28).</p></div>
+  </div>
+  <h3>Hai lỗi khác</h3>
+  <ul>
+    <li><strong>Ca kiểm thử sai:</strong> <code>check-rbac</code> dò món nháp theo tên, nên 19 ca báo sai vì ô tìm kiếm in lại từ khoá. Đổi sang dò theo id, thêm ca đối chứng.</li>
+    <li><strong><code>LOG_SQL=1</code> in tham số của <code>recovery_codes</code>:</strong> lúc thêm bảng mới mình quên thêm vào danh sách bảng ẩn tham số. Sau khi sửa, cùng câu truy vấn không còn in giá trị hash.</li>
+  </ul>
+</section>
+
+<footer>Block 9, Bài 1 · cập nhật 09/11/2026 · đối chiếu với code thật ở <code>source-code/</code></footer>
+</div>
+</body>
+</html>
