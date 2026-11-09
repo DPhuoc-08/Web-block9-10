@@ -61,3 +61,14 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 **Đã kiểm tra:** chạy server thật trên DB đã seed. `check-ssr`: **124 ĐẠT, 0 CHƯA ĐẠT**. `check-auth`: **135 ĐẠT, 0 CHƯA ĐẠT**. Sau khi chạy, md5 toàn bộ món vẫn `1eacda6b…`, 4 tài khoản, `rate_limits` rỗng: không có dữ liệu thử sót lại.
 
 **Ghi nhận:** ở bước này thực đơn công khai chưa lọc món nháp nên `check-ssr` vẫn khớp. Sau bước 7a phải sửa các ca đếm SQL của thực đơn (plan bước 7a).
+
+## Bước 5 — Bảng quyền và cổng RBAC
+**Đã làm:** `src/policy/permissions.js` (hàm thuần `can`, `canEditDish`, `canViewDish`, `editableDishWhere`, `visibleDishWhere`), `src/auth/require-permission.js`, `res.locals.can`, `res.locals.canEditDish`, `403.ejs` nhận nội dung theo lý do, `loadUser` đọc thêm `chefId` từ DB. `scripts/check-policy.mjs` kiểm thử bảng quyền.
+
+**Quyết định và lý do:**
+- **Điều kiện ABAC viết một lần ở `editableDishWhere`:** cổng kiểm tra và câu ghi dùng chung, không thể lệch nhau.
+- **`hasChef` dùng `Number.isInteger`:** Editor chưa gắn đầu bếp không khớp bản ghi nào, tránh lỗi rỗng bằng rỗng.
+- **Không gộp vào `requireLogin`:** `requireLogin` trả lời "là ai", `requirePermission` trả lời "được làm gì".
+- Phương án đã bỏ: đặt quyền ngay trong template. Template chỉ ẩn nút, server mới là nơi chặn.
+
+**Đã kiểm tra:** `node scripts/check-policy.mjs`: **32 ĐẠT, 0 CHƯA ĐẠT**.

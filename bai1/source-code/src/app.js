@@ -7,6 +7,7 @@ import { prisma } from "./db.js";
 import { PrismaSessionStore } from "./auth/session-store.js";
 import { loadUser, SESSION_IDLE_MS } from "./auth/load-user.js";
 import { csrf } from "./auth/csrf.js";
+import { can, canEditDish } from "./policy/permissions.js";
 import { startCleanup } from "./auth/cleanup.js";
 import { requireLogin } from "./auth/require-login.js";
 import loginRouter from "./routes/auth/login.js";
@@ -65,6 +66,14 @@ app.use(
 );
 // Từ cookie sid → user đang đăng nhập (res.locals.currentUser) cho mọi route và template.
 app.use(loadUser);
+
+// Template ẩn nút bằng đúng hai hàm mà server dùng để chặn. Ẩn nút chỉ để tiện dùng; quyền được kiểm tra ở từng route.
+app.use((req, res, next) => {
+  res.locals.can = (action) => can(res.locals.currentUser, action);
+  res.locals.canEditDish = (dish) => canEditDish(res.locals.currentUser, dish);
+  next();
+});
+
 // Khu quản trị = cụm CRUD: MỌI route dưới /admin (cả GET lẫn ghi) phải đăng nhập — chặn ở server (plan 5.7, 12.2).
 // Đặt TRƯỚC csrf: chưa đăng nhập thì mọi request /admin (kể cả POST gửi thẳng bằng curl, không cookie, không token)
 // đều nhận 303 /login như đề yêu cầu, thay vì 403 của CSRF (lỗi phát hiện ở bước 18). Đã đăng nhập thì đi tiếp qua csrf.
