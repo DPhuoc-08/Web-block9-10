@@ -4,6 +4,8 @@ import { Router } from "express";
 import { prisma, isUniqueViolation, nameTaken } from "../db.js";
 import { ok, validationFailed } from "../http/respond.js";
 import { jsonBody } from "../http/json-body.js";
+import { requireJwt } from "../auth/require-jwt.js";
+import { requirePermission } from "../auth/require-permission.js";
 import { hasErrors } from "../validators/common.js";
 import { validateTag } from "../validators/tag.js";
 
@@ -15,14 +17,14 @@ const toTag = ({ _count, ...tag }) => ({ ...tag, dishCount: _count.dishes, chefC
 
 // Danh sách A→Z, kèm số món / số đầu bếp dùng tag:
 // SPA dùng cho ô chọn tag trong form, và chip lọc ở thực đơn (chỉ tag có dishCount > 0).
-router.get("/", async (req, res) => {
+router.get("/", requireJwt, requirePermission("tag:read"), async (req, res) => {
   const tags = await prisma.tag.findMany({ include: withCount, orderBy: { name: "asc" } });
   ok(res, tags.map(toTag));
 });
 
 // Thêm tag mới ngay trong form món / form đầu bếp. Trùng tên không phân biệt hoa thường
 // ("món nước" trùng "Món nước") → VALIDATION_FAILED cạnh ô tên, không tạo tag thứ hai.
-router.post("/", jsonBody, async (req, res) => {
+router.post("/", requireJwt, requirePermission("tag:create"), jsonBody, async (req, res) => {
   const { data, errors } = validateTag(req.body);
   if (!errors.name && (await nameTaken(prisma.tag, data.name))) errors.name = DUPLICATE;
   if (hasErrors(errors)) return validationFailed(res, errors);

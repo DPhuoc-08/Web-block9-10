@@ -7,6 +7,9 @@ import { Router } from "express";
 import { prisma, isNotFound, isUniqueViolation, isForeignKeyViolation, nameTaken, findPage, findFuzzyPage } from "../db.js";
 import { ok, notFound, validationFailed, inUse } from "../http/respond.js";
 import { jsonBody } from "../http/json-body.js";
+import { requireJwt } from "../auth/require-jwt.js";
+import { requirePermission } from "../auth/require-permission.js";
+import { visibleDishWhere } from "../policy/permissions.js";
 import { parseId } from "../validators/id.js";
 import { hasErrors, queryStr } from "../validators/common.js";
 import { validateChef } from "../validators/chef.js";
@@ -20,15 +23,16 @@ const NOT_FOUND = "Không tìm thấy đầu bếp.";
 const DUPLICATE = "Đã có đầu bếp tên này.";
 const withCount = { _count: { select: { dishes: true } }, tags: TAG_SELECT };
 const toChef = ({ _count, tags, ...chef }) => ({ ...chef, tags: flatTags(tags), dishCount: _count.dishes });
-const dishesOf = (chefId) =>
-  prisma.dish.findMany({ where: { chefId }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+// `viewer`: tên món nháp không được lộ cho Viewer, Editor khác (plan 7.5). Trang xoá của Admin không truyền, vì Admin thấy mọi món.
+const dishesOf = (chefId, viewer = null) =>
+  prisma.dish.findMany({ where: { chefId, ...(viewer ? visibleDishWhere(viewer) : {}) }, select: { id: true, name: true }, orderBy: { name: "asc" } });
 
 // Danh sách có phân trang, mỗi đầu bếp kèm chuyên môn và số món đang phụ trách (cột "Phụ trách N món" ở trang quản trị).
 //   ?q= (tìm kiếm admin, giữ từ block5): khớp tên HOẶC tên một chuyên môn, không phân biệt hoa thường
 //   &page= &pageSize= (mặc định 1, 20) hoặc ?all=true (form món, trang xoá đầu bếp cần đủ danh sách để chọn)
 //   ?mode=fuzzy&q= : tìm gần đúng theo tên (gõ sai), q bắt buộc
 // Trả data: { items, total, page, pageSize } như GET /api/dishes.
-router.get("/", async (req, res) => {
+router.get("/", requireJwt, requirePermission("chef:read"), async (req, res) => {
   const query = parseAdminListQuery(req.query, "đầu bếp");
   if (hasErrors(query.errors)) return validationFailed(res, query.errors);
   // mode=fuzzy: gần đúng theo TÊN (pg_trgm), xếp điểm giảm dần rồi id, mỗi dòng có `score` (plan 14.f).
@@ -42,15 +46,15 @@ router.get("/", async (req, res) => {
 });
 
 // Chi tiết kèm các món đang phụ trách: trang xác nhận xoá dùng để liệt kê món cần chuyển.
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireJwt, requirePermission("chef:read"), async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res, NOT_FOUND);
   const chef = await prisma.chef.findUnique({ where: { id }, include: withCount });
   if (!chef) return notFound(res, NOT_FOUND);
-  ok(res, { ...toChef(chef), dishes: await dishesOf(id) });
+  ok(res, { ...toChef(chef), dishes: await dishesOf(id, res.locals.currentUser) });
 });
 
-router.post("/", jsonBody, async (req, res) => {
+router.post("/", requireJwt, requirePermission("chef:create"), jsonBody, async (req, res) => {
   const { data, tagIds, errors } = validateChef(req.body);
   // Trùng tên (không phân biệt hoa thường) là lỗi của ô "Tên" → VALIDATION_FAILED, hiện cạnh ô nhập.
   if (!errors.name && (await nameTaken(prisma.chef, data.name))) errors.name = DUPLICATE;
@@ -71,7 +75,7 @@ router.post("/", jsonBody, async (req, res) => {
   }
 });
 
-router.patch("/:id", jsonBody, async (req, res) => {
+router.patch("/:id", requireJwt, requirePermission("chef:update"), jsonBody, async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res, NOT_FOUND);
 
@@ -93,7 +97,7 @@ router.patch("/:id", jsonBody, async (req, res) => {
 });
 
 // Xoá. ?transferTo=<id> là ĐIỀU KIỆN của thao tác xoá (đầu bếp nhận món), nên đi qua query string, không qua body.
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireJwt, requirePermission("chef:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res, NOT_FOUND);
 

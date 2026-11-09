@@ -5,6 +5,7 @@ import dishesRouter from "./routes/dishes.js";
 import tagsRouter from "./routes/tags.js";
 import chefsRouter from "./routes/chefs.js";
 import ingredientsRouter from "./routes/ingredients.js";
+import adminDishesRouter from "./routes/admin-dishes.js";
 import authRouter from "./routes/auth.js";
 import mfaRouter from "./routes/mfa.js";
 import { assertJwtSecret } from "./auth/jwt.js";
@@ -47,6 +48,7 @@ app.use(
 app.use("/api/auth", authRouter);
 app.use("/api/auth/mfa", mfaRouter);
 app.use("/api/dishes", dishesRouter);
+app.use("/api/admin/dishes", adminDishesRouter);
 app.use("/api/chefs", chefsRouter);
 app.use("/api/ingredients", ingredientsRouter);
 app.use("/api/tags", tagsRouter);

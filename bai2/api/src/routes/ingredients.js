@@ -6,6 +6,9 @@ import { Router } from "express";
 import { prisma, isNotFound, isUniqueViolation, isForeignKeyViolation, nameTaken, findPage, findFuzzyPage } from "../db.js";
 import { ok, notFound, validationFailed, inUse } from "../http/respond.js";
 import { jsonBody } from "../http/json-body.js";
+import { requireJwt } from "../auth/require-jwt.js";
+import { requirePermission } from "../auth/require-permission.js";
+import { visibleDishWhere } from "../policy/permissions.js";
 import { parseId } from "../validators/id.js";
 import { hasErrors } from "../validators/common.js";
 import { parseAdminListQuery, searchWhere, containsIn } from "../validators/list-query.js";
@@ -17,9 +20,10 @@ const NOT_FOUND = "Không tìm thấy nguyên liệu.";
 const DUPLICATE = "Đã có nguyên liệu tên này.";
 const withCount = { _count: { select: { dishes: true } } };
 const toIngredient = ({ _count, ...ingredient }) => ({ ...ingredient, dishCount: _count.dishes });
-const dishesUsing = (ingredientId) =>
+// `viewer`: tên món nháp không được lộ cho Viewer, Editor khác (plan 7.5).
+const dishesUsing = (ingredientId, viewer = null) =>
   prisma.dish.findMany({
-    where: { ingredients: { some: { ingredientId } } },
+    where: { ingredients: { some: { ingredientId } }, ...(viewer ? visibleDishWhere(viewer) : {}) },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
@@ -29,7 +33,7 @@ const dishesUsing = (ingredientId) =>
 //   &page= &pageSize= (mặc định 1, 20) hoặc ?all=true (form món cần đủ 250 nguyên liệu để chọn)
 //   ?mode=fuzzy&q= : tìm gần đúng theo tên (gõ sai), q bắt buộc
 // Trả data: { items, total, page, pageSize } như GET /api/dishes.
-router.get("/", async (req, res) => {
+router.get("/", requireJwt, requirePermission("ingredient:read"), async (req, res) => {
   const query = parseAdminListQuery(req.query, "nguyên liệu");
   if (hasErrors(query.errors)) return validationFailed(res, query.errors);
   // mode=fuzzy: gần đúng theo TÊN (pg_trgm), xếp điểm giảm dần rồi id, mỗi dòng có `score` (plan 14.f).
@@ -43,15 +47,15 @@ router.get("/", async (req, res) => {
 });
 
 // Chi tiết kèm các món đang dùng: trang xác nhận xoá dùng để liệt kê món cần bỏ nguyên liệu này trước.
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireJwt, requirePermission("ingredient:read"), async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res, NOT_FOUND);
   const ingredient = await prisma.ingredient.findUnique({ where: { id }, include: withCount });
   if (!ingredient) return notFound(res, NOT_FOUND);
-  ok(res, { ...toIngredient(ingredient), dishes: await dishesUsing(id) });
+  ok(res, { ...toIngredient(ingredient), dishes: await dishesUsing(id, res.locals.currentUser) });
 });
 
-router.post("/", jsonBody, async (req, res) => {
+router.post("/", requireJwt, requirePermission("ingredient:create"), jsonBody, async (req, res) => {
   const { data, errors } = validateIngredient(req.body);
   // Trùng tên (không phân biệt hoa thường: "tỏi" trùng "Tỏi") → VALIDATION_FAILED cạnh ô "Tên".
   if (!errors.name && (await nameTaken(prisma.ingredient, data.name))) errors.name = DUPLICATE;
@@ -66,7 +70,7 @@ router.post("/", jsonBody, async (req, res) => {
   }
 });
 
-router.patch("/:id", jsonBody, async (req, res) => {
+router.patch("/:id", requireJwt, requirePermission("ingredient:update"), jsonBody, async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res, NOT_FOUND);
 
@@ -84,7 +88,7 @@ router.patch("/:id", jsonBody, async (req, res) => {
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireJwt, requirePermission("ingredient:delete"), async (req, res) => {
   const id = parseId(req.params.id);
   if (id === null) return notFound(res, NOT_FOUND);
 

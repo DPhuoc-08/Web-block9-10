@@ -10,6 +10,8 @@ Nguồn: `bai1/source-code/`. Đích: `bai2/api/`. Cập nhật theo từng bư�
 | `src/routes/auth.js` (từ `routes/auth/login.js`, `register.js`, `password-reset.js`, `mfa.js`) | Đổi cách trả kết quả | Giữ thứ tự kiểm tra, số liệu; form + redirect thành JSON; phiên chờ thành challenge; reset tăng `tokenVersion`, huỷ challenge; link thư lấy từ `WEB_ORIGIN` |
 | `src/routes/mfa.js` (từ `routes/admin/mfa.js`) | Đổi cách trả kết quả | Recovery code trả một lần trong JSON, không có bước `303`; thêm `GET /status` |
 | `src/auth/require-permission.js` | Đổi cách trả kết quả | Trang `403` thành JSON `403` `FORBIDDEN` |
+| `guardDish`, `withServerFields`, câu ghi có điều kiện ở `src/routes/dishes.js` (từ `routes/admin/dishes.js`) | Đổi cách trả kết quả | Cùng thứ tự cổng và cùng luật `editableDishWhere`; `403` JSON; `PATCH` nhận một phần trường nên có câu ghi no-op khi chỉ đổi tag, nguyên liệu |
+| `src/search/dish-filter.js` (từ `dishFilterSql` ở `queries/dishes.js`) | Viết lại theo cùng luật | Chỉ giữ phần món nháp, dùng `draftScope`; tìm kiếm giữ đúng block7, không lấy phần bỏ dấu của block8 |
 | `src/auth/cleanup.js` | Chép, sửa ít | Dọn `mfa_challenges` thay cho `sessions` |
 | `src/policy/permissions.js` | Chép nguyên | Không |
 | `prisma/seed-data/block9.js` | Chép nguyên | Không |

@@ -2,6 +2,7 @@
 //   node scripts/check-api.mjs        → mọi phần
 //   node scripts/check-api.mjs B      → chỉ phần B
 // A: CORS, verify JWT. B: đăng nhập, challenge MFA. C: đăng ký, kích hoạt, quên mật khẩu. D: quản lý MFA.
+// E: token, RBAC, ABAC ở route dữ liệu. F: ai thấy món nháp; route công khai giữ kết quả như block7.
 // Tài khoản thử @demo.example, bản ghi "[TEST B9]" được xoá ở cuối. Không có nhánh code nào bỏ qua CAPTCHA hay MFA.
 import "./lib/test-env.mjs";
 import jwt from "jsonwebtoken";
@@ -344,6 +345,189 @@ async function partD() {
   results.push(r.counts);
 }
 
+const T = "[TEST B9]";
+async function snapshot() {
+  const [row] = await prisma.$queryRaw`SELECT
+    (SELECT md5(string_agg(d::text, ',' ORDER BY d.id)) FROM dishes d) dishes, (SELECT md5(string_agg(c::text, ',' ORDER BY c.id)) FROM chefs c) chefs,
+    (SELECT md5(string_agg(i::text, ',' ORDER BY i.id)) FROM ingredients i) ingredients, (SELECT count(*)::int FROM tags) tags,
+    (SELECT count(*)::int FROM dish_tags) dt, (SELECT count(*)::int FROM dish_ingredients) di`;
+  return JSON.stringify(row);
+}
+const tokens = async () => ({
+  viewer: await loginToken(seed("SEED_VIEWER_EMAIL"), seedPw), editorA: await loginToken(seed("SEED_EDITOR_A_EMAIL"), seedPw),
+  editorB: await loginToken(seed("SEED_EDITOR_B_EMAIL"), seedPw), admin: await loginToken(seed("SEED_ADMIN_EMAIL"), seedPw),
+});
+
+async function partE() {
+  const r = reporter("E. Token, RBAC, ABAC ở route dữ liệu");
+  await clearIp();
+  const t = await tokens();
+  const A = await prisma.user.findUnique({ where: { email: seed("SEED_EDITOR_A_EMAIL") } });
+  const B = await prisma.user.findUnique({ where: { email: seed("SEED_EDITOR_B_EMAIL") } });
+  const tagId = (await prisma.tag.findFirst({ where: { name: "Món nước" } })).id;
+  const ingredientId = (await prisma.ingredient.findFirst({ orderBy: { id: "asc" } })).id;
+  const form = (name, chefId, extra = {}) => ({ name, price: 50000, description: "mô tả", tagIds: [tagId], ingredientIds: [ingredientId], chefId, available: true, ...extra });
+  const dish = (id) => prisma.dish.findUnique({ where: { id } });
+  const before = await snapshot();
+
+  const ROUTES = [["POST", "/api/dishes"], ["PATCH", "/api/dishes/1"], ["DELETE", "/api/dishes/1"], ["GET", "/api/admin/dishes"], ["GET", "/api/admin/dishes/1"],
+    ...["chefs", "ingredients"].flatMap((x) => [["GET", `/api/${x}`], ["GET", `/api/${x}/1`], ["POST", `/api/${x}`], ["PATCH", `/api/${x}/1`], ["DELETE", `/api/${x}/1`]]), ["GET", "/api/tags"], ["POST", "/api/tags"]];
+  for (const [m, p] of ROUTES) {
+    const res = await api(m, p, m === "POST" || m === "PATCH" ? { body: { name: `${T} ghi` } } : {});
+    r.ok(res.status === 401 && res.ok === false && res.code === "UNAUTHENTICATED", `Không token ${m} ${p} → 401`, res.status);
+  }
+  const broken = await fetch(`${process.env.BASE_URL}/api/dishes`, { method: "POST", headers: { "content-type": "application/json" }, body: "{hong" });
+  r.ok(broken.status === 401, "Không token, body hỏng → 401 (cổng đứng trước jsonBody)", broken.status);
+  const brokenOk = await fetch(`${process.env.BASE_URL}/api/dishes`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${t.viewer}` }, body: "{hong" });
+  r.ok(brokenOk.status === 403, "Viewer, body hỏng → 403 (cổng quyền đứng trước jsonBody)", brokenOk.status);
+
+  for (const [m, p] of ROUTES.filter(([m]) => m !== "GET")) {
+    const res = await api(m, p, { token: t.viewer, ...(m === "DELETE" ? {} : { body: { name: `${T} ghi` } }) });
+    r.ok(res.status === 403 && res.code === "FORBIDDEN", `Viewer ${m} ${p} → 403`, res.status);
+  }
+  for (const [m, p] of ROUTES.filter(([m]) => m === "GET")) r.ok((await api(m, p, { token: t.viewer })).status === 200, `Viewer ${m} ${p} → 200`);
+  for (const p of ["/api/dishes/1", "/api/chefs/1", "/api/ingredients/1"]) {
+    const res = await api("DELETE", p, { token: t.editorA });
+    r.ok(res.status === 403, `Editor DELETE ${p} → 403`, res.status);
+  }
+  r.ok((await snapshot()) === before, "Dữ liệu không đổi sau mọi request bị chặn");
+
+  try {
+    let res = await post("/api/dishes", form(`${T} A tạo`, B.chefId, { status: "published", role: "admin" }), t.editorA);
+    const id = res.data?.id;
+    let d = await dish(id);
+    r.ok(res.ok && d.chefId === A.chefId && d.status === "draft", "Editor tạo món: bỏ qua chefId, status trong body", `${d?.chefId} ${d?.status}`);
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.editorA, body: { name: `${T} A sửa`, chefId: B.chefId, status: "published" } });
+    d = await dish(id);
+    r.ok(res.ok && d.name === `${T} A sửa` && d.chefId === A.chefId && d.status === "draft", "Editor sửa nháp của mình; chefId, status trong body bị bỏ qua");
+    r.ok((await prisma.user.findUnique({ where: { id: A.id } })).role === "editor", "role trong body không nâng quyền");
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.editorA, body: { tagIds: [tagId] } });
+    r.ok(res.ok, "PATCH chỉ có tagIds vẫn chạy được");
+
+    const snap = await snapshot();
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.editorB, body: { name: `${T} B sửa` } });
+    r.ok(res.status === 403 && res.code === "FORBIDDEN", "Editor B sửa món của A → 403", res.status);
+    const pub = await prisma.dish.findFirst({ where: { chefId: A.chefId, status: "published" } });
+    res = await api("PATCH", `/api/dishes/${pub.id}`, { token: t.editorA, body: { name: `${T} sửa published` } });
+    r.ok(res.status === 403, "Editor A sửa món published của mình → 403", res.status);
+    res = await api("PATCH", `/api/dishes/${pub.id}`, { token: t.editorA, body: { available: false } });
+    r.ok(res.status === 403, "Editor A đổi Tạm hết món published → 403 (12.4)", res.status);
+    r.ok((await snapshot()) === snap, "Dữ liệu không đổi");
+
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.admin, body: { status: "published" } });
+    r.ok(res.ok && (await dish(id)).status === "published", "Admin xuất bản");
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.editorA, body: { name: `${T} sau xuất bản` } });
+    r.ok(res.status === 403 && (await dish(id)).name === `${T} A sửa`, "Đổi status xong, Editor gửi PATCH → 403, tên không đổi", res.status);
+    await api("PATCH", `/api/dishes/${id}`, { token: t.admin, body: { status: "draft" } });
+    await prisma.user.update({ where: { id: A.id }, data: { role: "viewer" } });
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.editorA, body: { name: `${T} sau hạ role` } });
+    await prisma.user.update({ where: { id: A.id }, data: { role: "editor" } });
+    r.ok(res.status === 403 && (await dish(id)).name === `${T} A sửa`, "Hạ role, dùng token cũ → 403 vì role đọc từ DB", res.status);
+
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.admin, body: { status: "khac" } });
+    r.ok(res.code === "VALIDATION_FAILED" && res.json.error.fields.status, "Status lạ: VALIDATION_FAILED");
+    res = await api("PATCH", `/api/dishes/${id}`, { token: t.admin, body: { chefId: B.chefId } });
+    r.ok(res.ok && (await dish(id)).chefId === B.chefId, "Admin đổi chefId");
+    res = await post("/api/dishes", form(`${T} admin tạo`, A.chefId), t.admin);
+    r.ok(res.ok && (await dish(res.data.id)).status === "published", "Admin tạo món, không chọn status: published");
+
+    const noChef = await demoUser("editor-rong", { role: "editor" });
+    const noChefToken = await loginToken(noChef.email);
+    r.ok((await post("/api/dishes", form(`${T} rỗng`, A.chefId), noChefToken)).status === 403, "Editor chưa gắn đầu bếp không tạo được món");
+    r.ok((await api("PATCH", `/api/dishes/${id}`, { token: noChefToken, body: { name: `${T} rỗng` } })).status === 403, "Editor chưa gắn đầu bếp không khớp món nào");
+
+    r.ok((await api("PATCH", "/api/dishes/999999", { token: t.editorA, body: { name: "x" } })).code === "NOT_FOUND", "Món không có: NOT_FOUND");
+    res = await post("/api/chefs", { name: `${T} Đầu bếp`, tagIds: [tagId] }, t.editorA);
+    r.ok(res.ok, "Editor thêm đầu bếp được (12.3)", res.code ?? "");
+    res = await post("/api/tags", { name: `${T} tag` }, t.editorA);
+    r.ok(res.ok, "Editor thêm tag được (12.3)");
+    res = await api("DELETE", `/api/dishes/${id}`, { token: t.admin });
+    r.ok(res.ok && !(await dish(id)), "Admin xoá món");
+  } finally {
+    await prisma.user.update({ where: { id: A.id }, data: { role: "editor" } });
+    await prisma.dish.deleteMany({ where: { name: { startsWith: T } } });
+    await prisma.tag.deleteMany({ where: { name: { startsWith: T } } });
+    await prisma.chef.deleteMany({ where: { name: { startsWith: T } } });
+  }
+  results.push(r.counts);
+}
+
+async function partF() {
+  const r = reporter("F. Ai thấy món nháp; route công khai như block7");
+  await clearIp();
+  const t = await tokens();
+  const drafts = await prisma.dish.findMany({ where: { status: "draft" }, orderBy: { id: "asc" } });
+  const [A] = [await prisma.user.findUnique({ where: { email: seed("SEED_EDITOR_A_EMAIL") } })];
+  const draftA = drafts.find((d) => d.chefId === A.chefId), draftB = drafts.find((d) => d.chefId !== A.chefId);
+  r.ok(drafts.length === 6 && drafts.every((d) => d.id > 1200), "6 món nháp nằm sau 1.200 món", drafts.length);
+
+  const list = await api("GET", "/api/dishes?pageSize=100&page=12");
+  const published = await prisma.dish.count({ where: { status: "published" } });
+  r.ok(list.status === 200 && list.data.total === published && published === 1200, "Không token: total đúng 1.200 như block7", list.data.total);
+  r.ok(list.data.items.every((d) => d.id <= 1200 && !("status" in d) && !("canEdit" in d)), "Trang cuối chỉ có món gốc, response không có status, canEdit");
+  r.ok(list.data.items.at(-1).id === 1200 && list.data.items.length === 100, "Trang 12 kết thúc đúng ở id 1200");
+  const garbage = await api("GET", "/api/dishes?pageSize=1", { headers: { authorization: "Bearer rac" } });
+  r.ok(garbage.status === 200, "Route công khai không đọc token: token rác vẫn 200");
+  const tokenView = await api("GET", "/api/dishes?pageSize=100&page=12", { token: t.admin });
+  r.ok(tokenView.data.total === 1200, "Admin gửi token tới route công khai cũng không thấy nháp");
+
+  for (const [label, q] of [["cơ bản", `q=${encodeURIComponent(draftA.name)}`], ["nâng cao", `mode=advanced&q=${encodeURIComponent(draftA.name)}`], ["toàn văn", `mode=fulltext&q=${encodeURIComponent(draftA.name)}`], ["gần đúng", `mode=fuzzy&q=${encodeURIComponent(draftA.name)}`]]) {
+    const res = await api("GET", `/api/dishes?${q}&pageSize=100`);
+    r.ok(res.ok && !res.data.items.some((d) => d.id > 1200), `Tìm ${label} không ra món nháp`, res.data.total);
+  }
+  const ing = await prisma.dishIngredient.findFirst({ where: { dishId: draftA.id }, include: { ingredient: true } });
+  const byIng = await api("GET", `/api/dishes?mode=fuzzy&by=ingredient&q=${encodeURIComponent(ing.ingredient.name)}&pageSize=100`);
+  r.ok(byIng.ok && !byIng.data.items.some((d) => d.id > 1200), "Tìm gần đúng theo nguyên liệu không ra món nháp");
+  const chefName = (await prisma.chef.findUnique({ where: { id: A.chefId } })).name;
+  const [{ n }] = await prisma.$queryRaw`SELECT count(*)::int n FROM dishes d JOIN chefs c ON c.id = d."chefId" WHERE c.name = ${chefName} AND d.status = 'published'`;
+  const byChef = await api("GET", `/api/dishes?mode=fuzzy&by=chef&q=${encodeURIComponent(chefName)}&pageSize=100`);
+  r.ok(byChef.ok && !byChef.data.items.some((d) => d.id > 1200) && byChef.data.total >= n, "Tìm gần đúng theo đầu bếp không ra món nháp", byChef.data.total);
+  const q = "Phở";
+  const [{ c }] = await prisma.$queryRaw`SELECT count(*)::int c FROM dishes WHERE name ILIKE ${`%${q}%`} AND status = 'published'`;
+  r.ok((await api("GET", `/api/dishes?q=${encodeURIComponent(q)}`)).data.total === c, "Tìm cơ bản: total khớp SQL viết tay", c);
+  r.ok((await api("GET", `/api/dishes/${draftA.id}`)).code === "NOT_FOUND", "URL món nháp ở route công khai: NOT_FOUND");
+  const one = await api("GET", "/api/dishes/1");
+  r.ok(one.ok && !("status" in one.data) && one.data.chef && Array.isArray(one.data.ingredients), "Chi tiết công khai giữ dạng block7, không có status");
+
+  const withTags = await api("GET", "/api/dishes?pageSize=1&include=tags");
+  r.ok(withTags.ok && withTags.data.tags.length === 16 && withTags.data.tags.every((x) => typeof x.dishCount === "number"), "include=tags trả 16 tag");
+  const tn = withTags.data.tags.find((x) => x.name === "Món nước");
+  const [{ m }] = await prisma.$queryRaw`SELECT count(*)::int m FROM dish_tags dt JOIN dishes d ON d.id = dt."dishId" JOIN tags t ON t.id = dt."tagId" WHERE t.name = 'Món nước' AND d.status = 'published'`;
+  r.ok(tn.dishCount === m, "Số món theo tag chỉ đếm published", tn.dishCount);
+  r.ok(!("tags" in (await api("GET", "/api/dishes?pageSize=1")).data), "Không có include: response giữ nguyên");
+  r.ok((await api("GET", "/api/dishes?include=abc")).code === "VALIDATION_FAILED", "include lạ: VALIDATION_FAILED");
+
+  const adminList = (who, extra = "") => api("GET", `/api/admin/dishes?pageSize=100${extra}`, { token: t[who] });
+  r.ok((await adminList("viewer")).data.total === 1200, "Viewer ở quản trị: 1.200 món");
+  r.ok((await adminList("viewer", "&status=draft")).data.total === 0, "Viewer lọc Nháp: 0 món");
+  const ea = await adminList("editorA", "&status=draft");
+  r.ok(ea.data.total === 3 && ea.data.items.every((d) => d.chefId === A.chefId && d.status === "draft" && d.canEdit === true), "Editor A lọc Nháp: 3 món của mình, canEdit", ea.data.total);
+  r.ok((await adminList("editorA")).data.total === 1203, "Editor A: 1.200 + 3 nháp");
+  const ad = await adminList("admin", "&status=draft");
+  r.ok(ad.data.total === 6 && ad.data.items.every((d) => d.canEdit), "Admin lọc Nháp: 6 món", ad.data.total);
+  r.ok((await adminList("admin")).data.total === 1206, "Admin: 1.206 món");
+  r.ok((await adminList("admin", "&status=abc")).code === "VALIDATION_FAILED", "Bộ lọc status lạ: VALIDATION_FAILED");
+  const v = await adminList("viewer");
+  r.ok(v.data.items.every((d) => d.canEdit === false), "Viewer: canEdit false ở mọi món");
+  const ftA = await api("GET", `/api/admin/dishes?mode=fulltext&q=${encodeURIComponent(draftB.name)}&pageSize=100`, { token: t.editorA });
+  r.ok(ftA.ok && !ftA.data.items.some((d) => d.id === draftB.id), "Editor A tìm toàn văn không ra nháp của B");
+  const fzB = await api("GET", `/api/admin/dishes?mode=fuzzy&q=${encodeURIComponent(draftB.name)}&pageSize=100`, { token: t.admin });
+  r.ok(fzB.ok && fzB.data.items.some((d) => d.id === draftB.id), "Admin tìm gần đúng ra món nháp");
+
+  r.ok((await api("GET", `/api/admin/dishes/${draftA.id}`, { token: t.viewer })).status === 403, "Viewer mở nháp ở quản trị → 403");
+  r.ok((await api("GET", `/api/admin/dishes/${draftB.id}`, { token: t.editorA })).status === 403, "Editor A mở nháp của B → 403");
+  const okA = await api("GET", `/api/admin/dishes/${draftA.id}`, { token: t.editorA });
+  r.ok(okA.ok && okA.data.status === "draft" && okA.data.canEdit === true, "Editor A mở nháp của mình, canEdit true");
+  r.ok((await api("GET", "/api/admin/dishes/1", { token: t.admin })).data.canEdit === true, "Admin: canEdit true");
+  const chefV = await api("GET", `/api/chefs/${A.chefId}`, { token: t.viewer });
+  r.ok(chefV.ok && !chefV.data.dishes.some((d) => d.id > 1200), "Chi tiết đầu bếp không lộ tên món nháp cho Viewer");
+  const chefA = await api("GET", `/api/chefs/${A.chefId}`, { token: t.editorA });
+  r.ok(chefA.data.dishes.some((d) => d.id === draftA.id), "Editor của món thấy món nháp ở chi tiết đầu bếp");
+  const ingV = await api("GET", `/api/ingredients/${ing.ingredientId}`, { token: t.viewer });
+  r.ok(ingV.ok && !ingV.data.dishes.some((d) => d.id > 1200), "Chi tiết nguyên liệu không lộ tên món nháp cho Viewer");
+  results.push(r.counts);
+}
+
 async function cleanup() {
   await prisma.dish.deleteMany({ where: { name: { startsWith: "[TEST B9]" } } });
   await prisma.tag.deleteMany({ where: { name: { startsWith: "[TEST B9]" } } });
@@ -358,7 +542,7 @@ await cleanup();
 await startServer({ MAIL_TRANSPORT: "file", WEB_ORIGIN: WEB });
 let crashed = false;
 try {
-  for (const [k, fn] of Object.entries({ A: partA, B: partB, C: partC, D: partD })) if (run(k)) await fn();
+  for (const [k, fn] of Object.entries({ A: partA, B: partB, C: partC, D: partD, E: partE, F: partF })) if (run(k)) await fn();
 } catch (e) {
   crashed = true;
   console.error(e);

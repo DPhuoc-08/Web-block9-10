@@ -42,3 +42,20 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 - Token hết hạn chỉ trả `TOKEN_EXPIRED` khi chữ ký đúng; token giả đã hết hạn vẫn là `UNAUTHENTICATED`.
 
 **Đã kiểm tra:** `check-api` A–D: **116 ĐẠT, 1 CHƯA ĐẠT**. Ca chưa đạt ("Challenge gửi tới route dữ liệu") là cổng của bước 25, chưa làm tại thời điểm này.
+
+## Bước 25, 26 — Cổng và ABAC ở route dữ liệu, mốc "đạt api"
+**Đã làm:** `requireJwt` → `requirePermission` → `guardDish` đặt trước `jsonBody` ở mọi route ghi; mọi route đầu bếp, nguyên liệu, `GET`, `POST /api/tags` cần token. `routes/admin-dishes.js` (`GET /api/admin/dishes`, `/:id`, có bộ lọc `status`, trả `canEdit` do server tính). `search/dish-filter.js` đưa điều kiện món nháp vào SQL của toàn văn và gần đúng. Xoá `scripts/check-api.sh` của block7 vì các lệnh ghi trong đó nay đều `401`; `check-api.mjs` thay thế. `check-api` phần E, F.
+
+**Quyết định và lý do:**
+- Route công khai bỏ cột `status` khỏi response: cột này mới có ở Bài 2, để lại sẽ làm response khác block7 (slide 67).
+- `PATCH` chỉ có `tagIds` hoặc `ingredientIds` vẫn chạy câu ghi có điều kiện bằng `price: { increment: 0 }`: giữ khoá dòng và kiểm điều kiện ABAC mà không ghi đè giá trị nào bằng dữ liệu đã đọc trước đó.
+- Viewer hoặc Editor khác mở món nháp ở `GET /api/admin/dishes/:id` nhận `403`, cùng cách xử lý với form sửa ở Bài 1.
+- Số món theo tag ở `?include=tags` chỉ đếm published; `GET /api/tags` cần token giữ tổng thật cho trang quản trị.
+
+**Đã kiểm tra:** `check-api` toàn bộ **213 ĐẠT, 0 CHƯA ĐẠT** (slide 67, 68; plan 10.2). Sau kiểm thử: 4 tài khoản, 1.206 món, không còn bộ đếm, challenge, recovery code, không tài khoản nào bật MFA. `grep` trong `api/src`: không có `express-session`, `req.session`, `csrf`, `res.render`; chỉ hai route công khai của món không có `requireJwt`; `signAccessToken` chỉ được gọi sau khi qua hết kiểm tra ở `login` (nhánh không MFA) và `mfa`; `console.*` không in token, mật khẩu, mã.
+
+**Mốc đạt api:** đủ bảng 10.2 bằng request trực tiếp. Sang `web` được.
+
+**Chưa chắc:**
+- Điều kiện trong câu ghi đầu tiên chỉ kiểm tra được theo thứ tự tuần tự (đổi status, hạ role rồi gửi `PATCH`); chưa dựng được hai request chen đúng vào giữa cổng và câu ghi.
+- CAPTCHA chạy bằng key thử của Google; `INVALID_CAPTCHA` tạo bằng cách đặt hostname ngoài danh sách. Thư đi qua transport `file`, chưa gửi Gmail thật từ `api`.

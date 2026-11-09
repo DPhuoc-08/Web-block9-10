@@ -9,7 +9,8 @@
 //   thấy cùng điểm 1.000 mà id lộn xộn. Cùng một giá trị vừa để sắp xếp vừa trả cho SPA (bước 17).
 // Một câu SQL trả cả `total` và id + điểm của trang: cùng một ảnh chụp dữ liệu, một vòng mạng.
 // Tagged template $queryRaw → q, take, skip là tham số bind, không nối vào chuỗi SQL.
-export async function fulltextPage(prisma, q, skip, take) {
+// `filter`: điều kiện món nháp (search/dish-filter.js), nằm trong câu SQL để total đúng.
+export async function fulltextPage(prisma, q, skip, take, filter) {
   const [row] = await prisma.$queryRaw`
     WITH input AS (SELECT plainto_tsquery('simple', ${q}) AS query),
     docs AS (
@@ -17,6 +18,7 @@ export async function fulltextPage(prisma, q, skip, take) {
              setweight(to_tsvector('simple', coalesce(d.name, '')), 'A') ||
              setweight(to_tsvector('simple', coalesce(d.description, '')), 'D') AS document
       FROM dishes d
+      WHERE ${filter}
     ),
     matched AS (
       SELECT docs.id, round(ts_rank(docs.document, input.query)::numeric, 3) AS score
