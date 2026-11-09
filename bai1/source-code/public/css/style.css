@@ -724,3 +724,45 @@ html:not(.js) .js-only { display: none; }
   td.actions .btn + .btn { margin-left: 0; }
   td.actions .btn { margin: 2px 2px 2px 0; }
 }
+
+/* ===== Block 9: MFA (Figma M6–M9) ===== */
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 6px; }
+.card-head h2 { margin: 0; }
+.danger-text { color: var(--danger); }
+.mfa-count { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+.mfa-actions { display: grid; gap: 8px; }
+.mfa-actions .btn { width: 100%; }
+.focus-card { max-width: 560px; margin: 24px auto 56px; padding: 28px; display: grid; gap: 18px; }
+.focus-wide { max-width: 640px; }
+.focus-card h1 { font-size: 1.6rem; font-weight: 700; }
+.focus-card h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.step-label { margin: 0; font-size: .8rem; font-weight: 600; color: var(--muted); }
+.mfa-qr-row { display: flex; gap: 20px; align-items: flex-start; }
+.mfa-qr { flex: none; width: 180px; height: 180px; image-rendering: pixelated; }
+.mfa-manual { min-width: 0; display: grid; gap: 8px; }
+.mfa-manual p { margin: 0; }
+.mfa-secret { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9rem; overflow-wrap: anywhere; user-select: all; }
+.mfa-form { display: grid; gap: 18px; }
+.code-box { background: var(--surface-2); border-radius: var(--radius); padding: 20px 22px; display: grid; gap: 16px; }
+.code-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+.code-list li { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.code-no { flex: none; width: 18px; text-align: right; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.code-list code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1rem; font-weight: 500; }
+.code-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border-strong); }
+.code-actions[hidden] { display: none; }
+.codes-done { display: grid; gap: 14px; }
+.ack { display: flex; align-items: center; gap: 12px; min-height: 44px; font-weight: 500; cursor: pointer; }
+.ack input { flex: none; width: 22px; height: 22px; accent-color: var(--primary); }
+@media (max-width: 600px) {
+  .focus-card { background: transparent; border: 0; padding: 4px 0 0; margin-top: 12px; }
+  .mfa-qr-row { flex-direction: column; align-items: center; }
+  .mfa-manual { width: 100%; }
+  .code-box { padding: 16px; }
+  .code-list { gap: 12px; }
+  .code-list code { font-size: .9rem; }
+  .code-list li { gap: 8px; }
+}
+/* Dưới 360px hai cột vừa khít, font thật của máy có thể tràn. */
+@media (max-width: 359px) {
+  .code-list { grid-template-columns: 1fr; }
+}

@@ -125,3 +125,16 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 
 ## Bước 9 — Mốc "đạt phân quyền"
 **Đã kiểm tra:** `check-policy` **32 ĐẠT**; `check-rbac` **159 ĐẠT, 0 CHƯA ĐẠT**; `check-ssr` **124 ĐẠT, 0 CHƯA ĐẠT**; `check-auth` **135 ĐẠT, 0 CHƯA ĐẠT**.
+
+## Bước 10 — Thiết lập MFA
+**Đã làm:** cài `otpauth` 9.5.2, `qrcode` 1.5.4 (bản chính xác). `auth/secret-box.js` (AES-256-GCM), `auth/totp.js`, `auth/recovery.js`, `auth/recovery-display.js`, `auth/mfa.js`, `routes/admin/mfa.js`; trang M7, M8, thẻ Bảo mật hai lớp ở hồ sơ (M6); kiểm tra `MFA_ENCRYPTION_KEY` lúc khởi động. `scripts/check-mfa.mjs` phần A.
+
+**Quyết định và lý do:**
+- `otpauth` 9.5.2, không lấy 9.6.0 vừa phát hành 02/11. Đã đọc mã 9.5.2: `validate` so sánh an toàn thời gian, mặc định `window` 1, trả độ lệch bước.
+- Tạo secret chờ bằng `POST`, `GET` chỉ đọc (slide 55).
+- Secret mới sinh từ `crypto.randomBytes`, truyền vào thư viện, không dùng bộ sinh của thư viện (quy tắc: số ngẫu nhiên chỉ từ `crypto`).
+- `userId` làm AAD của GCM: chép bản mã sang tài khoản khác sẽ giải mã thất bại.
+- Xác nhận bằng so khớp đúng bản mã vừa kiểm tra: tab khác vừa tạo secret mới thì không bật nhầm secret cũ.
+- Recovery code hiện bằng PRG, mã gốc giữ trong RAM tối đa 60 giây, đọc một lần là xoá (12.11).
+
+**Đã kiểm tra:** `check-mfa` phần A: **19 ĐẠT, 0 CHƯA ĐẠT**: `GET` không tạo secret; DB chỉ có bản mã; mã sai không bật; 10 HMAC; bảng `sessions` và log không chứa mã gốc; mở lại trang mã không hiện lại; đang bật thì không tạo secret mới, không hiện lại secret.

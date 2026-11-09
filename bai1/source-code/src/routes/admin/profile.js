@@ -9,6 +9,7 @@ import { sendLater, passwordChangedMail } from "../../auth/mailer.js";
 import { hit, peek, reset, retryAfter } from "../../auth/rate-limit.js";
 import { tooMany, minutesOf } from "../../auth/pages.js";
 import { one } from "../../forms.js";
+import { mfaSummary } from "../../auth/mfa.js";
 
 const router = Router();
 const BASE = "/admin/profile";
@@ -36,6 +37,7 @@ async function renderProfile(res, { status = 200, values = null, errors = {} } =
     profile: { ...user, statusLabel: STATUS_LABEL[user.status], verifiedAt: formatDate(user.emailVerifiedAt), joinedAt: formatDate(user.createdAt) },
     values: values ?? { username: user.username ?? "" },
     errors,
+    mfa: await mfaSummary(res.locals.currentUser.id),
   });
 }
 

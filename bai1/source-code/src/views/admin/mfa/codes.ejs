@@ -1,0 +1,30 @@
+<%- include("../../partials/header", { title }) %>
+<%#
+  Recovery code hiện một lần (Figma M8). Sao chép và tải tệp tạo ngay ở trình duyệt từ mã đang hiện, server không phát lại mã;
+  hai nút chỉ hiện khi có JavaScript. Ô đánh dấu dùng required của HTML nên tắt JS vẫn bắt buộc. Checkbox không có name nên
+  không đưa gì lên URL.
+-%>
+<section class="panel focus-card" aria-labelledby="codes-title">
+<% if (kind === "enabled") { %>  <p class="step-label">Bước 2 / 2</p>
+<% } -%>
+  <%- include("../../auth/_banner", { banner: { kind: "success", text: kind === "enabled" ? "Đã bật xác thực hai lớp." : "Đã tạo nhóm mã mới. Nhóm cũ không còn dùng được." } }) %>
+  <h1 id="codes-title">Lưu mã khôi phục</h1>
+  <p class="muted no-margin">Khi mất điện thoại, mỗi mã cho bạn đăng nhập một lần. <strong>Các mã chỉ hiện ở trang này.</strong></p>
+
+  <div class="code-box">
+    <ol class="code-list" data-recovery-codes>
+<% codes.forEach((c, i) => { %>      <li><span class="code-no"><%= i + 1 %></span><code><%= c %></code></li>
+<% }); -%>
+    </ol>
+    <div class="code-actions" data-code-actions hidden>
+      <button type="button" class="btn" data-copy-codes>Sao chép</button>
+      <button type="button" class="btn" data-download-codes>Tải tệp .txt</button>
+    </div>
+  </div>
+
+  <form class="codes-done" method="get" action="/admin/profile">
+    <label class="ack"><input type="checkbox" required><span>Tôi đã lưu các mã này ở nơi an toàn</span></label>
+    <button type="submit" class="btn btn-primary btn-block">Hoàn tất</button>
+  </form>
+</section>
+<%- include("../../partials/footer") %>

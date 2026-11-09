@@ -1,0 +1,37 @@
+<%- include("../../partials/header", { title }) %>
+<%#
+  Thiết lập MFA (Figma M7): bỏ thanh quản trị để làm một mạch. QR và chuỗi nhập tay chỉ hiện khi đang chờ xác nhận; trang
+  không lưu cache (requireLogin đặt no-store). Đổi thiết bị dùng cùng màn, không ghi Bước 1 / 2.
+-%>
+<section class="panel focus-card focus-wide" aria-labelledby="mfa-title">
+<% if (!replacing) { %>  <p class="step-label">Bước 1 / 2</p>
+<% } -%>
+  <h1 id="mfa-title"><%= title %></h1>
+  <%- include("../../auth/_banner") %>
+
+  <h2>1. Quét mã bằng ứng dụng xác thực</h2>
+  <div class="mfa-qr-row">
+    <img class="mfa-qr" src="<%= qrDataUrl %>" width="180" height="180" alt="Mã QR để thêm tài khoản vào ứng dụng xác thực">
+    <div class="mfa-manual">
+      <p class="muted">Dùng Google Authenticator, Microsoft Authenticator hoặc ứng dụng tương tự. Không quét được thì nhập khoá này:</p>
+      <p class="mfa-secret"><%= secret %></p>
+    </div>
+  </div>
+
+  <h2>2. Nhập mã trên ứng dụng để xác nhận</h2>
+  <form class="mfa-form" method="post" action="/admin/profile/mfa/setup/confirm" novalidate data-once<% if (code) { %> data-error-code="<%= code %>"<% } %>>
+    <input type="hidden" name="_csrf" value="<%= csrf() %>">
+    <div class="a-field">
+      <div class="a-label-row"><label for="f-otp">Mã từ ứng dụng</label></div>
+      <div class="otp" data-otp>
+        <input id="f-otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="Nhập 6 chữ số" aria-describedby="f-otp-hint">
+      </div>
+      <p class="a-hint" id="f-otp-hint">MFA chỉ bật sau khi mã đúng. Nhập sai không ảnh hưởng tài khoản.</p>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" data-busy-label="Đang xác nhận…"><%= replacing ? "Xác nhận thiết bị mới" : "Xác nhận và bật" %></button>
+      <a class="btn" href="/admin/profile">Huỷ</a>
+    </div>
+  </form>
+</section>
+<%- include("../../partials/footer") %>

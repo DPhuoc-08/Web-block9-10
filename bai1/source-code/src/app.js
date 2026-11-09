@@ -19,6 +19,8 @@ import adminChefsRouter from "./routes/admin/chefs.js";
 import adminIngredientsRouter from "./routes/admin/ingredients.js";
 import adminTagsRouter from "./routes/admin/tags.js";
 import adminProfileRouter from "./routes/admin/profile.js";
+import adminMfaRouter from "./routes/admin/mfa.js";
+import { assertMfaKey } from "./auth/secret-box.js";
 import { formatPrice, formatMenuPrice, tagNames } from "./format.js";
 import { artFor, artShape } from "./dish-art.js";
 
@@ -26,6 +28,7 @@ import { artFor, artShape } from "./dish-art.js";
 for (const key of ["SESSION_SECRET", "OTP_PEPPER", "APP_ORIGIN"]) {
   if (!process.env[key]) throw new Error(`Thiếu ${key} trong .env (xem .env.example).`);
 }
+assertMfaKey(); // thiếu hoặc sai độ dài thì không khởi động, thay vì lỗi lúc người dùng bật MFA
 
 const app = express();
 // Không bật "trust proxy": req.ip là địa chỉ kết nối thật, không tin header X-Forwarded-For do client tự gửi
@@ -107,6 +110,9 @@ const FLASH = {
   "tag-deleted": "Đã xoá tag.",
   "profile-updated": "Đã lưu tên hiển thị.",
   "password-changed": "Đã đổi mật khẩu. Các thiết bị khác đã bị đăng xuất.",
+  "mfa-replaced": "Đã đổi sang thiết bị mới.",
+  "mfa-disabled": "Đã tắt xác thực hai lớp.",
+  "mfa-codes-gone": "Mã khôi phục chỉ hiện một lần. Nếu chưa lưu, hãy tạo lại nhóm mã mới.",
 };
 app.use((req, res, next) => {
   const code = typeof req.query.msg === "string" ? req.query.msg : "";
@@ -135,6 +141,7 @@ app.use("/admin/dishes", adminDishesRouter);
 app.use("/admin/chefs", adminChefsRouter);
 app.use("/admin/ingredients", adminIngredientsRouter);
 app.use("/admin/tags", adminTagsRouter);
+app.use("/admin/profile/mfa", adminMfaRouter);
 app.use("/admin/profile", adminProfileRouter);
 
 // Không route nào khớp → 404.

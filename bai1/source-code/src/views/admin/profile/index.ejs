@@ -23,6 +23,29 @@
   </section>
 
   <div class="profile-side">
+<%# Bảo mật hai lớp (Figma M6): lối vào duy nhất của thiết lập và xác thực lại. Không có "xem lại mã" vì mã chỉ lưu dạng hash. -%>
+    <section class="panel profile-card" aria-labelledby="profile-mfa-title">
+      <div class="card-head">
+        <h2 id="profile-mfa-title">Bảo mật hai lớp</h2>
+        <span class="badge <%= mfa.enabled ? "on" : "published" %>"><%= mfa.enabled ? "Đã bật" : "Chưa bật" %></span>
+      </div>
+<% if (mfa.enabled) { -%>
+      <p class="muted">Mỗi lần đăng nhập cần thêm mã 6 số từ ứng dụng xác thực trên điện thoại.</p>
+      <p class="mfa-count"><span class="muted">Mã khôi phục còn lại</span><strong><%= mfa.remaining %> / 10</strong></p>
+      <div class="mfa-actions">
+        <a class="btn" href="/admin/profile/mfa/reauth/replace">Đổi thiết bị</a>
+        <a class="btn" href="/admin/profile/mfa/reauth/regenerate">Tạo lại mã khôi phục</a>
+        <a class="btn danger-text" href="/admin/profile/mfa/reauth/disable">Tắt xác thực hai lớp</a>
+      </div>
+<% } else { -%>
+      <p class="muted">Thêm một lớp bảo vệ: sau mật khẩu, đăng nhập cần mã 6 số từ ứng dụng xác thực trên điện thoại.</p>
+      <form method="post" action="/admin/profile/mfa/setup" data-once>
+        <input type="hidden" name="_csrf" value="<%= csrf() %>">
+        <button type="submit" class="btn btn-primary btn-block" data-busy-label="Đang mở…">Bật xác thực hai lớp</button>
+      </form>
+<% } -%>
+    </section>
+
     <section class="panel profile-card" aria-labelledby="profile-name-title">
       <h2 id="profile-name-title">Tên hiển thị</h2>
 <% if (Object.keys(errors).length) { %>      <p class="alert" role="alert" data-focus-first-error>Dữ liệu chưa hợp lệ, vui lòng sửa bên dưới.</p>

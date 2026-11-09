@@ -62,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Ô mã kích hoạt: vẽ 6 ô bên trên MỘT ô nhập thật (ô thật vẫn nhận gõ, dán, tự điền; chỉ trong suốt).
   for (const wrap of document.querySelectorAll("[data-otp]")) setupOtp(wrap);
+  setupRecoveryCodes();
 
   // "Gửi lại mã" vừa bấm: khoá nút + đếm ngược 60 giây cho dễ hiểu. Server vẫn tự chặn 60 giây (tắt JS vẫn an toàn).
   for (const button of document.querySelectorAll("button[data-cooldown]")) {
@@ -380,4 +381,30 @@ function setupOtp(wrap) {
   };
   input.addEventListener("input", render);
   render();
+}
+
+// Sao chép và tải tệp recovery code: tạo ngay ở trình duyệt từ mã đang hiện, server không phát lại mã. Không có JS thì hai nút
+// vẫn ẩn và người dùng đọc, ghi mã trên trang.
+function setupRecoveryCodes() {
+  const list = document.querySelector("[data-recovery-codes]");
+  const actions = document.querySelector("[data-code-actions]");
+  if (!list || !actions) return;
+  actions.hidden = false;
+  const text = () => [...list.querySelectorAll("code")].map((c) => c.textContent).join("\n");
+  const copy = actions.querySelector("[data-copy-codes]");
+  copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(text());
+      copy.textContent = "Đã sao chép";
+      setTimeout(() => (copy.textContent = "Sao chép"), 2000);
+    } catch {
+      copy.textContent = "Không sao chép được";
+    }
+  });
+  actions.querySelector("[data-download-codes]").addEventListener("click", () => {
+    const url = URL.createObjectURL(new Blob([`${text()}\n`], { type: "text/plain" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: "ma-khoi-phuc.txt" });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
 }
