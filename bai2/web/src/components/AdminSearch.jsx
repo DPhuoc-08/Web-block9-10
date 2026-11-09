@@ -24,7 +24,8 @@ export default function AdminSearch({ label, placeholder, count, modes = null })
     if (mode !== "basic" && !next) return setMissingQ(true);
     // Chỉ giữ q (+ mode): thông báo ?msg= của lần lưu trước không hiện lại khi tìm kiếm (như form GET của block5).
     // Tìm mới → không ghi page → về trang 1.
-    setSearchParams({ ...(next ? { q: next } : {}), ...(mode !== "basic" ? { mode } : {}) });
+    const status = searchParams.get("status"); // bộ lọc Nháp / Đã xuất bản của trang món giữ nguyên khi tìm
+    setSearchParams({ ...(next ? { q: next } : {}), ...(mode !== "basic" ? { mode } : {}), ...(status ? { status } : {}) });
   }
 
   const urlCurrent = modes?.find((m) => m.value === urlMode);

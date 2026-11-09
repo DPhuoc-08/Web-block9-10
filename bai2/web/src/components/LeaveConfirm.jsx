@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 // Hộp xác nhận khi rời form chưa lưu (blocker lấy từ hooks/useUnsavedChanges.js).
 // <dialog> + showModal(): browser tự khoá phần nền, giữ focus trong hộp, Esc = huỷ → coi như "Ở lại".
 // Nút mặc định (được focus) là "Ở lại": bấm Enter vội cũng không làm mất dữ liệu.
-export default function LeaveConfirm({ blocker }) {
+export default function LeaveConfirm({ blocker, title = "Rời trang khi chưa lưu?", text = "Những thay đổi bạn vừa nhập trong form sẽ bị mất." }) {
   const ref = useRef(null);
   const open = blocker.state === "blocked";
 
@@ -23,8 +23,8 @@ export default function LeaveConfirm({ blocker }) {
         blocker.reset();
       }}
     >
-      <h2 id="leave-title">Rời trang khi chưa lưu?</h2>
-      <p className="muted">Những thay đổi bạn vừa nhập trong form sẽ bị mất.</p>
+      <h2 id="leave-title">{title}</h2>
+      <p className="muted">{text}</p>
       <div className="form-actions">
         <button type="button" className="btn btn-primary" autoFocus onClick={() => blocker.reset()}>
           Ở lại sửa tiếp

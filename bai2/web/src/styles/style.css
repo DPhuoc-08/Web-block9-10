@@ -591,3 +591,207 @@ a, .btn, .cat-pill, .cat-more, .filter-toggle, .page-num, .page-btn, .view-btn, 
   .sort-pick { flex: 1 1 100%; }
   .sort-pick select { flex: 1 1 auto; }
 }
+
+/* ===== Block 9, Bài 2: các lớp dưới đây chép từ giao diện Bài 1 (block8 và Figma M1–M9) để web và SSR dùng chung bản vẽ ===== */
+[hidden] { display: none !important; }
+/* ===== Khu tài khoản trên header (Figma vòng 2, hàng 7) ===== */
+.account { display: flex; align-items: center; gap: 12px; padding-left: 16px; border-left: 1px solid var(--border); }
+.account-email { display: block; line-height: 44px; color: var(--muted); font-size: .9rem; font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-email:hover { color: var(--text); }
+.account form { margin: 0; }
+.account .btn { min-height: 44px; }
+@media (max-width: 600px) {
+  /* Điện thoại: tách thành hàng thứ hai, nền xám nhạt, email cắt "…" cho vừa.
+     Header điện thoại đặt nowrap (logo + nav một dòng) → phải cho xuống dòng lại khi có khu tài khoản,
+     nếu không hàng tài khoản bị ép cùng dòng và đẩy trang cuộn ngang (lỗi bước 17). */
+  .site-header .container:has(.account) { flex-wrap: wrap; row-gap: 0; }
+  /* min-width: 0 + flex: 1 1 0 trên ô email: địa chỉ dài cắt "…" thay vì đẩy nút Đăng xuất ra ngoài màn hình 320px. */
+  .account { flex-basis: calc(100% + 32px); min-width: 0; margin: 0 -16px; padding: 6px 16px 8px; border-left: 0; background: var(--surface-2); justify-content: space-between; }
+  .account-email { max-width: none; min-width: 0; flex: 1 1 0; }
+  .account form { flex: none; }
+}
+
+/* ===== Trang tài khoản: đăng nhập, đăng ký, mã kích hoạt, quên / đặt lại mật khẩu (Figma vòng 2, hướng A) ===== */
+.auth { display: grid; grid-template-columns: minmax(0, 48%) minmax(0, 1fr); min-height: 100vh; min-height: 100dvh; background: var(--bg); }
+.auth-photo { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding: 40px 56px 48px; color: #fff; background: var(--primary-dark); overflow: hidden; }
+.auth-photo-img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
+/* Lớp phủ mờ trên ảnh (gradient nhẹ được phép, plan block7 7.1): chữ trắng đọc được trên mọi ảnh. */
+.auth-photo::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgb(13 20 15 / .35) 0%, rgb(13 20 15 / .15) 45%, rgb(13 20 15 / .78) 100%); }
+.auth-brand { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.auth-brand a { color: #fff; display: inline-flex; align-items: center; min-height: 44px; }
+.auth-brand a:hover { color: #fff; }
+.auth-brand-name { font-weight: 700; font-size: 1.25rem; }
+.auth-brand-back { font-weight: 600; font-size: .95rem; }
+.auth-greet { display: grid; gap: 12px; }
+.auth-slogan { margin: 0; font-size: 2.5rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+.auth-intro { margin: 0; max-width: 460px; font-size: 1.06rem; opacity: .9; }
+.auth-credit { margin: 0; font-size: .75rem; opacity: .75; }
+.narrow-only { display: none; }
+
+.auth-main { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 48px; }
+.auth-form { width: 100%; max-width: 400px; display: grid; gap: 24px; }
+.auth-head { display: grid; gap: 6px; }
+.auth-head h1 { font-size: 1.75rem; font-weight: 700; }
+.auth-head p { margin: 0; color: var(--muted); font-size: .95rem; }
+.auth-fields { display: grid; gap: 24px; }
+.a-field { display: grid; gap: 6px; }
+.a-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.a-label-row label { font-weight: 600; font-size: .9rem; }
+.a-label-row a { font-weight: 600; font-size: .9rem; }
+.a-control { position: relative; }
+.a-control input { width: 100%; min-height: 48px; font-size: 16px; padding: 0 14px; border-radius: 8px; }
+.a-control.has-toggle input { padding-right: 84px; }
+.a-field.invalid input { border-color: var(--danger); }
+.pw-toggle { position: absolute; top: 2px; right: 2px; bottom: 2px; display: inline-flex; align-items: center; gap: 4px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; min-width: 44px; }
+.pw-toggle:hover { color: var(--text); background: var(--surface-2); }
+.a-hint { margin: 0; color: var(--muted); font-size: .82rem; }
+.a-error { margin: 0; color: var(--danger); font-size: .82rem; font-weight: 500; }
+.btn-block { width: 100%; min-height: 48px; font-size: 1rem; }
+.auth-divider { border: 0; border-top: 1px solid var(--border); margin: 0; }
+.auth-foot { margin: 0; text-align: center; color: var(--muted); font-size: .95rem; }
+.auth-foot a { font-weight: 600; }
+.auth-note { margin: -8px 0 0; text-align: center; color: var(--muted); font-size: .82rem; }
+.banner { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 8px; font-size: .9rem; font-weight: 500; }
+.banner svg { flex: none; margin-top: 2px; }
+.banner p { margin: 0; }
+.banner a { font-weight: 600; white-space: nowrap; }
+.banner-error { background: var(--danger-soft); }
+.banner-error svg { color: var(--danger); }
+.banner-info, .banner-success { background: var(--primary-soft); }
+.banner-info svg, .banner-success svg { color: var(--primary); }
+
+@media (max-width: 1023px) {
+  .auth { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .auth-photo { height: 240px; padding: 20px 32px 24px; gap: 8px; }
+  .auth-slogan { font-size: 2rem; }
+  .auth-intro { display: none; }
+  .wide-only { display: none; }
+  .auth-brand-back .wide-only { display: inline; }
+  .auth-main { justify-content: flex-start; padding: 56px 48px 48px; }
+}
+@media (max-width: 600px) {
+  .auth-photo { height: 196px; padding: 16px 20px; }
+  .auth-brand-name { font-size: 1.15rem; }
+  .auth-slogan { font-size: 1.5rem; }
+  .auth-brand-back .wide-only { display: none; }
+  .narrow-only { display: inline; }
+  .auth-main { align-items: stretch; padding: 28px 20px 32px; }
+  .auth-form { max-width: none; gap: 20px; }
+  .auth-head h1 { font-size: 1.6rem; }
+}
+/* Ô reCAPTCHA: giữ chỗ cao 78px trước khi widget của Google tải xong (không làm form nhảy). */
+.captcha-field { min-height: 78px; }
+/* Khối kết quả (đã gửi email, tạm khoá 429, link hỏng): biểu tượng tròn 56px trên tiêu đề. */
+.result-icon { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; }
+.result-mail { background: var(--primary-soft); color: var(--primary); }
+.result-clock, .result-warn { background: var(--danger-soft); color: var(--danger); }
+/* Ô mã kích hoạt 6 ô (nhóm chốt 02/11/2026): 6 ô chỉ để nhìn, ô nhập thật nằm phủ lên trên và trong suốt. */
+.otp { position: relative; }
+.otp input { min-height: 48px; font-size: 16px; letter-spacing: .2em; }
+.otp-enhanced input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: text; }
+.otp-boxes { display: flex; gap: 8px; }
+.otp-box { display: grid; place-items: center; width: 48px; height: 56px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); font-size: 1.5rem; font-weight: 600; }
+.otp-enhanced:focus-within .otp-box.active { border: 2px solid var(--primary); }
+.otp-enhanced:focus-within .otp-box.active:empty::after { content: ""; width: 2px; height: 26px; background: var(--primary); animation: caret 1s steps(1) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+.a-field.invalid .otp-box { border: 2px solid var(--danger); }
+@media (max-width: 359px) { .otp-box { width: 40px; height: 52px; } }
+.resend { display: grid; gap: 10px; }
+.resend .auth-foot { font-size: .88rem; }
+.btn:disabled { opacity: .55; cursor: default; }
+
+/* ===== Block 9: phân quyền (Figma "Block 9 · Phân quyền và MFA", M1–M3) ===== */
+.notice { background: var(--primary-soft); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; }
+.form-panel .notice { margin: 12px 0 0; }
+.badge.draft { background: var(--art-nuoc-bg); color: var(--art-nuoc-ink); }
+.badge.published { background: var(--surface-2); color: var(--muted); }
+.status-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.status-filter { display: flex; flex-wrap: wrap; gap: 8px; }
+.status-filter a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-size: .85rem; font-weight: 600; transition: border-color .15s ease, background-color .15s ease; }
+.status-filter a:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+.status-filter a[aria-current] { background: var(--primary-soft); border-color: transparent; color: var(--primary); }
+.publish-panel { background: var(--surface-2); border-radius: var(--radius); padding: 14px 16px; }
+.publish-panel select { background: var(--bg); }
+.forbidden { border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 24px; }
+.forbidden-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--danger-soft); color: var(--danger); }
+.forbidden-actions { justify-content: center; }
+@media (max-width: 600px) {
+  .status-filter a { min-height: 44px; }
+  .forbidden { margin: 24px auto; }
+  .forbidden-actions { width: 100%; flex-direction: column; }
+  .forbidden-actions .btn { width: 100%; }
+}
+/* Bảng món có thêm cột Trạng thái: ở màn rộng bỏ cột Tag (theo bản Figma đã duyệt, tag vẫn tìm được và vẫn hiện trên thẻ ở
+   màn nhỏ) để cụm nút không bị đẩy ra ngoài khung cuộn. */
+@media (min-width: 821px) {
+  .col-tag { display: none; }
+}
+@media (min-width: 821px) and (max-width: 1100px) {
+  td.actions { white-space: normal; }
+  td.actions .row-form { display: block; margin-bottom: 6px; }
+  td.actions .btn + .btn { margin-left: 0; }
+  td.actions .btn { margin: 2px 2px 2px 0; }
+}
+
+/* ===== Block 9: MFA (Figma M6–M9) ===== */
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 6px; }
+.card-head h2 { margin: 0; }
+.danger-text { color: var(--danger); }
+.mfa-count { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+.mfa-actions { display: grid; gap: 8px; }
+.mfa-actions .btn { width: 100%; }
+.focus-card { max-width: 560px; margin: 24px auto 56px; padding: 28px; display: grid; gap: 18px; }
+.focus-wide { max-width: 640px; }
+.focus-narrow { max-width: 480px; }
+.focus-card h1 { font-size: 1.6rem; font-weight: 700; }
+.focus-card h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.focus-card strong { color: var(--text); }
+.step-label { margin: 0; font-size: .8rem; font-weight: 600; color: var(--muted); }
+.mfa-qr-row { display: flex; gap: 20px; align-items: flex-start; }
+.mfa-qr { flex: none; width: 180px; height: 180px; image-rendering: pixelated; }
+.mfa-manual { min-width: 0; display: grid; gap: 8px; }
+.mfa-manual p { margin: 0; }
+.mfa-secret { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9rem; overflow-wrap: anywhere; user-select: all; }
+.mfa-form { display: grid; gap: 18px; }
+.code-box { background: var(--surface-2); border-radius: var(--radius); padding: 20px 22px; display: grid; gap: 16px; }
+.code-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+.code-list li { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.code-no { flex: none; width: 18px; text-align: right; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.code-list code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1rem; font-weight: 500; }
+.code-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border-strong); }
+.code-actions[hidden] { display: none; }
+.codes-done { display: grid; gap: 14px; }
+.ack { display: flex; align-items: center; gap: 12px; min-height: 44px; font-weight: 500; cursor: pointer; }
+.ack input { flex: none; width: 22px; height: 22px; accent-color: var(--primary); }
+@media (max-width: 600px) {
+  .focus-card { background: transparent; border: 0; padding: 4px 0 0; margin-top: 12px; }
+  .mfa-qr-row { flex-direction: column; align-items: center; }
+  .mfa-manual { width: 100%; }
+  .code-box { padding: 16px; }
+  .code-list { gap: 12px; }
+  .code-list code { font-size: .9rem; }
+  .code-list li { gap: 8px; }
+}
+/* Dưới 360px hai cột vừa khít, font thật của máy có thể tràn. */
+@media (max-width: 359px) {
+  .code-list { grid-template-columns: 1fr; }
+}
+.auth-cancel { width: 100%; max-width: 400px; margin-top: 12px; text-align: center; }
+.link-button { min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
+.auth-back { justify-self: start; font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; }
+.recovery-input { width: 100%; height: 56px; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.25rem; font-weight: 500; letter-spacing: 1px; }
+.recovery-input::placeholder { font-weight: 400; }
+.a-field.invalid .recovery-input { border-color: var(--danger); }
+.recovery-nudge { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--primary-soft); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
+.recovery-nudge p { margin: 2px 0 0; }
+.recovery-nudge .btn { flex: none; }
+@media (max-width: 600px) {
+  .recovery-nudge { flex-direction: column; align-items: stretch; }
+  .auth-foot a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+.profile-card { padding: 24px; }
+.profile-card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 6px; }
+.profile-card > .muted { margin: 0 0 12px; }
+.security-card { max-width: 560px; margin: 24px auto 56px; }
+@media (max-width: 600px) { .profile-card { padding: 18px; } }

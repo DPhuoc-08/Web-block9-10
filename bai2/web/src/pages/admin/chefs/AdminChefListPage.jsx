@@ -1,4 +1,5 @@
-import { Link, useLocation, useSearchParams } from "react-router";
+import { Link, useLocation, useOutletContext, useSearchParams } from "react-router";
+import { canWrite, isAdmin } from "../../../auth/can.js";
 import AdminSearch, { adminModeParam } from "../../../components/AdminSearch.jsx";
 import { listChefs } from "../../../api/chefs.js";
 import { useLoad } from "../../../hooks/useLoad.js";
@@ -24,6 +25,7 @@ const MODES = [
 // ?mode=fuzzy: gần đúng theo tên, xếp theo điểm (plan 14.f, 14.g); mode giữ trên URL như q.
 export default function AdminChefListPage() {
   useDocumentTitle("Quản trị đầu bếp");
+  const { user } = useOutletContext();
   const { pathname, search } = useLocation();
   const [searchParams] = useSearchParams();
   const q = searchParams.get("q")?.trim() ?? "";
@@ -49,16 +51,23 @@ export default function AdminChefListPage() {
         <h1 ref={topRef} tabIndex={-1} className="list-anchor">
           Đầu bếp
         </h1>
-        <Link className="btn btn-primary" to="/admin/chefs/new" state={backState}>
-          + Thêm đầu bếp
-        </Link>
+        {canWrite(user) && (
+          <Link className="btn btn-primary" to="/admin/chefs/new" state={backState}>
+            + Thêm đầu bếp
+          </Link>
+        )}
       </div>
+      {!canWrite(user) && (
+        <p className="notice" role="note">
+          Tài khoản của bạn chỉ có quyền xem.
+        </p>
+      )}
 
       <AdminSearch label="Tìm đầu bếp" placeholder="Tìm theo tên hoặc chuyên môn" count={status === "ok" ? data.total : null} modes={MODES} />
 
       {status === "loading" && <SkeletonList rows={8} variant="table" />}
       {invalid && <InvalidQuery fields={error.fields} resetTo={pathname} resetLabel="Về trang 1" />}
-      {status === "error" && !invalid && <LoadError onRetry={reload} />}
+      {status === "error" && !invalid && <LoadError error={error} onRetry={reload} />}
       {status === "ok" && data.total === 0 && <div className="panel empty">{q ? "Không có đầu bếp nào khớp từ khoá." : "Chưa có đầu bếp nào."}</div>}
       {/* Trang vượt phạm vi (sửa tay URL, hoặc vừa xoá dòng cuối của trang cuối): thành công nhưng items rỗng. */}
       {status === "ok" && data.total > 0 && chefs.length === 0 && (
@@ -77,9 +86,11 @@ export default function AdminChefListPage() {
                 <th>Chuyên môn</th>
                 <th>Phụ trách</th>
                 {scored && <th>Điểm</th>}
-                <th>
-                  <span className="sr-only">Thao tác</span>
-                </th>
+                {canWrite(user) && (
+                  <th>
+                    <span className="sr-only">Thao tác</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -98,14 +109,18 @@ export default function AdminChefListPage() {
                       {c.score.toFixed(3)}
                     </td>
                   )}
-                  <td className="actions">
-                    <Link className="btn btn-sm" to={`/admin/chefs/${c.id}/edit`} state={backState}>
-                      Sửa
-                    </Link>
-                    <Link className="btn btn-sm danger-text" to={`/admin/chefs/${c.id}/delete`} state={backState}>
-                      Xoá
-                    </Link>
-                  </td>
+                  {canWrite(user) && (
+                    <td className="actions">
+                      <Link className="btn btn-sm" to={`/admin/chefs/${c.id}/edit`} state={backState}>
+                        Sửa
+                      </Link>
+                      {isAdmin(user) && (
+                        <Link className="btn btn-sm danger-text" to={`/admin/chefs/${c.id}/delete`} state={backState}>
+                          Xoá
+                        </Link>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

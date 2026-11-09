@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { listDishes } from "../../api/dishes.js";
-import { listTags } from "../../api/tags.js";
+import { listDishes, listPublicTags } from "../../api/dishes.js";
 import { isBusiness, toQuery } from "../../api/client.js";
 import { useLoad } from "../../hooks/useLoad.js";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle.js";
@@ -50,7 +49,7 @@ function useMenuBase() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const query = readQuery(searchParams);
-  const tags = useLoad((signal) => listTags({ signal }), []);
+  const tags = useLoad((signal) => listPublicTags({ signal }), []);
   const tagList = tags.status === "ok" ? tags.data.filter((t) => t.dishCount > 0) : [];
   // Áp dụng điều kiện mới → URL mới, về trang 1 (kết quả mới); giữ cách hiển thị đang chọn.
   const apply = (next) => navigate(`/dishes${toQuery(toPageParams({ ...next, view: query.view, page: "" }))}`);

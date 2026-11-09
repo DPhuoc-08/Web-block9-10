@@ -18,7 +18,7 @@ export default function ChefDeletePage() {
   const navigate = useNavigate();
   // Xoá xong / Huỷ: về đúng URL danh sách đã mở (giữ page, q) — như DishDeletePage.
   const listUrl = useBackTo("/admin/chefs");
-  const { status, data, reload } = useLoad((signal) => Promise.all([getChef(id, { signal }), listAllChefs({ signal })]), [id]);
+  const { status, data, error: loadError, reload } = useLoad((signal) => Promise.all([getChef(id, { signal }), listAllChefs({ signal })]), [id]);
   const [transferTo, setTransferTo] = useState("");
   const [fieldError, setFieldError] = useState(null);
   const [error, setError] = useState(null);
@@ -28,7 +28,7 @@ export default function ChefDeletePage() {
   const busy = useRef(false);
 
   if (status === "loading") return <Loading />;
-  if (status === "error") return <LoadError onRetry={reload} />;
+  if (status === "error") return <LoadError error={loadError} onRetry={reload} />;
   if (status === "notFound") {
     return <NotFoundMessage title="Không tìm thấy đầu bếp" text="Đầu bếp cần xoá không tồn tại hoặc đã bị xoá." backTo="/admin/chefs" backLabel="Về danh sách đầu bếp" />;
   }

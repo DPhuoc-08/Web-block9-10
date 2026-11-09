@@ -19,13 +19,13 @@ export default function ChefFormPage() {
   const { id } = useParams();
   const isEdit = id !== undefined;
   useDocumentTitle(isEdit ? "Sửa đầu bếp" : "Thêm đầu bếp");
-  const { status, data, reload } = useLoad(
+  const { status, data, error, reload } = useLoad(
     (signal) => Promise.all([listTags({ signal }), isEdit ? getChef(id, { signal }) : null]),
     [id],
   );
 
   if (status === "loading") return <Loading />;
-  if (status === "error") return <LoadError onRetry={reload} />;
+  if (status === "error") return <LoadError error={error} onRetry={reload} />;
   if (status === "notFound") {
     return <NotFoundMessage title="Không tìm thấy đầu bếp" text="Đầu bếp cần sửa không tồn tại hoặc đã bị xoá." backTo="/admin/chefs" backLabel="Về danh sách đầu bếp" />;
   }

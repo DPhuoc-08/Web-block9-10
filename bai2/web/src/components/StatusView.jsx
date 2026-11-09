@@ -34,7 +34,9 @@ export function SkeletonList({ rows = 12, variant = "menu" }) {
 }
 
 // Lỗi kỹ thuật (API tắt, sai URL, lỗi máy chủ): thông báo chung + Thử lại. Không hiện "không tìm thấy".
-export function LoadError({ onRetry }) {
+export function LoadError({ error, onRetry }) {
+  // 403 khi tải trang: báo thiếu quyền, giữ token (slide 39), không có Thử lại.
+  if (error?.kind === "forbidden") return <ForbiddenMessage />;
   return (
     <div className="message" role="alert">
       <div className="code">!</div>
@@ -43,6 +45,31 @@ export function LoadError({ onRetry }) {
       <button type="button" className="btn btn-primary" onClick={onRetry}>
         Thử lại
       </button>
+    </div>
+  );
+}
+
+// Thiếu quyền (Figma M3). SPA báo ngay trong trang thay vì chuyển trang như SSR.
+export function ForbiddenMessage({ text = "Tài khoản của bạn không có quyền thực hiện thao tác này." }) {
+  return (
+    <div className="message forbidden" role="alert">
+      <span className="forbidden-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+        </svg>
+      </span>
+      <h1>Không đủ quyền</h1>
+      <p className="muted">{text}</p>
+      <div className="form-actions forbidden-actions">
+        <Link className="btn btn-primary" to="/admin/dishes">
+          Về danh sách món
+        </Link>
+        <Link className="btn" to="/dishes">
+          Về thực đơn
+        </Link>
+      </div>
     </div>
   );
 }

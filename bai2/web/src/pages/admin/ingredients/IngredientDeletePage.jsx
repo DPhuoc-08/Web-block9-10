@@ -17,7 +17,7 @@ export default function IngredientDeletePage() {
   const navigate = useNavigate();
   // Xoá xong / Huỷ: về đúng URL danh sách đã mở (giữ page, q) — như DishDeletePage.
   const listUrl = useBackTo("/admin/ingredients");
-  const { status, data: ingredient, reload } = useLoad((signal) => getIngredient(id, { signal }), [id]);
+  const { status, data: ingredient, error: loadError, reload } = useLoad((signal) => getIngredient(id, { signal }), [id]);
   const [error, setError] = useState(null);
   // API trả IN_USE (món vừa được gán nguyên liệu ở nơi khác) → chuyển sang hiện danh sách món mới nhất.
   const [blockedDishes, setBlockedDishes] = useState(null);
@@ -25,7 +25,7 @@ export default function IngredientDeletePage() {
   const busy = useRef(false);
 
   if (status === "loading") return <Loading />;
-  if (status === "error") return <LoadError onRetry={reload} />;
+  if (status === "error") return <LoadError error={loadError} onRetry={reload} />;
   if (status === "notFound") {
     return (
       <NotFoundMessage title="Không tìm thấy nguyên liệu" text="Nguyên liệu cần xoá không tồn tại hoặc đã bị xoá." backTo="/admin/ingredients" backLabel="Về danh sách nguyên liệu" />

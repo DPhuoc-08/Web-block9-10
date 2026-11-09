@@ -16,13 +16,13 @@ export default function IngredientFormPage() {
   const { id } = useParams();
   const isEdit = id !== undefined;
   useDocumentTitle(isEdit ? "Sửa nguyên liệu" : "Thêm nguyên liệu");
-  const { status, data: ingredient, reload } = useLoad(
+  const { status, data: ingredient, error, reload } = useLoad(
     (signal) => (isEdit ? getIngredient(id, { signal }) : Promise.resolve(null)),
     [id],
   );
 
   if (status === "loading") return <Loading />;
-  if (status === "error") return <LoadError onRetry={reload} />;
+  if (status === "error") return <LoadError error={error} onRetry={reload} />;
   if (status === "notFound") {
     return (
       <NotFoundMessage title="Không tìm thấy nguyên liệu" text="Nguyên liệu cần sửa không tồn tại hoặc đã bị xoá." backTo="/admin/ingredients" backLabel="Về danh sách nguyên liệu" />

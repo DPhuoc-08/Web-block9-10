@@ -1,7 +1,10 @@
+import { clearToken, getToken } from "../auth/token.js";
+
 // Lớp gọi API DUY NHẤT của SPA. Các trang không gọi fetch trực tiếp mà gọi hàm trong api/*.js → đi qua đây.
 // Một chỗ giữ URL gốc, một chỗ kiểm tra đủ 3 tầng lỗi:
 //   Tầng 1 — không nhận được response (API tắt, mất mạng, bị CORS chặn)      → ApiError kind "network"
-//   Tầng 2 — có response nhưng status không 2xx, hoặc body không đúng shape  → ApiError kind "http"
+//   Tầng 2 — status 401/403/429 của xác thực                                 → kind "unauthenticated" | "forbidden" | "rate-limited"
+//            status khác không 2xx, hoặc body không đúng shape               → ApiError kind "http"
 //   Tầng 3 — status 200 nhưng ok: false (lỗi nghiệp vụ)                      → ApiError kind "business" + code, fields
 // Thành công → trả về `data`. Không chỉ kiểm tra status: lỗi nghiệp vụ cũng có status 200.
 
@@ -9,21 +12,28 @@
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 export class ApiError extends Error {
-  constructor(kind, { message, status = null, code = null, fields = {}, dishes = [] }) {
+  constructor(kind, { message, status = null, code = null, fields = {}, dishes = [], captchaRequired = false, retryAfter = null }) {
     super(message);
     this.name = "ApiError";
-    this.kind = kind; // "network" | "http" | "business"
+    this.kind = kind; // "network" | "http" | "business" | "unauthenticated" | "forbidden" | "rate-limited"
     this.status = status;
     this.code = code; // chỉ có với "business": NOT_FOUND | VALIDATION_FAILED | IN_USE
     this.fields = fields; // { tênTrường: thông báo } — hiện lỗi cạnh đúng ô nhập
     this.dishes = dishes; // với IN_USE: các món đang dùng bản ghi
+    this.captchaRequired = captchaRequired; // đăng nhập: lần gửi sau phải có CAPTCHA
+    this.retryAfter = retryAfter; // 429: số giây phải chờ (header Retry-After)
   }
 }
 
 export const isBusiness = (err, code) => err instanceof ApiError && err.kind === "business" && err.code === code;
 
-export async function request(method, path, { body, signal } = {}) {
+// anonymous: route công khai và route trước đăng nhập, KHÔNG gửi token (GET không sinh preflight thừa).
+// on401: "throw" = trang tự xử lý; mặc định xoá token, route guard đưa về đăng nhập và nhớ trang đang mở (slide 39).
+export async function request(method, path, { body, signal, anonymous = false, on401 = "expire" } = {}) {
   const init = { method, signal, headers: {} };
+  // Gắn Authorization ở đúng một chỗ, và URL luôn là BASE_URL của API này (slide 39); các trang không tự gắn header.
+  const token = anonymous ? null : getToken();
+  if (token) init.headers.Authorization = `Bearer ${token}`;
   // Chỉ đặt Content-Type khi có body: GET không kèm header này nên không phải preflight.
   if (body !== undefined) {
     init.headers["Content-Type"] = "application/json";
@@ -46,6 +56,17 @@ export async function request(method, path, { body, signal } = {}) {
   if ((res.headers.get("Content-Type") ?? "").includes("application/json")) {
     json = await res.json().catch(() => null);
   }
+  // Đọc body trước khi phân loại. 500 và lỗi mạng KHÔNG đi vào đây nên không làm người dùng bị đăng xuất.
+  if (json?.ok === false && [401, 403, 429].includes(res.status)) {
+    const e = json.error ?? {};
+    const info = { status: res.status, code: e.code ?? null, message: e.message ?? "Yêu cầu không thực hiện được." };
+    if (res.status === 401) {
+      if (on401 !== "throw") clearToken("expired");
+      throw new ApiError("unauthenticated", info);
+    }
+    if (res.status === 403) throw new ApiError("forbidden", info); // giữ token: có danh tính, chỉ thiếu quyền
+    throw new ApiError("rate-limited", { ...info, retryAfter: Number(res.headers.get("Retry-After")) || null });
+  }
   if (!res.ok || json === null || typeof json.ok !== "boolean") {
     throw new ApiError("http", { status: res.status, message: `Máy chủ trả lỗi (HTTP ${res.status}).` });
   }
@@ -59,6 +80,7 @@ export async function request(method, path, { body, signal } = {}) {
       message: e.message ?? "Yêu cầu không thực hiện được.",
       fields: e.fields ?? {},
       dishes: e.dishes ?? [],
+      captchaRequired: Boolean(e.captchaRequired),
     });
   }
   return json.data;

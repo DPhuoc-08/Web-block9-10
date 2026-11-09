@@ -59,3 +59,22 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 **Chưa chắc:**
 - Điều kiện trong câu ghi đầu tiên chỉ kiểm tra được theo thứ tự tuần tự (đổi status, hạ role rồi gửi `PATCH`); chưa dựng được hai request chen đúng vào giữa cổng và câu ghi.
 - CAPTCHA chạy bằng key thử của Google; `INVALID_CAPTCHA` tạo bằng cách đặt hostname ngoài danh sách. Thư đi qua transport `file`, chưa gửi Gmail thật từ `api`.
+
+## Bước 27–31 — Web: lớp gọi API, trang tài khoản, route guard, quản lý MFA, hồi quy
+**Đã làm:**
+- `api/client.js` gắn `Authorization` ở một chỗ, đọc body của `401`, `403`, `429` trước khi phân loại. `auth/token.js` là nơi duy nhất đụng `sessionStorage`. `hooks/useAuth.js` đọc `/api/auth/me`, Layout truyền xuống bằng context của `Outlet`.
+- Trang đăng nhập, bước MFA (M4), mã khôi phục (M5), đăng ký, OTP kích hoạt, quên, đặt lại mật khẩu; CSS chép từ Bài 1 nên cùng bản Figma đã duyệt.
+- `RequireAuth` cho `/admin/*`, `Guard` cho trang chỉ một số role mở được. Danh sách món có cột và bộ lọc Trạng thái, Viewer chỉ đọc, nút Sửa theo `canEdit` do `api` tính, form Editor không có ô Đầu bếp, Trạng thái. Trang quản trị đọc qua `/api/admin/dishes`.
+- `/admin/security`: M6, M7, M8, M9 trong một URL.
+
+**Quyết định và lý do:**
+- Secret và recovery code chỉ ở state của trang, không dùng route riêng: không vào URL, lịch sử trình duyệt, storage. Reload là mất, server không phát lại.
+- Challenge giữ trong biến bộ nhớ: chỉ có ích ở một bước và sống 5 phút.
+- `401` chỉ xoá token và ghi lý do; `RequireAuth` tự đưa về đăng nhập, nhớ trang đang mở. Không cần `web` gọi router từ lớp API.
+- `403` báo ngay trong trang theo M3, giữ token (slide 39). Lỗi mạng, `500` không đăng xuất.
+- `ResetPage` bỏ token khỏi thanh địa chỉ sau khi đọc: không còn trong lịch sử, không đi theo `Referer`.
+- Đăng xuất chỉ xoá token ở trình duyệt, công bố giới hạn (12.7).
+
+**Đã kiểm tra (Chrome thật, `api/scripts/collect-evidence.mjs`):** mọi ca đều ĐẠT: Viewer chỉ đọc; `403` giữ token; sửa role trong storage không tăng quyền; token bị sửa, hết hạn về đăng nhập rồi quay lại đúng trang; API tắt không đăng xuất; route công khai không gửi `Authorization`, không preflight dù đang đăng nhập; MFA, recovery code, reset vẫn qua MFA; Reload giữ phiên, tab mới không có token. Không cuộn ngang ở 1280, 820, 375, 320 cho 11 màn. Đã xem ảnh các màn chính: đúng bản Figma, thực đơn đúng như block7, số món theo tag đã trừ món nháp.
+
+**Chưa chắc:** script không tick được ô CAPTCHA thật và dùng thư qua transport `file`; ca này cần người thử.

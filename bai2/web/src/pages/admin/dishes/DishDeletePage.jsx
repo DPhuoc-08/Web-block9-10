@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { getDish, deleteDish } from "../../../api/dishes.js";
+import { getAdminDish, deleteDish } from "../../../api/dishes.js";
 import { isBusiness } from "../../../api/client.js";
 import { useLoad } from "../../../hooks/useLoad.js";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle.js";
@@ -15,13 +15,13 @@ export default function DishDeletePage() {
   const navigate = useNavigate();
   // Về đúng trang danh sách admin đã mở (giữ ?page=, ?q=).
   const listUrl = useBackTo("/admin/dishes");
-  const { status, data: dish, reload } = useLoad((signal) => getDish(id, { signal }), [id]);
+  const { status, data: dish, error: loadError, reload } = useLoad((signal) => getAdminDish(id, { signal }), [id]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const busy = useRef(false); // chặn bấm "Xoá" hai lần trước khi nút kịp bị khoá
 
   if (status === "loading") return <Loading />;
-  if (status === "error") return <LoadError onRetry={reload} />;
+  if (status === "error") return <LoadError error={loadError} onRetry={reload} />;
   if (status === "notFound") {
     return <NotFoundMessage title="Không tìm thấy món" text="Món cần xoá không tồn tại hoặc đã bị xoá." backTo="/admin/dishes" backLabel="Về danh sách món" />;
   }

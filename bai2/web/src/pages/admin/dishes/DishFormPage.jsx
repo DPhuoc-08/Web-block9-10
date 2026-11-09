@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
-import { getDish, createDish, updateDish } from "../../../api/dishes.js";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router";
+import { getAdminDish, createDish, updateDish } from "../../../api/dishes.js";
+import { isAdmin } from "../../../auth/can.js";
 import { listAllChefs, createChef } from "../../../api/chefs.js";
 import { listAllIngredients, createIngredient } from "../../../api/ingredients.js";
 import { listTags } from "../../../api/tags.js";
@@ -8,7 +9,7 @@ import { isBusiness } from "../../../api/client.js";
 import { useLoad } from "../../../hooks/useLoad.js";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle.js";
 import { useFocusFirstError } from "../../../hooks/useFocusFirstError.js";
-import { Loading, LoadError, NotFoundMessage } from "../../../components/StatusView.jsx";
+import { ForbiddenMessage, Loading, LoadError, NotFoundMessage } from "../../../components/StatusView.jsx";
 import { FieldError, FormAlert, generalMessage } from "../../../components/FormBits.jsx";
 import DishImage from "../../../components/DishImage.jsx";
 import QuickAdd from "../../../components/QuickAdd.jsx";
@@ -26,6 +27,8 @@ const INGREDIENT_FIELDS = [
 const CHEF_FIELDS = [{ key: "name", label: "Tên đầu bếp", requiredMessage: "Tên đầu bếp không được để trống." }];
 const createIngredientFrom = (v) => createIngredient({ name: v.name, unit: v.unit.trim() === "" ? null : v.unit });
 
+const FORBIDDEN_DISH = "Món này đã được xuất bản hoặc được giao cho đầu bếp khác, nên bạn không sửa được nữa.";
+
 // Form thêm (/admin/dishes/new) và sửa (/admin/dishes/:id/edit) món.
 // Trang tự tải những gì form cần: danh sách tag, đầu bếp, nguyên liệu; khi sửa thì tải thêm món theo id trên URL
 // (không lấy giá trị từ trang danh sách).
@@ -33,33 +36,36 @@ export default function DishFormPage() {
   const { id } = useParams();
   const isEdit = id !== undefined;
   useDocumentTitle(isEdit ? "Sửa món" : "Thêm món");
+  const { user } = useOutletContext();
 
-  const { status, data, reload } = useLoad(
+  const { status, data, error, reload } = useLoad(
     (signal) =>
       Promise.all([
         listTags({ signal }),
         listAllChefs({ signal }),
         listAllIngredients({ signal }),
-        isEdit ? getDish(id, { signal }) : null,
+        isEdit ? getAdminDish(id, { signal }) : null,
       ]),
     [id],
   );
 
   if (status === "loading") return <Loading />;
-  if (status === "error") return <LoadError onRetry={reload} />;
+  if (status === "error") return <LoadError error={error} onRetry={reload} />;
   if (status === "notFound") {
     return <NotFoundMessage title="Không tìm thấy món" text="Món cần sửa không tồn tại hoặc đã bị xoá." backTo="/admin/dishes" backLabel="Về danh sách món" />;
   }
 
   const [tags, chefs, ingredients, dish] = data;
+  // canEdit do api tính từ bản ghi trong DB; web không chép luật ABAC.
+  if (dish && !dish.canEdit) return <ForbiddenMessage text={FORBIDDEN_DISH} />;
   // key: đổi id thì dựng lại form với giá trị ban đầu mới.
-  return <DishForm key={id ?? "new"} id={id} dish={dish} tags={tags} chefs={chefs} ingredients={ingredients} />;
+  return <DishForm key={id ?? "new"} id={id} dish={dish} tags={tags} chefs={chefs} ingredients={ingredients} user={user} />;
 }
 
 // Giá trị form giữ dạng mà ô nhập dùng (giá là chuỗi của ô number, đầu bếp là chuỗi của radio).
 function initialValues(dish) {
   if (!dish) {
-    return { name: "", price: "", tagIds: [], description: "", imageUrl: "", imageCredit: "", available: true, chefId: "", ingredientIds: [] };
+    return { name: "", price: "", tagIds: [], description: "", imageUrl: "", imageCredit: "", available: true, chefId: "", status: "published", ingredientIds: [] };
   }
   return {
     name: dish.name,
@@ -70,25 +76,26 @@ function initialValues(dish) {
     imageCredit: dish.imageCredit ?? "",
     available: dish.available,
     chefId: String(dish.chef.id),
+    status: dish.status,
     ingredientIds: dish.ingredients.map((i) => i.id),
   };
 }
 
 // Validate kết hợp — SPA chỉ chặn ô BẮT BUỘC bị bỏ trống (để người dùng sửa nhanh, không cần gửi request).
 // Định dạng / giá trị (giá âm, giá lẻ, trùng, id không tồn tại...) để API kiểm tra và trả VALIDATION_FAILED.
-function checkRequired(v) {
+function checkRequired(v, publisher) {
   const errors = {};
   if (!v.name.trim()) errors.name = "Tên món không được để trống.";
   if (v.price.trim() === "") errors.price = "Giá không được để trống.";
   if (v.tagIds.length === 0) errors.tagIds = "Vui lòng chọn ít nhất một tag.";
-  if (!v.chefId) errors.chefId = "Vui lòng chọn đầu bếp phụ trách.";
+  if (publisher && !v.chefId) errors.chefId = "Vui lòng chọn đầu bếp phụ trách.";
   if (v.ingredientIds.length === 0) errors.ingredientIds = "Vui lòng chọn ít nhất một nguyên liệu.";
   return errors;
 }
 
 // JSON giữ kiểu: SPA chuyển giá trị ô nhập sang đúng kiểu API cần (số, boolean, null) trước khi gửi.
 const orNull = (s) => (s.trim() === "" ? null : s);
-function toBody(v) {
+function toBody(v, publisher) {
   return {
     name: v.name,
     price: Number(v.price),
@@ -97,7 +104,8 @@ function toBody(v) {
     imageUrl: orNull(v.imageUrl),
     imageCredit: orNull(v.imageCredit),
     available: v.available,
-    chefId: Number(v.chefId),
+    // Editor không gửi hai trường này: api gán chefId từ tài khoản và giữ món ở Nháp (slide 52).
+    ...(publisher ? { chefId: Number(v.chefId), status: v.status } : {}),
     ingredientIds: v.ingredientIds,
   };
 }
@@ -111,8 +119,10 @@ function sortChefs(chefs, tagIds) {
 
 const sortedIds = (ids) => [...ids].sort((a, b) => a - b);
 
-function DishForm({ id, dish, tags, chefs, ingredients }) {
+function DishForm({ id, dish, tags, chefs, ingredients, user }) {
   const isEdit = id !== undefined;
+  const publisher = isAdmin(user);
+  const [forbidden, setForbidden] = useState(false);
   const navigate = useNavigate();
   // Danh sách admin đã mở (giữ ?page=, ?q=) — Huỷ, "← Danh sách món" và lưu xong đều quay về đây.
   const listUrl = useBackTo("/admin/dishes");
@@ -199,7 +209,7 @@ function DishForm({ id, dish, tags, chefs, ingredients }) {
     if (busy.current) return;
     setGeneralError(null);
 
-    const missing = checkRequired(values);
+    const missing = checkRequired(values, publisher);
     if (Object.keys(missing).length > 0) {
       setErrors(missing);
       showFirstError();
@@ -210,14 +220,21 @@ function DishForm({ id, dish, tags, chefs, ingredients }) {
     busy.current = true;
     setSubmitting(true);
     try {
-      const saved = isEdit ? await updateDish(id, toBody(values)) : await createDish(toBody(values));
+      const saved = isEdit ? await updateDish(id, toBody(values, publisher)) : await createDish(toBody(values, publisher));
       // Ghi thành công → điều hướng phía client về danh sách admin (như đầu bếp, nguyên liệu: admin không rơi
       // ra trang người dùng); danh sách tự tải lại từ API. Không tải lại document. ?msg= → dòng thông báo (bảng FLASH),
       // &id= → danh sách tô dòng vừa lưu.
       allowLeave(); // đã lưu → không hỏi "rời trang khi chưa lưu"
       // Thêm mới → trang 1 của danh sách (món mới nhất lên đầu); sửa → đúng trang đang làm việc.
-      navigate(withFlash(isEdit ? listUrl : "/admin/dishes", { msg: isEdit ? "dish-updated" : "dish-created", id: saved.id }));
+      // Editor tạo món xong về danh sách đang lọc Nháp để thấy ngay món vừa tạo.
+      navigate(withFlash(isEdit ? listUrl : publisher ? "/admin/dishes" : "/admin/dishes?status=draft", { msg: isEdit ? "dish-updated" : "dish-created", id: saved.id }));
     } catch (err) {
+      if (err.kind === "forbidden") {
+        // Quyền hoặc trạng thái món đã đổi sau lúc mở form: báo thiếu quyền, giữ token (slide 39, 56).
+        allowLeave();
+        setForbidden(true);
+        return;
+      }
       if (isBusiness(err, "VALIDATION_FAILED")) {
         // Lỗi theo trường từ API: hiện cạnh từng ô theo khoá của fields; giá trị đã nhập vẫn giữ trong state.
         setErrors(err.fields);
@@ -233,6 +250,8 @@ function DishForm({ id, dish, tags, chefs, ingredients }) {
     }
   }
 
+  if (forbidden) return <ForbiddenMessage text={`${FORBIDDEN_DISH} Thay đổi của bạn chưa được lưu.`} />;
+
   return (
     <>
       <Link className="back" to={listUrl}>
@@ -243,9 +262,28 @@ function DishForm({ id, dish, tags, chefs, ingredients }) {
         <h1>{isEdit ? "Sửa món" : "Thêm món"}</h1>
         {isEdit && <p className="muted no-margin">Món #{id}</p>}
         <FormAlert fieldErrors={errors} generalError={generalError} />
+        {!publisher && (
+          <p className="notice" role="note">
+            {isEdit ? "Món đang ở trạng thái Nháp. Khách chỉ thấy món sau khi Admin xuất bản." : "Món mới ở trạng thái Nháp và thuộc đầu bếp của bạn. Khách chỉ thấy món sau khi Admin xuất bản."}
+          </p>
+        )}
 
         {/* noValidate + không đặt required/min: kiểm tra do SPA (ô trống) và API (định dạng) làm, hiện lỗi cùng kiểu. */}
         <form className="form" onSubmit={onSubmit} noValidate>
+          {publisher && (
+            <div className="publish-panel">
+              <label className={`field${errors.status ? " invalid" : ""}`}>
+                <span>Trạng thái</span>
+                <select name="status" value={values.status} onChange={(e) => set("status", e.target.value)}>
+                  <option value="draft">Nháp</option>
+                  <option value="published">Đã xuất bản</option>
+                </select>
+                <span className="hint">Chỉ Admin đổi được. Chọn Đã xuất bản thì món hiện với khách ngay.</span>
+                <FieldError message={errors.status} />
+              </label>
+            </div>
+          )}
+
           <label className={`field${errors.name ? " invalid" : ""}`}>
             <span>Tên món</span>
             <input name="name" value={values.name} onChange={(e) => set("name", e.target.value)} />
@@ -276,6 +314,7 @@ function DishForm({ id, dish, tags, chefs, ingredients }) {
 
           {/* Đầu bếp phụ trách: chọn đúng 1 — cùng kiểu ô gõ có gợi ý như nguyên liệu (plan mục 16; trước là lưới 60 radio).
               Gửi id dạng số; API kiểm tra id có thật. Người đúng chuyên môn (trùng tag đã chọn) đứng đầu gợi ý. */}
+          {publisher && (
           <fieldset className={`choice-group${errors.chefId ? " invalid" : ""}`}>
             <legend>Đầu bếp phụ trách</legend>
             {errors.chefId && <p className="error">{errors.chefId}</p>}
@@ -311,6 +350,7 @@ function DishForm({ id, dish, tags, chefs, ingredients }) {
               {values.tagIds.length === 0 ? "Chọn tag của món để thấy đầu bếp đúng chuyên môn ở đầu gợi ý." : `${fitCount} đầu bếp đúng chuyên môn với tag đã chọn.`}
             </p>
           </fieldset>
+          )}
 
           {/* Nguyên liệu: chip đã chọn + ô gõ có gợi ý (plan mục 16; trước là lưới 250 ô tick) → mảng id
               (API lưu vào bảng dish_ingredients). */}
@@ -375,7 +415,7 @@ function DishForm({ id, dish, tags, chefs, ingredients }) {
 
           <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? "Đang lưu…" : isEdit ? "Lưu" : "Thêm"}
+              {submitting ? "Đang lưu…" : !publisher ? "Lưu nháp" : isEdit ? "Lưu" : "Thêm"}
             </button>
             <Link className="btn" to={listUrl}>
               Huỷ

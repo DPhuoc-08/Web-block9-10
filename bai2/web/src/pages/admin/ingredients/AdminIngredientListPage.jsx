@@ -1,4 +1,5 @@
-import { Link, useLocation, useSearchParams } from "react-router";
+import { Link, useLocation, useOutletContext, useSearchParams } from "react-router";
+import { canWrite, isAdmin } from "../../../auth/can.js";
 import AdminSearch, { adminModeParam } from "../../../components/AdminSearch.jsx";
 import { listIngredients } from "../../../api/ingredients.js";
 import { useLoad } from "../../../hooks/useLoad.js";
@@ -23,6 +24,7 @@ const MODES = [
 // ?mode=fuzzy: gần đúng theo tên, xếp theo điểm (plan 14.f, 14.g); mode giữ trên URL như q.
 export default function AdminIngredientListPage() {
   useDocumentTitle("Quản trị nguyên liệu");
+  const { user } = useOutletContext();
   const { pathname, search } = useLocation();
   const [searchParams] = useSearchParams();
   const q = searchParams.get("q")?.trim() ?? "";
@@ -51,16 +53,23 @@ export default function AdminIngredientListPage() {
         <h1 ref={topRef} tabIndex={-1} className="list-anchor">
           Nguyên liệu
         </h1>
-        <Link className="btn btn-primary" to="/admin/ingredients/new" state={backState}>
-          + Thêm nguyên liệu
-        </Link>
+        {canWrite(user) && (
+          <Link className="btn btn-primary" to="/admin/ingredients/new" state={backState}>
+            + Thêm nguyên liệu
+          </Link>
+        )}
       </div>
+      {!canWrite(user) && (
+        <p className="notice" role="note">
+          Tài khoản của bạn chỉ có quyền xem.
+        </p>
+      )}
 
       <AdminSearch label="Tìm nguyên liệu" placeholder="Tìm theo tên hoặc đơn vị" count={status === "ok" ? data.total : null} modes={MODES} />
 
       {status === "loading" && <SkeletonList rows={8} variant="table" />}
       {invalid && <InvalidQuery fields={error.fields} resetTo={pathname} resetLabel="Về trang 1" />}
-      {status === "error" && !invalid && <LoadError onRetry={reload} />}
+      {status === "error" && !invalid && <LoadError error={error} onRetry={reload} />}
       {status === "ok" && data.total === 0 && (
         <div className="panel empty">{q ? "Không có nguyên liệu nào khớp từ khoá." : "Chưa có nguyên liệu nào."}</div>
       )}
@@ -81,9 +90,11 @@ export default function AdminIngredientListPage() {
                 <th>Đơn vị</th>
                 <th>Dùng trong</th>
                 {scored && <th>Điểm</th>}
-                <th>
-                  <span className="sr-only">Thao tác</span>
-                </th>
+                {canWrite(user) && (
+                  <th>
+                    <span className="sr-only">Thao tác</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -102,14 +113,18 @@ export default function AdminIngredientListPage() {
                       {i.score.toFixed(3)}
                     </td>
                   )}
-                  <td className="actions">
-                    <Link className="btn btn-sm" to={`/admin/ingredients/${i.id}/edit`} state={backState}>
-                      Sửa
-                    </Link>
-                    <Link className="btn btn-sm danger-text" to={`/admin/ingredients/${i.id}/delete`} state={backState}>
-                      Xoá
-                    </Link>
-                  </td>
+                  {canWrite(user) && (
+                    <td className="actions">
+                      <Link className="btn btn-sm" to={`/admin/ingredients/${i.id}/edit`} state={backState}>
+                        Sửa
+                      </Link>
+                      {isAdmin(user) && (
+                        <Link className="btn btn-sm danger-text" to={`/admin/ingredients/${i.id}/delete`} state={backState}>
+                          Xoá
+                        </Link>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

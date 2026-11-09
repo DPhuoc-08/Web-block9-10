@@ -29,6 +29,8 @@ export function FormAlert({ fieldErrors, generalError }) {
 // Câu hiển thị cho lỗi không thuộc ô nào. Câu chữ do SPA quyết định (không in nguyên message của API).
 export function generalMessage(err) {
   if (err?.kind === "network") return "Không kết nối được tới máy chủ. Dữ liệu bạn nhập vẫn được giữ, vui lòng thử lại.";
+  if (err?.kind === "forbidden") return "Tài khoản của bạn không đủ quyền thực hiện thao tác này.";
+  if (err?.kind === "rate-limited") return err.message;
   if (err?.kind === "http") return "Máy chủ đang gặp sự cố, chưa lưu được. Dữ liệu bạn nhập vẫn được giữ, vui lòng thử lại.";
   return "Không thực hiện được yêu cầu, vui lòng thử lại.";
 }
