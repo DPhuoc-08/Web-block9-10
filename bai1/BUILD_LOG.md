@@ -41,3 +41,18 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 **Đã kiểm tra:**
 - Trước khi push: in host (`aws-0-ap-southeast-1.pooler.supabase.com`), xác nhận cùng project với block8, `prisma migrate diff` trên DB thật giống hệt SQL đã cho người dùng xem, không có lệnh `DROP`.
 - Sau khi push: `dishes` 1.200, `chefs` 60, `ingredients` 250, `tags` 16, `dish_tags` 2.106, `dish_ingredients` 5.357, `users` 5, `sessions` 255 không đổi; md5 của id, tên, giá, tình trạng, đầu bếp toàn bộ món trùng trước và sau (`b3a70368…`). `migrate diff` lần hai rỗng.
+
+## Bước 3 — Seed (plan mục 3.3)
+**Đã làm:** `prisma/seed-data/block9.js` (đầu bếp A là Nguyễn Văn An, B là Trần Thị Bích, 6 món nháp). `seed.js`: 4 tài khoản (viewer, Editor A, Editor B, admin), thêm `recovery_codes` vào `TRUNCATE`, ghi món nháp sau 1.200 món gốc.
+
+**Quyết định và lý do:**
+- **Món nháp là món thêm, ghi sau cùng, không đổi trạng thái món cũ:** thực đơn công khai vẫn đúng 1.200 món, cùng id như block7 (slide 67), mà vẫn có món draft và published của hai đầu bếp (ghi chú 50).
+- **Hai đầu bếp lấy từ danh sách cố định `base.js`:** không phụ thuộc bộ sinh ngẫu nhiên tất định, mỗi người đã có 21 món published.
+- Món nháp sai tên đầu bếp, tag, nguyên liệu hoặc trùng tên món gốc thì seed dừng **trước** `TRUNCATE`.
+
+**Đã kiểm tra:**
+- Người dùng xác nhận trước khi seed (mất 5 tài khoản cũ, 255 phiên). In host trước khi chạy.
+- Seed 2 lần ra cùng dữ liệu (md5 toàn bộ món trùng `1eacda6b…`).
+- md5 của 1.200 món đầu trùng với trước khi seed (`b3a70368…`): id, tên, giá, tình trạng, đầu bếp không đổi.
+- 1.200 món published (id 1–1200), 6 món draft (id 1201–1206). 4 tài khoản active, Editor A gắn đầu bếp id 1, Editor B id 2, viewer và admin `chefId` rỗng, `mfaEnabled = false`.
+- Món có đầu bếp không đúng chuyên môn: 0.

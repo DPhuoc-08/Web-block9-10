@@ -1,8 +1,9 @@
-// Nạp dữ liệu mẫu cho 7 bảng của block7 + 2 tài khoản đã kích hoạt (block8). Chạy: `npx prisma db seed` (lệnh khai báo trong prisma.config.js).
+// Nạp dữ liệu mẫu cho 7 bảng của block7 + 4 tài khoản đã kích hoạt (block9, plan mục 3.3) + 6 món nháp. Chạy: `npx prisma db seed` (lệnh khai báo trong prisma.config.js).
 // CẢNH BÁO: xoá TOÀN BỘ dữ liệu của database mà DATABASE_URL đang trỏ tới → in host ra trước để kiểm tra.
 // Dữ liệu tất định (không random): chạy lại luôn ra đúng dữ liệu cũ, id bắt đầu lại từ 1.
 import { prisma } from "../src/db.js";
 import { buildSeed } from "./seed-data/generate.js";
+import { CHEF_A, CHEF_B, DRAFT_DISHES } from "./seed-data/block9.js";
 import { hashPassword, checkNewPassword } from "../src/auth/password.js";
 import { checkEmail } from "../src/auth/email.js";
 
@@ -10,22 +11,43 @@ import { checkEmail } from "../src/auth/email.js";
 const { tags: TAGS, chefs: CHEFS, ingredients: INGREDIENTS, dishes: DISHES } = buildSeed();
 
 // Tài khoản seed (block8, plan mục 3.3): email + mật khẩu đọc từ .env, KHÔNG ghi cứng trong code / repo.
-// Thiếu hoặc sai → dừng TRƯỚC khi xoá dữ liệu. Role admin chỉ để dành cho phân quyền của block9.
+// Thiếu hoặc sai → dừng TRƯỚC khi xoá dữ liệu.
 function seedAccounts() {
   const errors = {};
-  const viewer = checkEmail(process.env.SEED_VIEWER_EMAIL, errors, "SEED_VIEWER_EMAIL");
-  const admin = checkEmail(process.env.SEED_ADMIN_EMAIL, errors, "SEED_ADMIN_EMAIL");
   checkNewPassword(process.env.SEED_USER_PASSWORD ?? "", undefined, errors, { password: "SEED_USER_PASSWORD" });
-  if (viewer && viewer === admin) errors.SEED_ADMIN_EMAIL = "phải khác SEED_VIEWER_EMAIL";
+  // Bốn tài khoản theo ghi chú slide 50. chefName chỉ có ở Editor: viewer, admin có chefId rỗng.
+  const accounts = [
+    { key: "SEED_VIEWER_EMAIL", username: "Tài khoản xem thử", role: "viewer" },
+    { key: "SEED_EDITOR_A_EMAIL", username: "Editor A", role: "editor", chefName: CHEF_A },
+    { key: "SEED_EDITOR_B_EMAIL", username: "Editor B", role: "editor", chefName: CHEF_B },
+    { key: "SEED_ADMIN_EMAIL", username: "Quản trị viên", role: "admin" },
+  ].map(({ key, ...a }) => ({ ...a, key, email: checkEmail(process.env[key], errors, key) }));
+  const seen = new Set();
+  for (const a of accounts) {
+    if (a.email && seen.has(a.email)) errors[a.key] = "phải khác các email seed còn lại";
+    seen.add(a.email);
+  }
   if (Object.keys(errors).length) throw new Error(`Thiếu / sai biến trong .env: ${Object.entries(errors).map(([k, v]) => `${k} (${v})`).join("; ")}`);
-  return [
-    { email: viewer, emailInput: process.env.SEED_VIEWER_EMAIL.trim(), username: "Tài khoản xem thử", role: "viewer" },
-    { email: admin, emailInput: process.env.SEED_ADMIN_EMAIL.trim(), username: "Quản trị viên", role: "admin" },
-  ];
+  return accounts.map(({ key, ...a }) => ({ ...a, emailInput: process.env[key].trim() }));
+}
+
+// Món nháp sai tên đầu bếp, tag, nguyên liệu hoặc trùng tên món gốc → dừng TRƯỚC khi xoá dữ liệu.
+function checkDrafts() {
+  const chefs = new Set(CHEFS.map((c) => c.name));
+  const tags = new Set(TAGS);
+  const ingredients = new Set(INGREDIENTS.map(([name]) => name));
+  const names = new Set(DISHES.map((d) => d.name));
+  for (const d of DRAFT_DISHES) {
+    if (!chefs.has(d.chef) || !d.tags.every((t) => tags.has(t)) || !d.ingredients.every((i) => ingredients.has(i)) || names.has(d.name)) {
+      throw new Error(`Món nháp không hợp lệ: ${d.name}`);
+    }
+    names.add(d.name);
+  }
 }
 
 async function main() {
   const accounts = seedAccounts();
+  checkDrafts();
   // Băm trước, ngoài transaction (Argon2id cố ý chậm ~0,1s mỗi lần). Cùng một mật khẩu nhưng hai salt → hai chuỗi khác nhau.
   const users = await Promise.all(accounts.map(async (a) => ({ ...a, passwordHash: await hashPassword(process.env.SEED_USER_PASSWORD) })));
   const db = new URL(process.env.DATABASE_URL);
@@ -36,7 +58,7 @@ async function main() {
     async (tx) => {
       // Xoá dữ liệu cũ VÀ đặt lại bộ đếm id về 1. Câu SQL cố định (không chứa dữ liệu người dùng).
       // Block8: xoá cả 5 bảng xác thực (tài khoản, mã kích hoạt, link đặt lại, phiên, bộ đếm).
-      await tx.$executeRaw`TRUNCATE TABLE "dish_tags", "chef_tags", "dish_ingredients", "dishes", "chefs", "ingredients", "tags", "sessions", "password_resets", "activation_challenges", "rate_limits", "users" RESTART IDENTITY`;
+      await tx.$executeRaw`TRUNCATE TABLE "dish_tags", "chef_tags", "dish_ingredients", "dishes", "chefs", "ingredients", "tags", "recovery_codes", "sessions", "password_resets", "activation_challenges", "rate_limits", "users" RESTART IDENTITY`;
 
       // createManyAndReturn: ghi theo lô và nhận lại id → dựng bảng tra tên → id để nối các bảng liên kết.
       const tags = await tx.tag.createManyAndReturn({ data: TAGS.map((name) => ({ name })) });
@@ -51,30 +73,34 @@ async function main() {
       const ingredients = await tx.ingredient.createManyAndReturn({ data: INGREDIENTS.map(([name, unit]) => ({ name, unit })) });
       const ingredientId = Object.fromEntries(ingredients.map((i) => [i.name, i.id]));
 
-      // createManyAndReturn trả về đúng thứ tự đã gửi → món thứ i trong DISHES có id = dishes[i].id.
-      const dishes = await tx.dish.createManyAndReturn({
-        data: DISHES.map((d) => ({
-          name: d.name,
-          description: d.description,
-          price: d.price,
-          available: d.available ?? true,
-          imageUrl: d.imageUrl,
-          imageCredit: d.imageCredit,
-          chefId: chefId[d.chef],
-        })),
-        select: { id: true },
-      });
-      await tx.dishTag.createMany({
-        data: DISHES.flatMap((d, i) => d.tags.map((t) => ({ dishId: dishes[i].id, tagId: tagId[t] }))),
-      });
-      await tx.dishIngredient.createMany({
-        data: DISHES.flatMap((d, i) => d.ingredients.map((n) => ({ dishId: dishes[i].id, ingredientId: ingredientId[n] }))),
-      });
+      // Ghi 1.200 món gốc trước (published theo mặc định), rồi mới tới món nháp: id của món gốc không đổi so với block7.
+      // createManyAndReturn trả về đúng thứ tự đã gửi → món thứ i trong danh sách có id = dishes[i].id.
+      for (const [list, status] of [[DISHES, "published"], [DRAFT_DISHES, "draft"]]) {
+        const dishes = await tx.dish.createManyAndReturn({
+          data: list.map((d) => ({
+            name: d.name,
+            description: d.description,
+            price: d.price,
+            available: d.available ?? true,
+            imageUrl: d.imageUrl,
+            imageCredit: d.imageCredit,
+            chefId: chefId[d.chef],
+            status,
+          })),
+          select: { id: true },
+        });
+        await tx.dishTag.createMany({
+          data: list.flatMap((d, i) => d.tags.map((t) => ({ dishId: dishes[i].id, tagId: tagId[t] }))),
+        });
+        await tx.dishIngredient.createMany({
+          data: list.flatMap((d, i) => d.ingredients.map((n) => ({ dishId: dishes[i].id, ingredientId: ingredientId[n] }))),
+        });
+      }
 
       // Tài khoản seed đã kích hoạt sẵn (status active, có emailVerifiedAt) để thử đăng nhập, quên mật khẩu, CRUD.
       // Tài khoản tạo qua form đăng ký thì phải qua kích hoạt bằng OTP.
       const verifiedAt = new Date("2026-11-01T00:00:00Z");
-      await tx.user.createMany({ data: users.map((u) => ({ ...u, status: "active", emailVerifiedAt: verifiedAt })) });
+      await tx.user.createMany({ data: users.map(({ chefName, ...u }) => ({ ...u, chefId: chefName ? chefId[chefName] : null, status: "active", emailVerifiedAt: verifiedAt })) });
     },
     // maxWait mặc định 2s không đủ để mở kết nối tới pooler ở Sydney (ap-southeast-2) → P2028.
     { maxWait: 30_000, timeout: 120_000 },
@@ -99,7 +125,8 @@ async function printStats() {
   console.log(
     `Seed xong: ${dishes} món, ${chefs} đầu bếp, ${ingredients} nguyên liệu, ${tags} tag; ` +
       `${dishTags} món–tag, ${chefTags} đầu bếp–tag, ${links} món–nguyên liệu; ${free} món giá 0, ${soldOut} món tạm hết; ` +
-      `${await prisma.user.count({ where: { status: "active" } })} tài khoản active.`,
+      `${await prisma.user.count({ where: { status: "active" } })} tài khoản active; ` +
+      `${await prisma.dish.count({ where: { status: "published" } })} món published, ${await prisma.dish.count({ where: { status: "draft" } })} món draft.`,
   );
 
   // Món có đầu bếp không cùng chuyên môn → seed sai quy tắc (đầu bếp phụ trách món luôn có tag trùng với món).
