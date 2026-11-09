@@ -54,13 +54,21 @@ const AVAILABILITY = [
   { value: "false", label: "Tạm hết" },
 ];
 
+// Bộ lọc trạng thái: 6 món nháp nằm giữa hơn 1.200 món, không lọc thì Admin không tìm được món cần xuất bản.
+const STATUS_FILTERS = [
+  { value: "", label: "Tất cả" },
+  { value: "draft", label: "Nháp" },
+  { value: "published", label: "Đã xuất bản" },
+];
+
 // URL danh sách gọn: q, mode (khác cơ bản), bộ lọc, page (khác 1) — như AdminSearch của block7.
-function listParams({ q, mode, available, chef, page }) {
+function listParams({ q, mode, available, chef, status, page }) {
   const p = {};
   if (q) p.q = q;
   if (mode !== "basic") p.mode = mode;
   if (available) p.available = available;
   if (chef) p.chef = chef;
+  if (status) p.status = status;
   if (page && page !== "1") p.page = page;
   return p;
 }
@@ -74,7 +82,7 @@ const listUrlOf = (state) => {
 router.get("/", requirePermission("dish:read"), async (req, res) => {
   const state = {
     q: one(req.query.q).trim(), mode: one(req.query.mode).trim() || "basic", page: one(req.query.page).trim(),
-    available: one(req.query.available).trim(), chef: one(req.query.chef).trim(),
+    available: one(req.query.available).trim(), chef: one(req.query.chef).trim(), status: one(req.query.status).trim(),
   };
   const modeKnown = MODES.some((m) => m.value === state.mode);
   // Dùng lại validator của thực đơn: cùng quy tắc page, q bắt buộc ở toàn văn / gần đúng, escape % _ \.
@@ -103,6 +111,12 @@ router.get("/", requirePermission("dish:read"), async (req, res) => {
     if (query.chefId === null || !chefs.some((c) => c.id === query.chefId)) query.errors.chef = "Đầu bếp lọc không tồn tại.";
   }
 
+  if (req.query.status !== undefined && (typeof req.query.status !== "string" || !STATUS_FILTERS.some((s) => s.value === state.status))) {
+    query.errors.status = "Trạng thái lọc không hợp lệ.";
+  } else {
+    query.status = state.status || null;
+  }
+
   // URL gọn (form GET gửi cả mode=basic, q rỗng): như thực đơn, chỉ khi điều kiện hợp lệ.
   if (!hasErrors(query.errors)) {
     const canonical = new URLSearchParams(listParams(state));
@@ -112,7 +126,7 @@ router.get("/", requirePermission("dish:read"), async (req, res) => {
   }
 
   const invalid = hasErrors(query.errors);
-  const result = invalid ? null : await listDishes(query);
+  const result = invalid ? null : await listDishes(query, res.locals.currentUser);
   const totalPages = result ? Math.ceil(result.total / result.pageSize) : 0;
   const listUrl = listUrlOf(state);
   // Dòng vừa thêm/sửa (?msg=…&saved=<id>) được tô; chỉ nhận số và chỉ dùng để so sánh, không in ra trang.
@@ -136,7 +150,9 @@ router.get("/", requirePermission("dish:read"), async (req, res) => {
     listUrl,
     availabilityOptions: AVAILABILITY,
     chefOptions: chefs,
-    filtered: Boolean(state.available || state.chef),
+    filtered: Boolean(state.available || state.chef || state.status),
+    statusFilters: STATUS_FILTERS,
+    statusHref: (value) => listUrlOf({ ...state, status: value, page: "" }),
     newHref: withBack(`${BASE}/new`, listUrl, BASE),
     editHref: (id) => withBack(`${BASE}/${id}/edit`, listUrl, BASE),
     deleteHref: (id) => withBack(`${BASE}/${id}/delete`, listUrl, BASE),
@@ -324,7 +340,9 @@ async function submit(req, res, id) {
     const saved = await saveDish(id, checked, user);
     // Thêm mới → trang 1 của danh sách + thông báo (món mới nằm ở trang cuối, block7 plan 12); sửa → đúng trang đang làm.
     // saved=<id> → danh sách tô dòng vừa lưu. Luôn đợi ghi xong rồi mới redirect.
-    return res.redirect(303, withFlash(id === null ? BASE : back, { msg: id === null ? "dish-created" : "dish-updated", saved: saved.id }));
+    // Editor: món mới là nháp, về danh sách đang lọc Nháp để thấy ngay món vừa tạo.
+    const created = can(user, "dish:publish") ? BASE : `${BASE}?status=draft`;
+    return res.redirect(303, withFlash(id === null ? created : back, { msg: id === null ? "dish-created" : "dish-updated", saved: saved.id }));
   } catch (err) {
     if (err instanceof DishWriteRefused) return refuse(res, id);
     if (id !== null && isNotFound(err)) return notFound(res, "Món này không còn tồn tại (có thể vừa bị xoá ở nơi khác).");
@@ -349,7 +367,7 @@ router.post("/", requirePermission("dish:create"), (req, res) => submit(req, res
 
 router.get("/:id/edit", requirePermission("dish:update"), guardDish, async (req, res) => {
   const id = parseId(req.params.id);
-  const [dish, options] = await Promise.all([id === null ? null : getDish(id), loadOptions()]);
+  const [dish, options] = await Promise.all([id === null ? null : getDish(id, res.locals.currentUser), loadOptions()]);
   if (!dish) return notFound(res);
   renderForm(res, { id, values: valuesFromDish(dish), options, back: safeBack(req.query.back, BASE) });
 });

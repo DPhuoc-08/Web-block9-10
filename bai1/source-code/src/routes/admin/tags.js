@@ -21,7 +21,7 @@ router.get("/", requirePermission("tag:read"), async (req, res) => {
   const savedRaw = one(req.query.saved);
   res.render("admin/tags/index", {
     title: "Quản trị tag",
-    tags: await listTags(),
+    tags: await listTags({ allDishes: true }),
     savedId: res.locals.flash && /^[1-9]\d{0,9}$/.test(savedRaw) ? Number(savedRaw) : null,
   });
 });

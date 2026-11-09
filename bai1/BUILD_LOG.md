@@ -90,3 +90,21 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 - Đổi nhanh Tạm hết là `update`, chịu cùng điều kiện (12.4).
 
 **Đã kiểm tra:** `check-rbac` phần C: **21 ĐẠT, 0 CHƯA ĐẠT**, gồm: Editor sai chủ, món `published`, form đã mở rồi Admin đổi status, hạ role sau khi mở form, hidden field `role`/`chefId`/`status`, Editor chưa gắn đầu bếp, hai request đồng thời không lỗi 500, bị từ chối thì không tạo tag thừa.
+
+## Bước 7a — Món nháp chỉ hiện đúng người (12.2)
+**Đã làm:** `listDishes`, `getDish` nhận `viewer` (mặc định null = chỉ published). `listTags` chỉ đếm món published trừ khi trang Tag quản trị yêu cầu tổng thật. Điều kiện món nháp nằm trong SQL của toàn văn và gần đúng (`dishFilterSql`). Nhánh gần đúng theo nguyên liệu phải `JOIN dishes` mới lọc được. Bộ lọc Tất cả / Nháp / Đã xuất bản ở danh sách quản trị. Editor tạo món xong về danh sách đang lọc Nháp. `check-rbac` phần D; `check-ssr` thêm `status = 'published'` vào SQL của thực đơn.
+
+**Quyết định và lý do:**
+- **Tham số mặc định là trường hợp hẹp nhất:** quên truyền `viewer` chỉ làm mất món nháp, không làm lộ.
+- **Thực đơn không rẽ nhánh theo người xem:** Admin đang đăng nhập cũng không thấy nháp ở thực đơn, đúng lựa chọn của người dùng.
+- **Lọc ngay trong câu SQL xếp điểm:** lọc sau sẽ làm `total` sai và lộ số món nháp.
+- Số "phụ trách N món" ở quản trị giữ tổng thật vì điều kiện chặn xoá cần tổng thật.
+
+**Đã kiểm tra:** `check-rbac` toàn bộ **143 ĐẠT, 0 CHƯA ĐẠT**; `check-ssr` **124 ĐẠT, 0 CHƯA ĐẠT**. Sau kiểm thử md5 món vẫn `1eacda6b…`.
+
+### Lỗi phát hiện trong lúc làm (do agent viết)
+**Ca kiểm thử `check-rbac` phần D dò món nháp theo tên.**
+- Cách tái hiện: chạy phần D, 19 ca báo CHƯA ĐẠT dù server đã lọc đúng.
+- Nguyên nhân: ô tìm kiếm in lại từ khoá, nên tên món nháp luôn có trong HTML trả về.
+- Cách sửa: dò theo id trong link thẻ món và cột Mã, thêm ca đối chứng chứng minh cách dò thấy được món published.
+- Bằng chứng sau khi sửa: 143 ĐẠT, ca "Đối chứng: món published hiện trên thực đơn" ĐẠT.

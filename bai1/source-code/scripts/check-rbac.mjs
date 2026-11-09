@@ -1,12 +1,15 @@
 // Kiểm tra phân quyền theo bảng nghiệm thu Bài 1 (slide 56; plan mục 10.1). Script tự chạy server thật ở cổng 3100.
 //   node scripts/check-rbac.mjs        → mọi phần
 //   node scripts/check-rbac.mjs C      → chỉ phần C
-// A: chưa đăng nhập. B: thiếu role. C: thuộc tính món (ABAC), trường do server đặt, đổi quyền sau khi mở form. Mọi ca đều gửi request trực tiếp, không qua giao diện, rồi đọc lại database.
+// A: chưa đăng nhập. B: thiếu role. C: thuộc tính món (ABAC), trường do server đặt, đổi quyền sau khi mở form.
+// D: ai thấy món nháp (12.2): thực đơn công khai, ba kiểu tìm, số món theo tag, URL trực tiếp, danh sách quản trị. Mọi ca đều gửi request trực tiếp, không qua giao diện, rồi đọc lại database.
 // Bản ghi thử có tiền tố "[TEST B9]" và được xoá ở cuối.
 import "./lib/test-env.mjs";
 import { prisma } from "../src/db.js";
 import { client, reporter } from "./lib/client.mjs";
 import { login } from "./lib/auth.mjs";
+import { listTags } from "../src/queries/dishes.js";
+import { CHEF_A, DRAFT_DISHES } from "../prisma/seed-data/block9.js";
 import { startServer, stopServer } from "./lib/server.mjs";
 
 const T = "[TEST B9]";
@@ -185,11 +188,84 @@ async function partC() {
   results.push(r.counts);
 }
 
+async function partD() {
+  const r = reporter("D. Ai thấy món nháp (12.2)");
+  const q = encodeURIComponent;
+  const draftA = DRAFT_DISHES.find((d) => d.chef === CHEF_A);
+  const draftB = DRAFT_DISHES.find((d) => d.chef !== CHEF_A);
+  const rowA = await prisma.dish.findFirst({ where: { name: draftA.name } });
+  const rowB = await prisma.dish.findFirst({ where: { name: draftB.name } });
+  const clients = { "Khách": client(), Viewer: await signIn("SEED_VIEWER_EMAIL"), "Editor A": await signIn("SEED_EDITOR_A_EMAIL"), Admin: await signIn("SEED_ADMIN_EMAIL") };
+
+  // Ô tìm kiếm in lại từ khoá nên không dò theo tên món: dò theo id trong link thẻ món, id trong cột Mã của bảng.
+  const onMenu = (res, id) => new RegExp(`/dishes/${id}(?!\\d)`).test(res.text);
+  const inTable = (res, id) => new RegExp(`data-label="Mã">${id}</td>`).test(res.text);
+  // Đối chứng: cách dò trên thực sự thấy được một món published, tránh ca "không thấy" đạt do sai cách dò.
+  const shownName = await prisma.dish.findUnique({ where: { id: 1 } });
+  let control = await clients["Khách"].get(`/dishes?q=${q(shownName.name)}`);
+  if (control.status === 302) control = await clients["Khách"].get(control.location);
+  r.ok(onMenu(control, 1), "Đối chứng: món published hiện trên thực đơn");
+
+  // Thực đơn công khai giống nhau với mọi người, kể cả Admin và Editor của món.
+  const chefName = (await prisma.chef.findUnique({ where: { id: rowA.chefId } })).name;
+  const menuUrls = [
+    ["cơ bản theo tên", `/dishes?q=${q(draftA.name)}`],
+    ["toàn văn", `/dishes?mode=fulltext&q=${q(draftA.name)}`],
+    ["gần đúng theo tên", `/dishes?mode=fuzzy&q=${q(draftA.name)}`],
+    ["gần đúng theo nguyên liệu", `/dishes?mode=fuzzy&by=ingredient&q=${q(draftA.ingredients[1])}`],
+    ["gần đúng theo đầu bếp", `/dishes?mode=fuzzy&by=chef&q=${q(chefName)}`],
+    ["cơ bản theo đầu bếp", `/dishes?by=chef&q=${q(chefName)}`],
+    ["từ khoá không dấu", `/dishes?q=${q("bun oc chuoi")}`],
+  ];
+  for (const [who, c] of Object.entries(clients)) {
+    for (const [label, url] of menuUrls) {
+      // Trang thực đơn có thể 302 về URL gọn trước khi trả kết quả.
+      let res = await c.get(url);
+      if (res.status === 302) res = await c.get(res.location);
+      r.ok(res.status === 200 && !onMenu(res, rowA.id), `${who}: thực đơn ${label} không có món nháp`, res.status);
+    }
+    r.ok((await c.get(`/dishes/${rowA.id}`)).status === 404, `${who}: mở /dishes/:id của món nháp → 404`);
+  }
+
+  // Số món theo tag trên thực đơn chỉ đếm món published; trang quản trị giữ tổng thật.
+  const tag = (await listTags()).find((t) => t.name === draftA.tags[0]);
+  const all = (await listTags({ allDishes: true })).find((t) => t.name === draftA.tags[0]);
+  const [{ n }] = await prisma.$queryRaw`SELECT count(*)::int n FROM dish_tags dt JOIN dishes d ON d.id = dt."dishId" WHERE dt."tagId" = ${tag.id} AND d.status = 'published'`;
+  r.ok(tag.dishCount === n && all.dishCount > tag.dishCount, "Số món theo tag: công khai chỉ đếm published, quản trị đếm tất cả", `${tag.dishCount} / ${all.dishCount}`);
+
+  // Khu quản trị: Admin mọi món nháp; Editor chỉ nháp của mình; Viewer không có.
+  const editorB = await signIn("SEED_EDITOR_B_EMAIL");
+  const list = async (c, name, extra = "") => {
+    const res = await c.get(`/admin/dishes?q=${q(name)}${extra}`);
+    return res.status === 302 ? c.get(res.location) : res;
+  };
+  r.ok(inTable(await list(clients.Admin, draftA.name), rowA.id), "Admin thấy nháp của A trong quản trị");
+  r.ok(inTable(await list(clients.Admin, draftB.name), rowB.id), "Admin thấy nháp của B trong quản trị");
+  r.ok(inTable(await list(clients["Editor A"], draftA.name), rowA.id), "Editor A thấy nháp của mình");
+  r.ok(!inTable(await list(clients["Editor A"], draftB.name), rowB.id), "Editor A không thấy nháp của B");
+  r.ok(!inTable(await list(editorB, draftA.name), rowA.id), "Editor B không thấy nháp của A");
+  r.ok(!inTable(await list(clients.Viewer, draftA.name), rowA.id), "Viewer không thấy món nháp trong quản trị");
+  for (const mode of ["fulltext", "fuzzy"]) {
+    r.ok(inTable(await list(clients.Admin, draftB.name, `&mode=${mode}`), rowB.id), `Admin thấy nháp khi tìm ${mode}`);
+    r.ok(!inTable(await list(clients["Editor A"], draftB.name, `&mode=${mode}`), rowB.id), `Editor A không thấy nháp của B khi tìm ${mode}`);
+    r.ok(!inTable(await list(clients.Viewer, draftB.name, `&mode=${mode}`), rowB.id), `Viewer không thấy nháp khi tìm ${mode}`);
+  }
+  r.ok((await clients.Admin.get("/admin/dishes?status=bay")).status === 400, "Bộ lọc trạng thái sai → 400");
+  r.ok(inTable(await clients.Admin.get("/admin/dishes?status=draft"), rowB.id), "Admin lọc Nháp thấy món nháp");
+  const pubOnly = await list(clients.Admin, draftA.name, "&status=published");
+  r.ok(!inTable(pubOnly, rowA.id), "Lọc Đã xuất bản không có món nháp");
+  r.ok((await clients["Editor A"].get(`/admin/dishes/${rowB.id}/edit`)).status === 403, "Editor A mở thẳng form nháp của B → 403 (slide 56)");
+  results.push(r.counts);
+}
+
+// Script đăng nhập nhiều lần từ cùng một máy: xoá bộ đếm theo IP của các lần chạy trước để không bị 429 giữa chừng.
+await prisma.rateLimit.deleteMany({ where: { key: { startsWith: "login:ip:" } } });
 await startServer({ MAIL_TRANSPORT: "file" });
 try {
   if (run("A")) await partA();
   if (run("B")) await partB();
   if (run("C")) await partC();
+  if (run("D")) await partD();
 } finally {
   await stopServer();
   await prisma.$disconnect();

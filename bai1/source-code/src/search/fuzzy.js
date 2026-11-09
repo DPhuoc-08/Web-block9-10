@@ -27,16 +27,17 @@ export const FUZZY_MATCHERS = {
     FROM dishes d WHERE ${NAME.dish[form]} % ${q} ${filter}`,
   // Món theo nguyên liệu: một món có thể có nhiều nguyên liệu khớp ("Tôm xú" ~ Tôm sú, Tôm thẻ…) →
   // GROUP BY món, điểm = nguyên liệu giống nhất. Không GROUP BY thì một món xuất hiện nhiều lần, total sai.
-  dishIngredient: (q, form) => Prisma.sql`
+  // Phải JOIN dishes: điều kiện món nháp đọc cột của bảng món, câu cũ chỉ có bảng liên kết nên sẽ không lọc được.
+  dishIngredient: (q, form, filter) => Prisma.sql`
     SELECT di."dishId" AS id, round(max(similarity(${NAME.ingredient[form]}, ${q}))::numeric, 3) AS score
-    FROM dish_ingredients di JOIN ingredients i ON i.id = di."ingredientId"
-    WHERE ${NAME.ingredient[form]} % ${q}
+    FROM dish_ingredients di JOIN ingredients i ON i.id = di."ingredientId" JOIN dishes d ON d.id = di."dishId"
+    WHERE ${NAME.ingredient[form]} % ${q} ${filter}
     GROUP BY di."dishId"`,
   // Món theo đầu bếp phụ trách: mọi món của một đầu bếp cùng điểm → xếp theo id.
-  dishChef: (q, form) => Prisma.sql`
+  dishChef: (q, form, filter) => Prisma.sql`
     SELECT d.id, round(similarity(${NAME.chef[form]}, ${q})::numeric, 3) AS score
     FROM dishes d JOIN chefs c ON c.id = d."chefId"
-    WHERE ${NAME.chef[form]} % ${q}`,
+    WHERE ${NAME.chef[form]} % ${q} ${filter}`,
   // Trang admin đầu bếp, nguyên liệu: theo tên.
   chefName: (q, form) => Prisma.sql`
     SELECT c.id, round(similarity(${NAME.chef[form]}, ${q})::numeric, 3) AS score
