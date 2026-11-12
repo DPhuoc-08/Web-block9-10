@@ -41,6 +41,12 @@
 ĐẠT      429 có Retry-After
 ĐẠT      Đang khoá: mã đúng vẫn 429 — 429
 ĐẠT      Đang khoá vẫn xem được trang
+ĐẠT      Gửi đồng thời: mã đúng gửi khi 5 mã sai đã có phản hồi → 429 — 429 
+ĐẠT      Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429 — 4
+ĐẠT      DB: bộ đếm ghi đủ 30 lượt và đang khoá — 30
+ĐẠT      Gửi đồng thời: không có phiên đầy đủ
+ĐẠT      Đủ 30 lần từ một IP: mã đúng vẫn 429 — 429
+ĐẠT      Bị chặn theo IP thì chưa tới bộ đếm theo user
 ĐẠT      Huỷ → về đăng nhập — /login
 ĐẠT      Huỷ xong không còn phiên chờ
 ĐẠT      Phiên chờ quá 5 phút → đăng nhập lại — /login?msg=mfa-expired
@@ -71,6 +77,9 @@
 ĐẠT      Có secret chờ, vẫn đang bật, không ghi Bước 1 / 2
 ĐẠT      Chưa xác nhận: secret cũ vẫn đăng nhập được
 ĐẠT      Secret đang dùng không bị ghi đè
+ĐẠT      Phiên khác chưa xác thực lại: không đọc được secret chờ — 303
+ĐẠT      Phiên khác chưa xác thực lại: không xác nhận được secret chờ
+ĐẠT      Quá 10 phút sau xác thực lại: không mở được trang đổi thiết bị — 303
 ĐẠT      Xác nhận: chuyển sang secret mới — /admin/profile?msg=mfa-replaced
 ĐẠT      Thay thiết bị không đổi nhóm recovery code
 ĐẠT      Sau khi đổi: mã từ secret cũ bị từ chối
@@ -82,4 +91,4 @@
 ĐẠT      Tắt MFA xoá recovery code
 ĐẠT      Tắt xong đăng nhập không cần mã — /admin/dishes
 
-TỔNG: 75 ĐẠT, 0 CHƯA ĐẠT
+TỔNG: 84 ĐẠT, 0 CHƯA ĐẠT

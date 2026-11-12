@@ -266,3 +266,10 @@ Rà soát ngày 12/11/2026 (đọc mã, chạy lại mọi `check-*`, thêm phé
 **Đã làm:** `check-mfa` phần B: mã đúng gửi **sau khi ít nhất 5 mã sai đã có phản hồi** (`afterN`), lúc đó bộ đếm chắc chắn ≥ 5 nên mã đúng nhận lượt > 5 → `429`, không phụ thuộc thứ tự qua pool. Kỳ vọng chặt hơn: đúng 4 mã sai báo `INVALID_OTP` (lượt 1–4), lượt thứ 5 khoá, còn lại `429`; thêm ca đọc `rate_limits`: `count = 30`, có `lockedUntil`.
 
 **Đã kiểm tra:** `check-mfa` toàn bộ **84 ĐẠT, 0 CHƯA ĐẠT**.
+
+## Bước 38 — Tài liệu và bằng chứng sau khi sửa lỗi (plan mục 14, theo 14.3 d)
+**Đã làm:** `kichban.html`: lỗi chính nộp theo slide 58 nay là L1 (giới hạn sai mã MFA bị vượt khi gửi đồng thời: tái hiện, nguyên nhân, cách sửa, bằng chứng), lỗi nút Xoá tràn khung và L2 chuyển xuống "Lỗi khác", thêm dòng demo cho ca gửi đồng thời. `hotrotrinhbay.html`: tiêu chí "OTP sai quá giới hạn" ghi rõ kể cả khi gửi cùng lúc; bảng chính sách thêm giới hạn IP ở bước nhập mã và hạn 10 phút đổi thiết bị (plan mục 4). `evidence/curl/15-gui-dong-thoi.txt`: kết quả trước và sau khi sửa; `check-mfa.txt` thay bằng bản 84 ĐẠT; `evidence/README.md`, `README.md` cập nhật số liệu và chỗ trỏ. Sơ đồ 2 (đăng nhập MFA) vẽ lại: nút bộ đếm đổi thành "giới hạn IP rồi giữ lượt trước khi kiểm mã", mốc `file:dòng` cập nhật theo mã mới; sơ đồ 3 ghi hạn 10 phút.
+
+**Đã kiểm tra:** `ve-so-do.mjs` chạy được với mốc mới (mốc cũ `state.lockedUntil`, `const after = await hit` không còn trong mã). Đo bằng Chrome headless: `kichban.html`, `hotrotrinhbay.html` ở 1280 và 375px `scrollWidth = clientWidth`, bảng cuộn trong khung, không ảnh hỏng. File bằng chứng mới không chứa mã, secret, token.
+
+**Chưa chắc:** sơ đồ vẽ lại vẫn là bản nháp của agent, nhóm cần duyệt (H2). Chưa có ảnh DevTools thật (H1).

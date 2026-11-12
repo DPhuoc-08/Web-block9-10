@@ -1,0 +1,19 @@
+# Bài 1 — Gửi đồng thời nhiều mã MFA (plan mục 14, lỗi L1; BUILD_LOG bước 35 và bổ sung 12/11)
+# Kịch bản: phiên chờ MFA thật của tài khoản viewer, POST /login/mfa với 29 mã sai gửi cùng lúc, rồi mã đúng.
+# Kỳ vọng (chính sách mục 4): chỉ 5 lượt đầu được kiểm mã; mã đúng gửi khi 5 mã sai đã có phản hồi phải nhận 429.
+
+## Trước khi sửa (code tới commit 85c66ca, chạy ca mới của check-mfa phần B, 12/11/2026)
+CHƯA ĐẠT Gửi đồng thời: mã đúng gửi sau 29 mã sai vẫn 429 — 303 /admin/dishes
+ĐẠT      Gửi đồng thời: tối đa 4 mã sai báo INVALID_OTP, còn lại 429 — 4
+CHƯA ĐẠT Gửi đồng thời: không có phiên đầy đủ
+# Phép thử độc lập (29 sai + 1 đúng cùng lúc), 3/3 lần: mã đúng 303 /admin/dishes, có phiên đầy đủ; rate_limits ghi count=30
+# (cả 30 mã đã được so với secret) rồi bị xoá. Response chỉ có 4 INVALID_OTP nên nhìn response không thấy lỗi.
+
+## Sau khi sửa (commit 6523224, ca viết lại ở a3bd342; check-mfa 84 ĐẠT)
+ĐẠT      Gửi đồng thời: mã đúng gửi khi 5 mã sai đã có phản hồi → 429 — 429
+ĐẠT      Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429 — 4
+ĐẠT      DB: bộ đếm ghi đủ 30 lượt và đang khoá — 30
+ĐẠT      Gửi đồng thời: không có phiên đầy đủ
+ĐẠT      Đủ 30 lần từ một IP: mã đúng vẫn 429 — 429
+ĐẠT      Bị chặn theo IP thì chưa tới bộ đếm theo user
+# Phép thử độc lập sau khi sửa, 3/3 lần: { '200 INVALID_OTP': 4, '429 RATE_LIMITED': 26 }, mã đúng 429, rate_limits count=30 có lockedUntil.

@@ -42,7 +42,7 @@ Seed dùng `TRUNCATE`: xoá tài khoản đã bật MFA. Sau khi seed lại ph�
 cd source-code
 node scripts/check-policy.mjs       # 32: bảng quyền, hàm thuần, không cần server
 node scripts/check-rbac.mjs         # 159: mọi route theo 4 tài khoản, ABAC, đổi quyền sau khi mở form, ai thấy món nháp
-node scripts/check-mfa.mjs          # 75: thiết lập, đăng nhập, recovery code, xác thực lại
+node scripts/check-mfa.mjs          # 84: thiết lập, đăng nhập (kể cả gửi đồng thời, giới hạn IP), recovery code, xác thực lại
 node scripts/check-auth.mjs         # 135: chức năng tài khoản của block8
 npm start &
 node scripts/check-ssr.mjs          # 124: thực đơn, tìm kiếm, CRUD của block8

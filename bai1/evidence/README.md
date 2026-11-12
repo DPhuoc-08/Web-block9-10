@@ -23,7 +23,7 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `source-c
 | Sửa role, chủ sở hữu trong hidden field | Quyền không tăng | `09` | mục 6 | `06` | `06` |
 | **Slide 57** | | | | | |
 | Password đúng, chưa nhập OTP | Không vào được quản trị, không có phiên đầy đủ | `16-*`, `17` | mục 8a, 8b, 8c | `08` | `08` (`data` không có `userId`) |
-| OTP sai quá giới hạn, hoặc mã dùng lại | Khoá tạm; mã đã dùng bị từ chối | `19`, `20-*` | mục 9a, 9b | `09` | `09` (`count`, `lockedUntil`, `mfaLastStep`) |
+| OTP sai quá giới hạn, hoặc mã dùng lại | Khoá tạm; mã đã dùng bị từ chối; kể cả khi 30 mã gửi cùng lúc | `19`, `20-*` | mục 9a, 9b | `09`, `15` | `09` (`count`, `lockedUntil`, `mfaLastStep`), `15` (30 lượt) |
 | Recovery code dùng lần hai | Bị từ chối | `21-*`, `22`, `23` | mục 10a, 10b | `10` | `10` (`usedAt`) |
 | Reset password xong, đăng nhập | Vẫn qua bước MFA | `24`, `25` | mục 11a, 11b | `11` | `11` (vân tay `mfaSecret` không đổi), `mail/1` |
 | **Chức năng cũ** | Không hồi quy | | | `check-ssr.txt` 124, `check-auth.txt` 135 | |
@@ -36,9 +36,11 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `source-c
 | Món nháp chỉ hiện đúng người (plan 12.2) | `10`, `11` | | `07`, `check-rbac.txt` phần D | |
 | Tắt MFA phải xác thực lại (slide 23) | `26-*`, `27` | mục 12a, 12b | `12` | `12` |
 | Log server không chứa secret, recovery code, mật khẩu | | | `13` | |
-| Lỗi do agent tạo ra (slide 58): sau khi sửa nút Xoá tràn khung | `28` | | `14`, BUILD_LOG bước 8 | |
+| Lỗi do agent tạo ra (slide 58): giới hạn sai mã MFA bị vượt khi gửi đồng thời, trước và sau khi sửa | | | `15`, `check-mfa.txt` phần B; BUILD_LOG bước 35 | |
+| Lỗi khác: secret chờ khi đổi thiết bị không có hạn | | | `check-mfa.txt` phần D; BUILD_LOG bước 36 | |
+| Lỗi khác: nút Xoá tràn khung, sau khi sửa | `28` | | `14`, BUILD_LOG bước 8 | |
 
-Kết quả script trên code cuối: `check-policy` 32, `check-rbac` 159, `check-mfa` 75, `check-auth` 135, `check-ssr` 124, tất cả 0 CHƯA ĐẠT.
+Kết quả script trên code cuối: `check-policy` 32, `check-rbac` 159, `check-mfa` 84, `check-auth` 135, `check-ssr` 124, tất cả 0 CHƯA ĐẠT.
 
 Giao diện ở 3 cỡ 1280, 820, 375: `03-trang-403`, `13-thiet-lap-mfa-da-che`, `14-ma-khoi-phuc-da-che`, `16-buoc-nhap-ma`, `20-sai-5-lan-tam-khoa`, `21-nhap-ma-khoi-phuc`, `26-xac-thuc-lai-de-tat-mfa`.
 

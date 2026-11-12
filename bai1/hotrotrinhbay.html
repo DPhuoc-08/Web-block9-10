@@ -141,7 +141,7 @@
   </ul>
   <div class="stats">
     <div class="stat"><strong>159/159</strong><a href="evidence/curl/check-rbac.txt">check-rbac</a>: quyền, thuộc tính, món nháp</div>
-    <div class="stat"><strong>75/75</strong><a href="evidence/curl/check-mfa.txt">check-mfa</a>: thiết lập, đăng nhập, recovery code</div>
+    <div class="stat"><strong>84/84</strong><a href="evidence/curl/check-mfa.txt">check-mfa</a>: thiết lập, đăng nhập, recovery code</div>
     <div class="stat"><strong>32/32</strong><a href="evidence/curl/check-policy.txt">check-policy</a>: bảng quyền</div>
     <div class="stat"><strong>135/135</strong><a href="evidence/curl/check-auth.txt">check-auth</a>: tài khoản của block 8</div>
     <div class="stat"><strong>124/124</strong><a href="evidence/curl/check-ssr.txt">check-ssr</a>: thực đơn, tìm kiếm, CRUD</div>
@@ -161,7 +161,7 @@
       <tr><td>Gửi <code>PATCH</code> trực tiếp</td><td>Cùng kết quả như qua form</td><td>Đạt</td></tr>
       <tr><td>Thêm <code>role</code>, <code>chefId</code>, <code>status</code> vào form</td><td>Quyền không tăng, món vẫn của A, vẫn nháp</td><td>Đạt</td></tr>
       <tr><td>Password đúng, chưa nhập OTP</td><td>Không vào được quản trị, phiên không có <code>userId</code></td><td>Đạt</td></tr>
-      <tr><td>OTP sai quá giới hạn, mã dùng lại</td><td>Sai 5 lần <code>429</code> kể cả mã đúng; mã đã dùng bị từ chối</td><td>Đạt</td></tr>
+      <tr><td>OTP sai quá giới hạn, mã dùng lại</td><td>Sai 5 lần <code>429</code> kể cả mã đúng, kể cả khi 30 mã gửi cùng lúc (lỗi tìm ra và sửa 12/11, xem <code>kichban.html</code>); mã đã dùng bị từ chối</td><td>Đạt</td></tr>
       <tr><td>Recovery code dùng lần hai</td><td>Bị từ chối, <code>usedAt</code> giữ nguyên</td><td>Đạt</td></tr>
       <tr><td>Reset password xong, đăng nhập</td><td>Vẫn qua bước MFA, MFA không bị tắt</td><td>Đạt</td></tr>
     </tbody>
@@ -230,10 +230,12 @@
     <tbody>
       <tr><td>TOTP</td><td>6 chữ số, SHA-1, bước 30 giây, chấp nhận thêm tối đa 1 bước mỗi bên</td><td>Tương thích mọi app authenticator; một bước lân cận theo RFC 6238</td></tr>
       <tr><td>Sai mã MFA (OTP, recovery code, xác thực lại chung bộ đếm)</td><td>5 lần / 15 phút → khoá 15 phút, <code>429</code></td><td>Mã 6 số chỉ khoảng một triệu giá trị; chung bộ đếm để không có đường dò thứ hai</td></tr>
+      <tr><td>Giới hạn theo IP ở bước nhập mã (thêm 12/11)</td><td>30 lần / 15 phút / IP, <code>429</code>, kiểm tra trước bộ đếm theo user</td><td>Cùng số với đăng nhập; một nguồn không dò được mã của nhiều tài khoản</td></tr>
       <tr><td>Phiên chờ MFA</td><td>5 phút</td><td>Đủ mở app lấy mã, ngắn để bước password không thành quyền vào lâu dài</td></tr>
       <tr><td>Recovery code</td><td>10 mã, dạng <code>XXXXX-XXXXX</code>, lưu HMAC-SHA256 với pepper</td><td>50 bit ngẫu nhiên nên HMAC là đủ, không cần băm chậm như password</td></tr>
       <tr><td>TOTP secret</td><td>AES-256-GCM, khoá ở <code>.env</code>, gắn <code>userId</code> làm AAD</td><td>Phải giải mã được để kiểm tra mã; chép bản mã sang tài khoản khác sẽ thất bại</td></tr>
       <tr><td>Thay, tắt MFA, tạo lại recovery code</td><td>Password và một mã TOTP hoặc recovery code</td><td>Slide 23, kể cả khi phiên đã đầy đủ</td></tr>
+      <tr><td>Hạn đổi thiết bị sau xác thực lại (thêm 12/11)</td><td>10 phút, chỉ ở chính phiên vừa xác thực lại</td><td>Secret chờ của lần đổi bỏ dở không thể bị phiên khác xác nhận mà không cần password</td></tr>
     </tbody>
   </table></div>
   <p class="muted">Các chính sách của block 8 (password, OTP kích hoạt, CAPTCHA, brute force, session 2 giờ / 12 giờ) giữ nguyên.</p>

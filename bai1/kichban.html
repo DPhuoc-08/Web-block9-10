@@ -211,6 +211,7 @@
       <tr><td>Nhập mã từ điện thoại</td><td>Network: <code>sid</code> mới, vào được quản trị</td><td>Network mục 8c, ảnh 18</td></tr>
       <tr><td>Đăng xuất, đăng nhập lại ngay, nhập đúng mã vừa dùng</td><td><code>INVALID_OTP</code></td><td>ảnh 19, <code>curl/09</code></td></tr>
       <tr><td>Nhập sai 5 lần</td><td><code>429</code>, <code>Retry-After</code>, nút bị khoá</td><td>ảnh 20, <code>db/09</code></td></tr>
+      <tr><td>Gửi 29 mã sai cùng lúc bằng script, rồi mã đúng (chạy <code>check-mfa B</code>)</td><td>Chỉ 4 mã báo sai, còn lại <code>429</code>; mã đúng <code>429</code>; <code>rate_limits</code> ghi 30 lượt</td><td><code>curl/15</code>, <code>curl/check-mfa.txt</code></td></tr>
       <tr><td>Dùng một mã khôi phục; đăng nhập lại dùng đúng mã đó</td><td>Lần đầu vào được, có nhắc đổi thiết bị; lần hai bị từ chối</td><td>ảnh 22, 23, <code>db/10</code></td></tr>
       <tr><td>Quên mật khẩu, đặt lại qua email, đăng nhập bằng mật khẩu mới</td><td>Vẫn phải qua bước nhập mã</td><td>ảnh 25, <code>curl/11</code>, <code>db/11</code></td></tr>
     </tbody>
@@ -220,21 +221,25 @@
 
 <section class="card" id="loi">
   <h2>5. Lỗi đã phát hiện và cách sửa</h2>
-  <h3>Lỗi chính (đề yêu cầu): thêm cột Trạng thái đẩy nút Xoá ra ngoài khung bảng</h3>
+  <h3>Lỗi chính (đề yêu cầu): giới hạn 5 lần sai mã MFA bị vượt khi gửi nhiều mã cùng lúc</h3>
+  <p class="muted">Agent viết, lọt qua nghiệm thu ngày 09/11; tìm ra khi rà soát lại ngày 12/11 bằng phép thử gửi đồng thời. BUILD_LOG bước 35.</p>
   <div class="grid two">
-    <div class="box"><span class="label">Tái hiện</span><p>Đăng nhập Admin, mở <code>/admin/dishes</code> ở 1280px: nút Xoá không thấy nếu không cuộn trong khung bảng.</p></div>
-    <div class="box"><span class="label">Nguyên nhân</span><p>Bảng đã gần đầy, thêm một cột làm khung tràn. Lúc viết mình chỉ kiểm tra toàn trang không cuộn ngang, nên không thấy tràn bên trong khung.</p></div>
-    <div class="box"><span class="label">Sửa</span><p>Bỏ cột Tag ở màn rộng theo Figma đã duyệt; từ 821 đến 1100px cho cụm nút xuống dòng.</p></div>
-    <div class="box"><span class="label">Sau khi sửa</span><p>Độ tràn bằng 0 ở cả 6 cỡ từ 1440 đến 821px (<code>curl/14</code>, ảnh 28).</p></div>
+    <div class="box"><span class="label">Tái hiện</span><p>Đăng nhập password của tài khoản đã bật MFA để có phiên chờ, rồi gửi <strong>cùng lúc</strong> 29 mã sai và 1 mã đúng tới <code>POST /login/mfa</code>. Trước khi sửa, 3/3 lần mã đúng nhận <code>303 /admin/dishes</code>, có phiên đầy đủ; <code>rate_limits</code> ghi <code>count = 30</code>, tức cả 30 mã đều đã được so với secret. Response chỉ có 4 <code>INVALID_OTP</code> nên nhìn response thì tưởng giới hạn vẫn chạy.</p></div>
+    <div class="box"><span class="label">Nguyên nhân</span><p><code>attempt()</code> trong <code>auth/mfa.js</code> đọc bộ đếm, kiểm mã, rồi mới tăng. Kiểm tra và ghi tách rời, nên mọi request đến cùng lúc đều đọc thấy chưa đủ ngưỡng. Mã đúng còn xoá luôn khoá vừa đặt. Bước MFA cũng không có giới hạn theo IP như <code>POST /login</code>. Cùng kiểu lỗi đã tránh được ở ABAC và ở chặn dùng lại mã, nhưng sót ở bộ đếm.</p></div>
+    <div class="box"><span class="label">Sửa</span><p>Giữ lượt <strong>trước</strong> khi kiểm mã: <code>hit()</code> là một câu ghi nên N request cùng lúc nhận N lượt khác nhau, chỉ lượt 1–5 được kiểm, lượt thứ 5 sai thì khoá, lượt 6 trở đi <code>429</code> không kiểm. Thêm giới hạn 30 lần / 15 phút / IP. Ca kiểm thử mới trong <code>check-mfa</code>: mã đúng gửi sau khi 5 mã sai đã có phản hồi, đọc <code>rate_limits</code> thấy đủ 30 lượt.</p></div>
+    <div class="box"><span class="label">Sau khi sửa</span><p>3/3 lần: 4 <code>INVALID_OTP</code>, 26 <code>429</code>, mã đúng <code>429</code>, khoá còn nguyên, không có phiên đầy đủ (<code>curl/15</code>). <code>check-mfa</code> 84/84, <code>check-auth</code> 135/135 không hồi quy.</p></div>
   </div>
-  <h3>Hai lỗi khác</h3>
+  <h3>Lỗi khác</h3>
   <ul>
+    <li><strong>Secret chờ khi đổi thiết bị không có hạn (12/11, BUILD_LOG bước 36):</strong> lần đổi bỏ dở để lại secret chờ, phiên đầy đủ khác của cùng tài khoản mở được trang thiết lập và xác nhận nó, tức đổi thiết bị không cần password. Sửa: secret chờ chỉ dùng được trong 10 phút ở chính phiên vừa xác thực lại. Thêm 3 ca vào <code>check-mfa</code>.</li>
+    <li><strong>Ca kiểm thử gửi đồng thời bản đầu giả định sai thứ tự:</strong> gửi mã đúng trễ 30 ms rồi kỳ vọng nó tới server sau cùng; khi 30 request mở 30 kết nối mới và pool database lạnh, thứ tự tới không theo thứ tự gửi (tái hiện ở Bài 2). Viết lại: gửi mã đúng sau khi 5 mã sai đã có phản hồi.</li>
+    <li><strong>Thêm cột Trạng thái đẩy nút Xoá ra ngoài khung bảng (bước 8):</strong> bảng gần đầy, thêm một cột làm khung tràn ở 1280px. Sửa: bỏ cột Tag ở màn rộng theo Figma; từ 821 đến 1100px cho cụm nút xuống dòng; độ tràn bằng 0 ở 6 cỡ (<code>curl/14</code>, ảnh 28).</li>
     <li><strong>Ca kiểm thử sai:</strong> <code>check-rbac</code> dò món nháp theo tên, nên 19 ca báo sai vì ô tìm kiếm in lại từ khoá. Đổi sang dò theo id, thêm ca đối chứng.</li>
     <li><strong><code>LOG_SQL=1</code> in tham số của <code>recovery_codes</code>:</strong> lúc thêm bảng mới mình quên thêm vào danh sách bảng ẩn tham số. Sau khi sửa, cùng câu truy vấn không còn in giá trị hash.</li>
   </ul>
 </section>
 
-<footer>Block 9, Bài 1 · cập nhật 09/11/2026 · đối chiếu với code thật ở <code>source-code/</code></footer>
+<footer>Block 9, Bài 1 · cập nhật 12/11/2026 · đối chiếu với code thật ở <code>source-code/</code></footer>
 </div>
 </body>
 </html>
