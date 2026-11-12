@@ -141,7 +141,7 @@
     <li>Giữ tìm kiếm, phân trang, hợp đồng lỗi của block 6, 7</li>
   </ul>
   <div class="stats">
-    <div class="stat"><strong>213/213</strong><a href="evidence/curl/check-api.txt">check-api</a>: request trực tiếp</div>
+    <div class="stat"><strong>218/218</strong><a href="evidence/curl/check-api.txt">check-api</a>: request trực tiếp</div>
     <div class="stat"><strong>1.200 món</strong><a href="evidence/curl/06-cong-khai.txt">route công khai</a>: như block 7, không token</div>
   </div>
   <p class="muted">Toàn bộ bằng chứng: <a href="evidence/README.md">evidence/README.md</a> · kịch bản demo: <a href="kichban.html">kichban.html</a> · mô-đun chuyển: <a href="MODULES.md">MODULES.md</a></p>
@@ -224,7 +224,8 @@
       <tr><td>Access token</td><td>HS256, 30 phút</td><td>Thuật toán cố định, không theo <code>alg</code> token tự khai</td></tr>
       <tr><td>Claim JWT</td><td><code>sub</code>, <code>tv</code>, <code>iat</code>, <code>exp</code>, <code>iss</code>, <code>aud</code></td><td>Payload ai cũng đọc được nên không có role, email</td></tr>
       <tr><td>Challenge</td><td>5 phút, dùng một lần, database lưu hash</td><td>Đủ mở app lấy mã, ngắn để bước password không thành quyền vào lâu dài</td></tr>
-      <tr><td>TOTP, recovery code, xác thực lại, sai mã</td><td>Như Bài 1</td><td>Chép nguyên logic</td></tr>
+      <tr><td>TOTP, recovery code, xác thực lại, sai mã</td><td>Như Bài 1: 5 lần / 15 phút, lượt giữ trước khi kiểm mã nên gửi đồng thời cũng chỉ 5 mã được kiểm (sửa 12/11)</td><td>Chép nguyên logic; lỗi L1 tìm ra ở Bài 1 đi theo mô-đun, sửa cả hai nơi</td></tr>
+      <tr><td>Giới hạn theo IP ở <code>POST /api/auth/mfa</code> (thêm 12/11)</td><td>30 lần / 15 phút / IP, <code>429</code></td><td>Như <code>/login/mfa</code> của Bài 1</td></tr>
       <tr><td>Đăng nhập sai</td><td>CAPTCHA từ lần 3, khoá 5 phút ở lần 10</td><td>Slide 37: cùng quy tắc với SSR</td></tr>
     </tbody>
   </table></div>

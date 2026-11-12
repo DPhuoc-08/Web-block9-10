@@ -1,0 +1,37 @@
+# Bài 2 — Gửi đồng thời nhiều mã tới POST /api/auth/mfa (plan mục 14, lỗi L1 và L4; BUILD_LOG bước 37)
+# Kịch bản: challenge thật của tài khoản thử đã bật MFA, 29 mã sai gửi cùng lúc, rồi mã đúng.
+# Kỳ vọng (chính sách mục 4): chỉ 5 lượt đầu được kiểm mã; mã đúng gửi khi 5 mã sai đã có phản hồi phải nhận 429, không có accessToken.
+
+## Trước khi sửa (code tới commit b4c20f4, chạy ca mới của check-api phần B, 12/11/2026)
+CHƯA ĐẠT Gửi đồng thời: mã đúng gửi sau 29 mã sai vẫn 429, không có token — 200
+CHƯA ĐẠT Gửi đồng thời: tối đa 4 mã sai báo INVALID_OTP, còn lại 429
+CHƯA ĐẠT Đủ 30 lần từ một IP: mã đúng vẫn 429 — 200
+CHƯA ĐẠT Bị chặn theo IP thì chưa tới bộ đếm theo user
+# Phép thử độc lập, 3/3 lần: mã đúng 200 ok kèm accessToken; rate_limits count=30 (cả 30 mã đã được kiểm).
+
+## Sau khi sửa (commit f1b37db; check-api 218 ĐẠT)
+ĐẠT      Gửi đồng thời: mã đúng gửi khi 5 mã sai đã có phản hồi → 429, không có token — 429
+ĐẠT      Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429 — 4
+ĐẠT      DB: bộ đếm ghi đủ 30 lượt và đang khoá — 30
+ĐẠT      Đủ 30 lần từ một IP: mã đúng vẫn 429 — 429
+ĐẠT      Bị chặn theo IP thì chưa tới bộ đếm theo user
+
+## Vì sao ca kiểm thử bản đầu (gửi mã đúng trễ 30 ms) chập chờn: trích log tạm phía server, loạt tái hiện lỗi (pool DB rảnh > 10 s)
+# [mfa-debug]: mỗi dòng là một request qua bộ đếm; slot = lượt nhận được; eval=1 = có kiểm mã. Không có mã nào trong log.
+# [route-debug]: tag C = request mã đúng, W1..W29 = mã sai; arrive = lúc vào route (ms, đồng hồ tiến trình server).
+[mfa-debug] t=15067.0 slot=1 locked=0 eval=1 out=ok+reset        <- mã đúng nhận lượt 1
+[mfa-debug] t=15569.6 slot=1 locked=0 eval=1 out=invalid         <- bộ đếm bắt đầu lại sau reset (hành vi thiết kế khi mã đúng)
+[mfa-debug] t=15598.3 slot=6 locked=0 eval=0 out=lock-over
+... (slot 7..25 lock-over, không kiểm mã) ...
+[mfa-debug] t=15731.6 slot=2 locked=0 eval=1 out=invalid
+[mfa-debug] t=15755.2 slot=3 locked=0 eval=1 out=invalid
+[mfa-debug] t=15761.9 slot=4 locked=0 eval=1 out=invalid
+[mfa-debug] t=15770.8 slot=5 locked=0 eval=1 out=invalid+lock
+[route-debug] tag=C   arrive=14544.6 chal=14653.5 ip=14706.0 done=15328.4 ok=true    <- tới server TRƯỚC mọi mã sai dù gửi sau 30 ms
+[route-debug] tag=W1  arrive=14622.0 chal=15164.3 ip=15370.5 done=15762.3 ok=false   <- chờ 540 ms ở truy vấn đầu vì pool lạnh
+[route-debug] tag=W6  arrive=14835.6 chal=15002.1 ip=15155.6 done=15569.8 ok=false
+[route-debug] tag=W11 arrive=14993.1 chal=15117.5 ip=15341.5 done=15732.2 ok=false
+[route-debug] tag=W29 arrive=15044.9 chal=15314.8 ip=15591.4 done=15875.0 ok=false
+# Kết luận: trong 46 loạt tái hiện, server luôn chỉ kiểm mã ở 5 lượt (1–5). Lỗi nằm ở giả định thứ tự của ca kiểm thử:
+# 30 request mở 30 kết nối mới (độ trễ fetch→route 400–1.000 ms, chênh lệch sớm–muộn 120–150 ms, không phải do DNS) và khi pool
+# DB lạnh thứ tự vào bộ đếm khác thứ tự vào route. Đã có loạt mã đúng tới route sau cùng mà vẫn nhận lượt ≤ 5.

@@ -57,6 +57,11 @@
 ĐẠT      Challenge hết hạn → 401
 ĐẠT      Sai 5 lần: 429, Retry-After — 429
 ĐẠT      Đang khoá: mã đúng vẫn 429
+ĐẠT      Gửi đồng thời: mã đúng gửi khi 5 mã sai đã có phản hồi → 429, không có token — 429
+ĐẠT      Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429 — 4
+ĐẠT      DB: bộ đếm ghi đủ 30 lượt và đang khoá — 30
+ĐẠT      Đủ 30 lần từ một IP: mã đúng vẫn 429 — 429
+ĐẠT      Bị chặn theo IP thì chưa tới bộ đếm theo user
 ĐẠT      Recovery code (viết thường, thiếu gạch): có token, còn 9 mã — 9
 ĐẠT      DB: usedAt có giá trị
 ĐẠT      Recovery code dùng lần hai bị từ chối
@@ -224,4 +229,4 @@
 ĐẠT      Editor của món thấy món nháp ở chi tiết đầu bếp
 ĐẠT      Chi tiết nguyên liệu không lộ tên món nháp cho Viewer
 
-TỔNG: 213 ĐẠT, 0 CHƯA ĐẠT
+TỔNG: 218 ĐẠT, 0 CHƯA ĐẠT

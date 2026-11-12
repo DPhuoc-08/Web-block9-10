@@ -122,3 +122,10 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 **Đã kiểm tra sau cùng:** `check-api` toàn bộ **218 ĐẠT, 0 CHƯA ĐẠT**; `grep DEBUG` trong `api/src` không còn; `git diff` chỉ gồm 6 file chủ ý; database Bài 2 còn đúng 4 tài khoản seed, không còn user thử, `rate_limits` rỗng.
 
 **Còn lại:** bước 38 (tài liệu trình bày, lỗi chính theo plan 14.3 d, thu lại bằng chứng ca khoá tạm), bước 39 (việc làm tay).
+
+## Bước 38 — Tài liệu và bằng chứng sau khi sửa lỗi (plan mục 14, theo 14.3 d)
+**Đã làm:** `kichban.html`: lỗi chính nộp theo slide 69 nay là L1 ở `api`; lỗi `rsync` lúc chép nền và L4 (ca kiểm thử giả định thứ tự, kèm cách truy nguyên) xuống "Lỗi khác"; thêm dòng demo cho ca gửi đồng thời. `hotrotrinhbay.html`: chính sách "sai mã" ghi rõ lượt giữ trước khi kiểm, thêm giới hạn IP ở `POST /api/auth/mfa`. `evidence/curl/16-gui-dong-thoi.txt`: kết quả trước và sau khi sửa, trích log tạm của loạt tái hiện (chỉ số lượt, mốc thời gian, thẻ C/W; không có mã); `check-api.txt` thay bằng bản 218 ĐẠT; `evidence/README.md`, `README.md` cập nhật. Sơ đồ 1 (đăng nhập JWT) vẽ lại: nút MFA ghi giới hạn IP và giữ lượt trước khi kiểm mã, mốc `file:dòng` theo mã mới.
+
+**Đã kiểm tra:** `ve-so-do.mjs` chạy được. Chrome headless: `kichban.html`, `hotrotrinhbay.html` ở 1280 và 375px không cuộn ngang, bảng cuộn trong khung, không ảnh hỏng. File bằng chứng mới không chứa challenge, token, mã.
+
+**Chưa chắc:** sơ đồ cần nhóm duyệt (H2); chưa có ảnh DevTools (H1); H4 (CAPTCHA thật, Gmail thật, quét QR ở `web`) vẫn chờ người thử, nên vẫn chưa đánh dấu "đạt Bài 2".

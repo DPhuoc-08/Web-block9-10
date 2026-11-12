@@ -34,8 +34,9 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `api/`): 
 
 | Nội dung | Bằng chứng |
 | :--- | :--- |
-| Toàn bộ request trực tiếp | `curl/check-api.txt`: **213 ĐẠT, 0 CHƯA ĐẠT** |
+| Toàn bộ request trực tiếp | `curl/check-api.txt`: **218 ĐẠT, 0 CHƯA ĐẠT** |
 | Challenge chỉ dùng được ở `/api/auth/mfa` | `curl/08`, `curl/check-api.txt` phần B |
+| Gửi 29 mã sai cùng lúc: chỉ 5 lượt được kiểm, mã đúng `429`, giới hạn IP; trước và sau khi sửa, log tái hiện | `curl/16`, `curl/check-api.txt` phần B |
 | `401` nhớ trang đang mở, `403` giữ token, API tắt không đăng xuất | ảnh `13`, `14`; `curl/02`, `curl/04` |
 | Giao diện theo role, Editor thêm món không gửi `chefId` | ảnh `06-*`, `07-*`, `09`, `10-*`, `11`; Network mục 2c |
 | Quản lý MFA | ảnh `23-*`–`26`, `36-*`, `37`; Network mục 8a, 8b, 11a, 11b; `db/05`, `db/08` |
@@ -45,4 +46,4 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `api/`): 
 
 Sơ đồ do nhóm vẽ (bản nháp từ code thật, nhóm duyệt): `diagrams/1-dang-nhap-jwt-va-noi-luu-token.svg` (kèm nơi lưu token và lý do), `diagrams/2-request-co-bearer.svg`. Vẽ lại: `node evidence/diagrams/ve-so-do.mjs` từ thư mục `bai2/`.
 
-Lỗi do agent tạo ra (slide 69): `BUILD_LOG.md`, mục "Lỗi phát hiện trong lúc làm" ở bước 18. Danh sách mô-đun chuyển từ Bài 1: `MODULES.md`.
+Lỗi do agent tạo ra (slide 69): giới hạn sai mã MFA bị vượt khi gửi đồng thời, `BUILD_LOG.md` bước 37 (kèm cách truy nguyên ca kiểm thử chập chờn); lỗi khác ở bước 18. Danh sách mô-đun chuyển từ Bài 1: `MODULES.md`.

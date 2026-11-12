@@ -42,7 +42,7 @@ npm run dev               # http://localhost:5173
 
 ```bash
 cd api
-node scripts/check-api.mjs            # 213 kiểm tra; tự chạy server ở :3100; cần .env.test (key thử của Google)
+node scripts/check-api.mjs            # 218 kiểm tra; tự chạy server ở :3100; cần .env.test (key thử của Google)
 npm --prefix ../web run build
 node scripts/collect-evidence.mjs     # Chrome thật; tắt api và web trước; ghi vào evidence/
 npx prisma db seed                    # seed lại sau khi test

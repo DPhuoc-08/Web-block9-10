@@ -205,6 +205,7 @@
       <tr><td>Bật MFA ở <code>/admin/security</code>, quét QR</td><td>Mã khôi phục hiện một lần</td><td>ảnh 24, 25, <code>db/05</code></td></tr>
       <tr><td>Đăng nhập lại</td><td>Có <code>next: "mfa"</code>, không có <code>accessToken</code>; nhập mã mới có token</td><td>ảnh 27, Network 8c, 8d</td></tr>
       <tr><td>Dùng mã khôi phục hai lần</td><td>Lần hai bị từ chối</td><td>ảnh 31, 32, <code>db/06</code></td></tr>
+      <tr><td>Gửi 29 mã sai cùng lúc tới <code>POST /api/auth/mfa</code> bằng script, rồi mã đúng (chạy <code>check-api B</code>)</td><td>Chỉ 4 mã <code>INVALID_OTP</code>, còn lại <code>429</code>; mã đúng <code>429</code>, không có token; <code>rate_limits</code> ghi 30 lượt</td><td><code>curl/16</code>, <code>curl/check-api.txt</code></td></tr>
       <tr><td>Sai 3 lần rồi curl bỏ CAPTCHA</td><td><code>CAPTCHA_REQUIRED</code>, không có token dù password đúng</td><td><code>curl/07</code></td></tr>
       <tr><td>Giữ token, reset mật khẩu, dùng lại token</td><td><code>401</code>; đăng nhập vẫn qua MFA</td><td>ảnh 35, <code>curl/10</code>, <code>db/07</code></td></tr>
     </tbody>
@@ -213,13 +214,19 @@
 
 <section class="card" id="loi">
   <h2>5. Lỗi đã phát hiện và cách sửa</h2>
-  <h3>Lỗi chính (đề yêu cầu): lệnh chép nền không loại trừ <code>.env</code></h3>
+  <h3>Lỗi chính (đề yêu cầu): giới hạn 5 lần sai mã ở <code>POST /api/auth/mfa</code> bị vượt khi gửi nhiều mã cùng lúc</h3>
+  <p class="muted">Cùng lỗi L1 của Bài 1, đi theo mô-đun <code>auth/mfa.js</code> chép sang; qua API JSON còn dễ khai thác hơn vì không cần form, CSRF. Tìm ra khi rà soát 12/11. BUILD_LOG bước 37.</p>
   <div class="grid two">
-    <div class="box"><span class="label">Tái hiện</span><p>Trong zsh đặt <code>X="--exclude=.env --exclude=node_modules/"</code> rồi chạy <code>rsync -a $X nguồn/ đích/</code>.</p></div>
-    <div class="box"><span class="label">Nguyên nhân</span><p>zsh không tách biến chưa có ngoặc kép thành nhiều tham số, nên <code>rsync</code> không loại trừ gì.</p></div>
-    <div class="box"><span class="label">Hậu quả</span><p><code>.env</code> của block 7 trỏ vào database của Bài 1 nằm trong <code>bai2/api/</code>. Nếu không phát hiện, seed sẽ xoá sạch database đó.</p></div>
-    <div class="box"><span class="label">Sau khi sửa</span><p>Đã xoá bản chép thừa. <code>git ls-files bai2</code> và số tệp trên đĩa đều là 91, chỉ có hai <code>.env.example</code>.</p></div>
+    <div class="box"><span class="label">Tái hiện</span><p>Đăng nhập password của tài khoản đã bật MFA để lấy <code>challenge</code>, gửi <strong>cùng lúc</strong> 29 mã sai và 1 mã đúng. Trước khi sửa, 3/3 lần mã đúng nhận <code>200</code> kèm <code>accessToken</code>; <code>rate_limits</code> ghi <code>count = 30</code>.</p></div>
+    <div class="box"><span class="label">Nguyên nhân</span><p><code>attempt()</code> đọc bộ đếm, kiểm mã, rồi mới tăng: mọi request đến cùng lúc đều đọc thấy chưa đủ ngưỡng. Không có giới hạn theo IP ở bước này.</p></div>
+    <div class="box"><span class="label">Sửa</span><p>Giữ lượt trước khi kiểm mã (chép bản sửa của Bài 1), thêm 30 lần / 15 phút / IP. Ca mới trong <code>check-api</code>: mã đúng gửi sau khi 5 mã sai đã có phản hồi; đọc <code>rate_limits</code> thấy đủ 30 lượt và đang khoá.</p></div>
+    <div class="box"><span class="label">Sau khi sửa</span><p><code>check-api</code> 218/218; phép thử độc lập 6/6 lần mã đúng <code>429</code>; log tạm phía server trong 46 loạt tái hiện: luôn chỉ 5 lượt được kiểm mã (<code>curl/16</code>).</p></div>
   </div>
+  <h3>Lỗi khác</h3>
+  <ul>
+    <li><strong>Ca kiểm thử gửi đồng thời bản đầu chập chờn (1 trong 6 lần):</strong> ca gửi mã đúng trễ 30 ms và kỳ vọng nó tới server sau cùng. Truy nguyên bằng log tạm từng chặng: bản sửa làm đúng; thứ tự gửi bị mất ở hai chỗ, lúc client mở 30 kết nối mới (có loạt mã đúng tới route trước cả 29 mã sai) và lúc server chờ pool database lạnh (có loạt mã đúng tới route sau cùng mà vẫn nhận lượt ≤ 5). Viết lại ca: mã đúng gửi sau khi 5 mã sai đã có phản hồi. Bài học: ca đồng thời phải tạo điều kiện bằng sự kiện đã quan sát được, và phải đọc trạng thái phía server, vì response của lỗi L1 trông hoàn toàn bình thường.</li>
+    <li><strong>Lệnh chép nền không loại trừ <code>.env</code> (bước 18):</strong> trong zsh, biến chưa có ngoặc kép không tách thành nhiều tham số nên <code>rsync</code> không loại trừ gì; <code>.env</code> của block 7 trỏ vào database của Bài 1 nằm trong <code>bai2/api/</code> vài phút, không vào Git. Nếu không phát hiện, seed sẽ xoá sạch database đó. Đã xoá bản chép thừa, <code>git ls-files bai2</code> và số tệp trên đĩa đều là 91.</li>
+  </ul>
   <h3>Điểm được chặn trước khi thành lỗi</h3>
   <ul>
     <li><strong>Response công khai thêm cột <code>status</code>:</strong> thêm cột vào schema làm cột này tự lọt vào <code>GET /api/dishes</code>, trái slide 67. Route công khai bỏ cột này, <code>check-api</code> phần F kiểm tra.</li>
@@ -227,7 +234,7 @@
   </ul>
 </section>
 
-<footer>Block 9, Bài 2 · cập nhật 09/11/2026 · đối chiếu với code thật ở <code>api/</code>, <code>web/</code></footer>
+<footer>Block 9, Bài 2 · cập nhật 12/11/2026 · đối chiếu với code thật ở <code>api/</code>, <code>web/</code></footer>
 </div>
 </body>
 </html>
