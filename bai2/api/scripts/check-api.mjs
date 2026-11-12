@@ -62,6 +62,8 @@ async function enable(token) {
   return { secret: setup.data.secret, codes: confirm.data.recoveryCodes };
 }
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+// Chờ tới khi ít nhất n promise đã xong (thành công hay thất bại), không chờ hết.
+const afterN = (promises, n) => new Promise((done) => { let k = 0; const tick = () => { if (++k === n) done(); }; promises.forEach((p) => p.then(tick, tick)); });
 
 async function partA() {
   const r = reporter("A. CORS và verify JWT");
@@ -185,6 +187,41 @@ async function partB() {
   r.ok(last.status === 429 && last.code === "RATE_LIMITED" && last.headers.get("retry-after"), "Sai 5 lần: 429, Retry-After", last.status);
   const lockedGood = await post("/api/auth/mfa", { challenge: step3.data.challenge, code: totp(secret, 1) });
   r.ok(lockedGood.status === 429 && !lockedGood.text.includes("accessToken"), "Đang khoá: mã đúng vẫn 429");
+  await clearMfa(mu.id);
+
+  // Gửi đồng thời (plan 14 L1): 29 mã sai cùng lúc. Chỉ 5 lượt đầu được kiểm mã (4 báo INVALID_OTP, lượt thứ 5 khoá), 24 lượt
+  // còn lại 429. Mã đúng gửi SAU KHI ít nhất 5 mã sai đã có phản hồi: lúc đó bộ đếm chắc chắn ≥ 5 nên mã đúng nhận lượt > 5 → 429.
+  // Không dựa vào "gửi trễ 30 ms": khi pool kết nối lạnh, 30 request tới bước đếm gần như cùng lúc và thứ tự không theo thứ tự gửi
+  // (tái hiện 12/11: mã đúng nhận lượt 2). Bản cũ (đọc bộ đếm, kiểm mã, rồi mới tăng) kiểm cả 30 mã và cấp token cho mã đúng.
+  await clearIp();
+  const near = [totp(secret, -1), totp(secret), totp(secret, 1)];
+  const wrongCodes = [];
+  for (let n = 0; wrongCodes.length < 29; n++) {
+    const code = String(n).padStart(6, "0");
+    if (!near.includes(code)) wrongCodes.push(code);
+  }
+  const burstLogin = await post("/api/auth/login", { email: mu.email, password: PW });
+  const inFlight = wrongCodes.map((code) => post("/api/auth/mfa", { challenge: burstLogin.data.challenge, code }));
+  await afterN(inFlight, 5);
+  const burstGood = await post("/api/auth/mfa", { challenge: burstLogin.data.challenge, code: totp(secret, 1) });
+  const burstWrong = await Promise.all(inFlight);
+  const burstEvaluated = burstWrong.filter((x) => x.code === "INVALID_OTP").length;
+  r.ok(burstGood.status === 429 && !burstGood.text.includes("accessToken"), "Gửi đồng thời: mã đúng gửi khi 5 mã sai đã có phản hồi → 429, không có token", burstGood.status);
+  r.ok(burstEvaluated === 4 && burstWrong.every((x) => x.code === "INVALID_OTP" || x.status === 429), "Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429", burstEvaluated);
+  const burstRow = await prisma.rateLimit.findUnique({ where: { key: `mfa-fail:user:${mu.id}` } });
+  r.ok(burstRow?.count === 30 && Boolean(burstRow.lockedUntil), "DB: bộ đếm ghi đủ 30 lượt và đang khoá", burstRow?.count);
+  await clearMfa(mu.id);
+
+  // Giới hạn theo IP (plan mục 4, thêm 12/11): đủ 30 lần gửi từ một IP trong 15 phút → 429 dù mã đúng, chặn trước bộ đếm theo user.
+  await clearIp();
+  const ipLogin = await post("/api/auth/login", { email: mu.email, password: PW });
+  await post("/api/auth/mfa", { challenge: ipLogin.data.challenge, code: wrongCodes[0] });
+  await clearMfa(mu.id);
+  await prisma.rateLimit.updateMany({ where: { key: { startsWith: "mfa:ip:" } }, data: { count: 30 } }); // giả lập 30 lần gửi trước đó
+  const ipGood = await post("/api/auth/mfa", { challenge: ipLogin.data.challenge, code: totp(secret, 1) });
+  r.ok(ipGood.status === 429 && ipGood.code === "RATE_LIMITED" && ipGood.headers.get("retry-after") && !ipGood.text.includes("accessToken"), "Đủ 30 lần từ một IP: mã đúng vẫn 429", ipGood.status);
+  r.ok((await prisma.rateLimit.count({ where: { key: `mfa-fail:user:${mu.id}` } })) === 0, "Bị chặn theo IP thì chưa tới bộ đếm theo user");
+  await clearIp();
   await clearMfa(mu.id);
 
   const step4 = await post("/api/auth/login", { email: mu.email, password: PW });

@@ -89,6 +89,9 @@ router.post("/login", jsonBody, async (req, res) => {
 });
 
 // ---------- Bước MFA ----------
+// Giới hạn theo IP cho bước nhập mã (plan mục 4, thêm 12/11, 14.3 b): lớp thứ hai bên cạnh bộ đếm theo user, để một nguồn không dò
+// được mã của nhiều tài khoản. Cùng số với giới hạn IP của đăng nhập; như Bài 1, chỉ đếm request có challenge hợp lệ.
+const MFA_IP = { windowMs: 15 * MIN, max: 30 };
 const challengeExpired = (res) => unauthenticated(res, CODES.UNAUTHENTICATED, "Phiên xác thực đã hết hạn. Hãy đăng nhập lại.");
 
 // Nơi DUY NHẤT nhận challenge. Access token có dấu chấm nên không qua được định dạng ở đây; challenge không phải JWT nên không qua
@@ -97,6 +100,9 @@ router.post("/mfa", jsonBody, async (req, res) => {
   const token = str(req.body.challenge);
   const row = TOKEN_FORMAT.test(token) ? await prisma.mfaChallenge.findUnique({ where: { tokenHash: sha256(token) }, select: { id: true, userId: true, usedAt: true, expiresAt: true } }) : null;
   if (!row || row.usedAt || row.expiresAt <= new Date()) return challengeExpired(res);
+
+  const ip = await limit(`mfa:ip:${req.ip}`, MFA_IP);
+  if (ip.limited) return rateLimited(res, ip.retryAfter, `Sai quá nhiều lần. Vui lòng thử lại sau ${minutesOf(ip.retryAfter)} phút.`);
 
   const code = str(req.body.code).trim();
   const recoveryCode = str(req.body.recoveryCode);
