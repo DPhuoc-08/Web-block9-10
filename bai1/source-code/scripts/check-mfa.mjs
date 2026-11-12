@@ -319,6 +319,22 @@ async function partD() {
   await stillOld.c.get("/login/mfa");
   r.ok((await stillOld.c.post("/login/mfa", [["otp", totpFor(secret)]])).status === 303, "Chưa xác nhận: secret cũ vẫn đăng nhập được");
   r.ok((await userRow()).mfaSecret === sealedOld, "Secret đang dùng không bị ghi đè");
+
+  // Secret chờ gắn với phiên vừa xác thực lại, hạn 10 phút (plan 14 L2). stillOld là một phiên đầy đủ KHÁC của cùng user,
+  // chưa xác thực lại: không được đọc secret chờ, không được xác nhận nó để đổi thiết bị mà không cần password.
+  const other = await stillOld.c.get("/admin/profile/mfa/setup");
+  r.ok(other.status === 303 && !(other.text ?? "").includes(fresh.slice(0, 8)), "Phiên khác chưa xác thực lại: không đọc được secret chờ", other.status);
+  await stillOld.c.get("/admin/profile");
+  await stillOld.c.post("/admin/profile/mfa/setup/confirm", [["otp", totpFor(fresh)]]);
+  row = await userRow();
+  r.ok(row.mfaSecret === sealedOld && row.mfaPendingSecret !== null, "Phiên khác chưa xác thực lại: không xác nhận được secret chờ");
+  const [flagged] = await prisma.$queryRaw`SELECT sid FROM sessions WHERE "userId" = ${u.id} AND data ? 'mfaReplaceAt'`;
+  const setFlag = (at) => prisma.$executeRaw`UPDATE sessions SET data = jsonb_set(data, '{mfaReplaceAt}', to_jsonb(${at}::bigint)) WHERE sid = ${flagged?.sid ?? ""}`;
+  await setFlag(Date.now() - 11 * 60_000);
+  const late = await c.get("/admin/profile/mfa/setup");
+  r.ok(Boolean(flagged) && late.status === 303, "Quá 10 phút sau xác thực lại: không mở được trang đổi thiết bị", late.status);
+  await setFlag(Date.now());
+
   await c.get("/admin/profile/mfa/setup");
   a = await c.post("/admin/profile/mfa/setup/confirm", [["otp", totpFor(fresh)]]);
   row = await userRow();

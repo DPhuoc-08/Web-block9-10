@@ -240,3 +240,22 @@ Rà soát ngày 12/11/2026 (đọc mã, chạy lại mọi `check-*`, thêm phé
 - Hồi quy: `check-auth` **135 ĐẠT, 0 CHƯA ĐẠT** (đăng nhập, CAPTCHA, bộ đếm sai password dùng chung `rate-limit.js` không đổi hành vi).
 
 **Còn lại:** chép sang `api` ở bước 37; tài liệu trình bày, mục lỗi trong `kichban.html` cập nhật ở bước 38.
+
+## Bước 36 — Sửa L2: secret chờ của "đổi thiết bị" gắn với phiên vừa xác thực lại, hạn 10 phút (plan mục 14)
+
+### Lỗi phát hiện khi rà soát sau nghiệm thu (do agent viết)
+**Đổi thiết bị MFA được mà không cần password, nếu lần đổi trước bị bỏ dở.**
+- Cách tái hiện: phiên A xác thực lại (`POST /admin/profile/mfa/reauth/replace`) rồi bỏ dở, không xác nhận. Từ một phiên đầy đủ B của cùng tài khoản (chưa xác thực lại), mở `GET /admin/profile/mfa/setup` rồi gửi `POST /setup/confirm` với mã của secret đó.
+- Ca mới trong `check-mfa` phần D chạy trên mã cũ: phiên B mở trang thiết lập `200`, thấy secret chờ (**CHƯA ĐẠT**); phiên B xác nhận được, thiết bị bị đổi (**CHƯA ĐẠT**).
+- Nguyên nhân: `mfaPendingSecret` không có hạn, và `GET /setup`, `POST /setup/confirm` chỉ hỏi "có secret chờ không", không hỏi "secret này do một lần xác thực lại còn hạn tạo ra không". Xác thực lại ở 6.5 (slide 23) vì vậy chỉ chặn được lúc bắt đầu, không chặn được lúc kết thúc.
+- Mức độ: thấp. Cần một lần đổi bỏ dở và một phiên đầy đủ của người khác (ví dụ phiên bị chiếm). Bài 2 không bị: `api` chỉ trả secret một lần trong response của `POST /replace`, không có đường đọc lại.
+
+**Đã làm:** `src/routes/admin/mfa.js`: xác thực lại cho `replace` thì ghi `req.session.mfaReplaceAt`; khi đang bật MFA (tức là đổi thiết bị), `GET /setup` và `POST /setup/confirm` chỉ nhận nếu cờ của **chính phiên đó** còn trong 10 phút, không thì `303` về hồ sơ kèm thông báo "Phiên đổi thiết bị đã hết hạn"; đổi xong thì xoá cờ. `src/app.js`: thêm thông báo `mfa-replace-expired`. `check-mfa` phần D thêm 3 ca.
+
+**Quyết định và lý do (plan 14.3 c):**
+- Cờ trong phiên, không thêm cột `mfaPendingAt`: ràng secret chờ vào đúng phiên vừa xác thực lại, nên phiên khác không dùng được dù còn hạn; không phải `db push` lên DB của block7/block8. `regenerate` lúc đăng nhập lại tạo phiên mới không có cờ.
+- `POST /setup/confirm` kiểm tra cờ trước khi xét mã: bị từ chối thì không tốn lượt của bộ đếm MFA.
+- Lần bật MFA đầu tiên không bị ràng buộc: đề không yêu cầu xác thực lại khi bật (slide 53).
+- `auth/mfa.js` không đổi, `api` không cần sửa.
+
+**Đã kiểm tra:** `check-mfa` toàn bộ **83 ĐẠT, 0 CHƯA ĐẠT**: phiên khác chưa xác thực lại nhận `303`, không thấy secret; xác nhận từ phiên đó không đổi `mfaSecret`, secret chờ vẫn còn; cờ lùi về 11 phút trước thì `/setup` nhận `303`; các ca đổi thiết bị cũ vẫn đạt (chưa xác nhận thì secret cũ vẫn đăng nhập được, xác nhận xong thì chuyển, không đổi nhóm recovery code).

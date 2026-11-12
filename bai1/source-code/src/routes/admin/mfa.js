@@ -10,12 +10,20 @@ const router = Router();
 const PROFILE = "/admin/profile";
 const BASE = `${PROFILE}/mfa`;
 
+// Đổi thiết bị: secret chờ chỉ dùng được trong phiên vừa xác thực lại và trong 10 phút (plan mục 4, 14 L2). Không có cờ này thì
+// một phiên đầy đủ khác (hoặc chính phiên này về sau) đọc được secret chờ còn sót của lần đổi bỏ dở rồi xác nhận nó, tức đổi
+// thiết bị mà không cần password, trái slide 23. Lần bật đầu tiên không cần xác thực lại nên không bị ràng buộc này.
+const REPLACE_WINDOW_MS = 10 * 60_000;
+const replaceFresh = (req) => req.session.mfaReplaceAt > Date.now() - REPLACE_WINDOW_MS;
+const replaceExpired = (res) => res.redirect(303, withFlash(PROFILE, { msg: "mfa-replace-expired" }));
+
 // Nhóm 4 ký tự cho dễ chép tay; ứng dụng authenticator bỏ qua khoảng trắng.
 const grouped = (secret) => secret.match(/.{1,4}/g).join(" ");
 
-async function renderSetup(res, { status = 200, banner = null, code = null } = {}) {
+async function renderSetup(req, res, { status = 200, banner = null, code = null } = {}) {
   const enrollment = await readEnrollment(res.locals.currentUser.id);
   if (!enrollment) return res.redirect(303, PROFILE);
+  if (enrollment.replacing && !replaceFresh(req)) return replaceExpired(res);
   res.status(status).render("admin/mfa/setup", {
     title: enrollment.replacing ? "Đổi thiết bị xác thực" : "Bật xác thực hai lớp",
     secret: grouped(enrollment.secret),
@@ -32,18 +40,23 @@ router.post("/setup", async (req, res) => {
   res.redirect(303, `${BASE}/setup`);
 });
 
-router.get("/setup", (req, res) => renderSetup(res));
+router.get("/setup", (req, res) => renderSetup(req, res));
 
 router.post("/setup/confirm", async (req, res) => {
+  // Kiểm tra trước khi xét mã: đang bật MFA (tức là đổi thiết bị) mà không có lần xác thực lại còn hạn thì từ chối, không tốn lượt.
+  if ((await mfaSummary(res.locals.currentUser.id)).enabled && !replaceFresh(req)) return replaceExpired(res);
   const result = await confirmEnrollment(res.locals.currentUser.id, one(req.body.otp).trim());
   if (!result.ok) {
     if (result.reason === "locked") {
       res.set("Retry-After", String(result.retryAfter));
-      return renderSetup(res, { status: 429, code: "RATE_LIMITED", banner: { kind: "error", text: `Sai quá nhiều lần. Vui lòng thử lại sau ${minutesOf(result.retryAfter)} phút.` } });
+      return renderSetup(req, res, { status: 429, code: "RATE_LIMITED", banner: { kind: "error", text: `Sai quá nhiều lần. Vui lòng thử lại sau ${minutesOf(result.retryAfter)} phút.` } });
     }
-    return renderSetup(res, { code: "INVALID_OTP", banner: { kind: "error", text: "Mã không đúng. Kiểm tra lại ứng dụng rồi nhập mã mới nhất." } });
+    return renderSetup(req, res, { code: "INVALID_OTP", banner: { kind: "error", text: "Mã không đúng. Kiểm tra lại ứng dụng rồi nhập mã mới nhất." } });
   }
-  if (result.replaced) return res.redirect(303, withFlash(PROFILE, { msg: "mfa-replaced" }));
+  if (result.replaced) {
+    delete req.session.mfaReplaceAt; // đổi xong: lần đổi sau phải xác thực lại từ đầu
+    return res.redirect(303, withFlash(PROFILE, { msg: "mfa-replaced" }));
+  }
   holdCodes(req.sessionID, { codes: result.codes, kind: "enabled" });
   res.redirect(303, `${BASE}/codes`);
 });
@@ -88,6 +101,7 @@ router.post("/reauth/:action", guardReauth, async (req, res) => {
   }
   if (action === "replace") {
     await startReplacement(userId);
+    req.session.mfaReplaceAt = Date.now();
     return res.redirect(303, `${BASE}/setup`);
   }
   if (action === "disable") {

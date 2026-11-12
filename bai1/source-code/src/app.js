@@ -113,6 +113,7 @@ const FLASH = {
   "password-changed": "Đã đổi mật khẩu. Các thiết bị khác đã bị đăng xuất.",
   "mfa-replaced": "Đã đổi sang thiết bị mới.",
   "mfa-disabled": "Đã tắt xác thực hai lớp.",
+  "mfa-replace-expired": "Phiên đổi thiết bị đã hết hạn. Hãy xác thực lại để bắt đầu lại.",
   "mfa-codes-gone": "Mã khôi phục chỉ hiện một lần. Nếu chưa lưu, hãy tạo lại nhóm mã mới.",
 };
 app.use((req, res, next) => {
