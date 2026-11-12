@@ -259,3 +259,10 @@ Rà soát ngày 12/11/2026 (đọc mã, chạy lại mọi `check-*`, thêm phé
 - `auth/mfa.js` không đổi, `api` không cần sửa.
 
 **Đã kiểm tra:** `check-mfa` toàn bộ **83 ĐẠT, 0 CHƯA ĐẠT**: phiên khác chưa xác thực lại nhận `303`, không thấy secret; xác nhận từ phiên đó không đổi `mfaSecret`, secret chờ vẫn còn; cờ lùi về 11 phút trước thì `/setup` nhận `303`; các ca đổi thiết bị cũ vẫn đạt (chưa xác nhận thì secret cũ vẫn đăng nhập được, xác nhận xong thì chuyển, không đổi nhóm recovery code).
+
+## Bước 35 (bổ sung 12/11) — Ca kiểm thử gửi đồng thời viết lại cho chắc chắn
+**Vì sao:** ca ở bước 35 gửi mã đúng "trễ 30 ms" sau 29 mã sai và kỳ vọng nó tới server sau cùng. Khi chép sang `api` (bước 37), ca cùng kiểu bị CHƯA ĐẠT 1 trong 6 lần chạy. Tái hiện có log phía server cho thấy: bộ đếm làm đúng (chỉ 5 lượt được kiểm, 25 lượt bị khoá), nhưng mã đúng nhận **lượt 2**: khi pool kết nối lạnh (kết nối rảnh đóng sau 10 giây), cả 30 request tới bước đếm gần như cùng lúc và thứ tự tới không theo thứ tự gửi. Lỗi nằm ở giả định của ca kiểm thử, không ở bản sửa. Bài 1 dùng cùng `attempt()` và cùng kiểu ca nên sửa cả hai nơi.
+
+**Đã làm:** `check-mfa` phần B: mã đúng gửi **sau khi ít nhất 5 mã sai đã có phản hồi** (`afterN`), lúc đó bộ đếm chắc chắn ≥ 5 nên mã đúng nhận lượt > 5 → `429`, không phụ thuộc thứ tự qua pool. Kỳ vọng chặt hơn: đúng 4 mã sai báo `INVALID_OTP` (lượt 1–4), lượt thứ 5 khoá, còn lại `429`; thêm ca đọc `rate_limits`: `count = 30`, có `lockedUntil`.
+
+**Đã kiểm tra:** `check-mfa` toàn bộ **84 ĐẠT, 0 CHƯA ĐẠT**.

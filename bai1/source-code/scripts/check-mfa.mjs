@@ -22,6 +22,8 @@ const userRow = () => prisma.user.findUnique({ where: { email } });
 const totpFor = (secret, offset = 0) => new OTPAuth.TOTP({ secret: OTPAuth.Secret.fromBase32(secret), digits: 6, period: 30, algorithm: "SHA1" }).generate({ timestamp: Date.now() + offset * 30_000 });
 const clearMfaCounter = async (id) => prisma.rateLimit.deleteMany({ where: { key: `mfa-fail:user:${id}` } });
 const clearMfaIp = () => prisma.rateLimit.deleteMany({ where: { key: { startsWith: "mfa:ip:" } } });
+// Chờ tới khi ít nhất n promise đã xong (thành công hay thất bại), không chờ hết.
+const afterN = (promises, n) => new Promise((done) => { let k = 0; const tick = () => { if (++k === n) done(); }; promises.forEach((p) => p.then(tick, tick)); });
 // Chỉ dùng trong kiểm thử: cho phép dùng mã của cùng bước ở ca sau mà không phải chờ 30 giây.
 const clearLastStep = (id) => prisma.user.update({ where: { id }, data: { mfaLastStep: null } });
 
@@ -180,8 +182,10 @@ async function partB() {
   r.ok(lockedPage.status === 200, "Đang khoá vẫn xem được trang");
   await clearMfaCounter(u.id);
 
-  // Gửi đồng thời (plan 14 L1): 29 mã sai cùng lúc, mã đúng gửi ngay sau khi các mã sai đã đi. Chỉ 5 lượt đầu được kiểm mã,
-  // nên mã đúng phải nhận 429 và không có phiên đầy đủ. Bản cũ (đọc bộ đếm, kiểm mã, rồi mới tăng) để mã đúng lọt vào quản trị.
+  // Gửi đồng thời (plan 14 L1): 29 mã sai cùng lúc. Chỉ 5 lượt đầu được kiểm mã (4 báo INVALID_OTP, lượt thứ 5 khoá), 24 lượt
+  // còn lại 429. Mã đúng gửi SAU KHI ít nhất 5 mã sai đã có phản hồi: lúc đó bộ đếm chắc chắn ≥ 5 nên mã đúng nhận lượt > 5 → 429.
+  // Không dựa vào "gửi trễ 30 ms": khi pool kết nối lạnh, 30 request tới bước đếm gần như cùng lúc và thứ tự không theo thứ tự gửi
+  // (tái hiện ở api ngày 12/11: mã đúng nhận lượt 2). Bản cũ (đọc bộ đếm, kiểm mã, rồi mới tăng) để mã đúng lọt vào quản trị.
   await clearLastStep(u.id);
   await clearMfaIp();
   const burst = await pendingLogin();
@@ -192,12 +196,14 @@ async function partB() {
     if (acceptedStep(secret, otp) === null) wrong.push(otp);
   }
   const inFlight = wrong.map((otp) => burst.c.post("/login/mfa", [["otp", otp]]));
-  await new Promise((done) => setTimeout(done, 30));
+  await afterN(inFlight, 5);
   const right = await burst.c.post("/login/mfa", [["otp", totpFor(secret)]]);
   const wrongResults = await Promise.all(inFlight);
-  const reported = wrongResults.filter((x) => x.status === 200).length;
-  r.ok(right.status === 429, "Gửi đồng thời: mã đúng gửi sau 29 mã sai vẫn 429", `${right.status} ${right.location ?? ""}`);
-  r.ok(reported <= 4 && wrongResults.every((x) => x.status === 200 || x.status === 429), "Gửi đồng thời: tối đa 4 mã sai báo INVALID_OTP, còn lại 429", reported);
+  const evaluated = wrongResults.filter((x) => x.status === 200).length;
+  r.ok(right.status === 429, "Gửi đồng thời: mã đúng gửi khi 5 mã sai đã có phản hồi → 429", `${right.status} ${right.location ?? ""}`);
+  r.ok(evaluated === 4 && wrongResults.every((x) => x.status === 200 || x.status === 429), "Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429", evaluated);
+  const burstRow = await prisma.rateLimit.findUnique({ where: { key: `mfa-fail:user:${u.id}` } });
+  r.ok(burstRow?.count === 30 && Boolean(burstRow.lockedUntil), "DB: bộ đếm ghi đủ 30 lượt và đang khoá", burstRow?.count);
   r.ok((await burst.c.get("/admin/dishes")).status === 303, "Gửi đồng thời: không có phiên đầy đủ");
   await clearMfaCounter(u.id);
   await clearMfaIp();
