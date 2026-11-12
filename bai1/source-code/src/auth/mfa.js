@@ -2,7 +2,7 @@
 // Mọi hàm kiểm tra mã trả { ok: true, ... } hoặc { ok: false, reason: "invalid" | "locked", retryAfter? }.
 import QRCode from "qrcode";
 import { prisma } from "../db.js";
-import { hit, peek, reset, retryAfter } from "./rate-limit.js";
+import { hit, lock, reset, retryAfter } from "./rate-limit.js";
 import { verifyPassword } from "./password.js";
 import { openSecret, sealSecret } from "./secret-box.js";
 import { acceptedStep, isTotpFormat, newTotpSecret, otpauthUri } from "./totp.js";
@@ -16,17 +16,22 @@ const FAIL_LOCK_FOR = 15 * MIN;
 const failKey = (userId) => `mfa-fail:user:${userId}`;
 const lockedResult = (until) => ({ ok: false, reason: "locked", retryAfter: retryAfter(until) });
 
-// Khung chung: đang khoá thì từ chối dù mã đúng; sai thì tăng bộ đếm; đúng thì xoá bộ đếm.
+// Khung chung: đang khoá thì từ chối dù mã đúng; quá ngưỡng thì khoá; đúng thì xoá bộ đếm.
+// GIỮ LƯỢT TRƯỚC rồi mới kiểm mã (plan 14 L1). hit() là một câu ghi nên N request gửi cùng lúc nhận N số thứ tự khác nhau, và
+// chỉ lượt 1..FAIL_LOCK_AT được kiểm mã. Bản cũ đọc bộ đếm, kiểm mã, rồi mới tăng: mọi request đồng thời đều đọc thấy chưa đủ
+// ngưỡng nên đều được kiểm, mã đúng lọt qua sau hàng chục mã sai và còn xoá luôn khoá vừa đặt.
+// Gửi tuần tự cho kết quả như cũ: 4 lần sai báo sai, lần sai thứ 5 bị khoá, mã đúng ở lượt thứ 5 vẫn qua.
 async function attempt(userId, check) {
-  const state = await peek(failKey(userId), { windowMs: FAIL_WINDOW });
-  if (state.lockedUntil) return lockedResult(state.lockedUntil);
+  const key = failKey(userId);
+  const slot = await hit(key, { windowMs: FAIL_WINDOW }); // không tự khoá; khoá đang có được giữ nguyên
+  if (slot.lockedUntil) return lockedResult(slot.lockedUntil);
+  if (slot.count > FAIL_LOCK_AT) return lockedResult(await lock(key, FAIL_LOCK_FOR));
   const outcome = await check();
   if (outcome) {
-    await reset(failKey(userId));
+    await reset(key);
     return { ok: true, ...outcome };
   }
-  const after = await hit(failKey(userId), { windowMs: FAIL_WINDOW, lockAt: FAIL_LOCK_AT, lockMs: FAIL_LOCK_FOR });
-  return after.lockedUntil ? lockedResult(after.lockedUntil) : { ok: false, reason: "invalid" };
+  return slot.count >= FAIL_LOCK_AT ? lockedResult(await lock(key, FAIL_LOCK_FOR)) : { ok: false, reason: "invalid" };
 }
 
 async function consumeTotp(userId, code) {

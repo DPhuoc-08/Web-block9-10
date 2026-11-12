@@ -208,3 +208,35 @@ Hướng làm (đã chốt 09/11/2026, plan mục 12): thêm phân quyền và M
 3. **Phiên chờ MFA vào được `/admin` không?** Không. `req.session.userId` chỉ được gán ở `routes/auth/login.js:131` (sau nhánh `mfaEnabled` ở `:127`), `routes/auth/mfa.js:43` (sau khi qua mã), `routes/admin/profile.js:112` (đổi mật khẩu, đã là phiên đầy đủ). Kích hoạt và reset không gán. `check-mfa` phần B thử cả `/admin/*`, sau reset.
 4. **PATCH đọc lại món từ DB trước khi kiểm tra?** Có. `guardDish` (`routes/admin/dishes.js:31`) đọc DB ở `PATCH /:id` (`:375`), `/availability` (`:384`); câu ghi còn mang điều kiện ABAC (`:300`, `:393`).
 5. **Route chỉ ẩn nút mà server không kiểm tra; GET đổi dữ liệu?** Không có route quản trị nào thiếu `requirePermission` (đếm bằng `grep`: 0). Các `GET` chỉ đọc; `GET /admin/profile/mfa/codes` chỉ xoá bản sao trong RAM, không ghi database.
+
+## Bước 35 — Sửa L1: giới hạn sai mã MFA bị vượt khi gửi đồng thời; giới hạn theo IP (plan mục 14)
+Rà soát ngày 12/11/2026 (đọc mã, chạy lại mọi `check-*`, thêm phép thử request đồng thời) tìm ra lỗi này. Các `check-*` cũ chỉ gửi tuần tự nên không bắt được. Hướng sửa người dùng đã chốt ở plan 14.3 a, b.
+
+### Lỗi phát hiện khi rà soát sau nghiệm thu (do agent viết) — lỗi chính nộp theo slide 58
+**Gửi đồng thời nhiều mã thì giới hạn 5 lần sai / 15 phút không có tác dụng.**
+- Cách tái hiện: đăng nhập password của tài khoản đã bật MFA để có phiên chờ, mở `/login/mfa` lấy `_csrf`, gửi **cùng lúc** 29 mã sai và 1 mã đúng (mã đúng gửi cuối) tới `POST /login/mfa`.
+- Kết quả trước khi sửa (3/3 lần): mã đúng nhận `303 /admin/dishes`, có phiên đầy đủ. Response chỉ có 4 `INVALID_OTP`, 25 `429`, nhìn response thì tưởng giới hạn vẫn chạy, nhưng bộ đếm ghi `count=30`, tức cả 30 mã đều đã được so với secret. Sau đó bộ đếm bị xoá, khoá vừa đặt cũng mất.
+- Ca mới trong `check-mfa` phần B chạy trên mã cũ: `Gửi đồng thời: mã đúng gửi sau 29 mã sai vẫn 429` **CHƯA ĐẠT** (`303 /admin/dishes`), `Gửi đồng thời: không có phiên đầy đủ` **CHƯA ĐẠT**.
+- Nguyên nhân: `attempt()` ở `src/auth/mfa.js` đọc bộ đếm (`peek`), kiểm mã, rồi mới tăng (`hit`). Kiểm tra và ghi tách rời nên mọi request đến cùng lúc đều đọc thấy chưa đủ ngưỡng và đều được kiểm mã; mã đúng gọi `reset` xoá luôn khoá. Bước MFA lại không có giới hạn theo IP như `POST /login`, nên số mã thử mỗi loạt chỉ bị giới hạn bởi sức chịu của server. Cùng lỗi với kiểu "kiểm tra rồi mới ghi" mà mình đã tránh được ở ABAC và ở chặn dùng lại mã, nhưng sót ở bộ đếm.
+- Mức độ: kẻ đã có password thử được hàng trăm mã mỗi 15 phút thay vì 5. Phá dòng nghiệm thu "OTP sai quá giới hạn → khoá tạm" (slide 57).
+
+**Đã làm:**
+- `src/auth/rate-limit.js`: thêm `lock(key, lockMs)` đặt khoá bằng một câu ghi, khoá đang còn thì giữ nguyên, không kéo dài.
+- `src/auth/mfa.js`: `attempt()` **giữ lượt trước khi kiểm mã**: `hit` (một câu ghi, không tự khoá) trả số thứ tự lượt; đang khoá hoặc lượt > 5 thì `429` mà không kiểm mã; lượt thứ 5 sai thì khoá; đúng thì xoá bộ đếm.
+- `src/routes/auth/mfa.js`: giới hạn 30 lần / 15 phút / IP (khoá `mfa:ip:<ip>`) cho `POST /login/mfa`, `/login/mfa/recovery`, đứng trước bộ đếm theo user.
+- `scripts/check-mfa.mjs`: ca gửi đồng thời, ca giới hạn IP; dọn khoá `mfa:ip:`, `reset:ip:` ở cuối (L3: trước đây sót `reset:ip`).
+
+**Quyết định và lý do:**
+- Chọn giữ lượt trước, bỏ phương án khoá dòng trong transaction: `hit` vốn là một câu ghi nên N request đồng thời nhận N số thứ tự khác nhau, chỉ lượt 1–5 được kiểm. Khoá dòng phải truyền transaction qua `consumeTotp`, `consumeRecovery` và giữ kết nối trong lúc băm password ở bước xác thực lại.
+- Gửi tuần tự cho kết quả như cũ: 4 lần sai báo `INVALID_OTP`, lần sai thứ 5 thì `429`, mã đúng ở lượt thứ 5 vẫn qua. Lượt đúng cũng được đếm nhưng xoá bộ đếm ngay, nên không ảnh hưởng người dùng.
+- `lock` không kéo dài khoá đang có: kẻ gửi thêm khi đang khoá không làm chủ tài khoản bị khoá lâu hơn.
+- Giới hạn IP dùng cùng số với `POST /login` (plan mục 4 đã thêm dòng).
+- `auth/mfa.js` vẫn không đụng `req`/`res`, chép nguyên được sang `api` ở bước 37.
+
+**Đã kiểm tra:**
+- `check-mfa` toàn bộ **80 ĐẠT, 0 CHƯA ĐẠT** (thêm 5 ca: 3 ca gửi đồng thời, 2 ca giới hạn IP). Ca khoá tuần tự cũ vẫn đạt: sai 4 lần vẫn được thử, lần thứ 5 (recovery code, chung bộ đếm) `429`, đang khoá thì mã đúng vẫn `429`, sai 5 lần ở bước xác thực lại `429`.
+- Phép thử độc lập (29 mã sai + 1 mã đúng gửi cùng lúc, đã dọn bộ đếm IP để thử riêng bộ đếm theo user), 3/3 lần: 4 `INVALID_OTP`, 26 `429`, mã đúng `429`, khoá còn nguyên (`count=30`, có `lockedUntil`), không có phiên đầy đủ.
+- Khi chưa dọn bộ đếm IP, cả 30 request nhận `429` từ giới hạn IP trước khi tới bộ đếm theo user: lớp thứ hai chạy đúng.
+- Hồi quy: `check-auth` **135 ĐẠT, 0 CHƯA ĐẠT** (đăng nhập, CAPTCHA, bộ đếm sai password dùng chung `rate-limit.js` không đổi hành vi).
+
+**Còn lại:** chép sang `api` ở bước 37; tài liệu trình bày, mục lỗi trong `kichban.html` cập nhật ở bước 38.

@@ -7,9 +7,13 @@ import { requireMfaPending } from "../../auth/require-mfa-pending.js";
 import { verifyRecovery, verifyTotp } from "../../auth/mfa.js";
 import { photoFor } from "../../auth/photos.js";
 import { minutesOf } from "../../auth/pages.js";
+import { limit } from "../../auth/rate-limit.js";
 import { one } from "../../forms.js";
 
 const router = Router();
+// Giới hạn theo IP cho bước nhập mã (plan mục 4, thêm 12/11, 14.3 b): lớp thứ hai bên cạnh bộ đếm theo user, để một nguồn
+// không dò được mã của nhiều tài khoản. Đếm mọi lần gửi, như giới hạn IP của POST /login.
+const MFA_IP = { windowMs: 15 * 60_000, max: 30 };
 const regenerate = (req) => new Promise((resolve, reject) => req.session.regenerate((err) => (err ? reject(err) : resolve())));
 const save = (req) => new Promise((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
 
@@ -48,7 +52,16 @@ async function finish(req, res, target) {
 
 router.get("/login/mfa", requireMfaPending, (req, res) => render(res, "totp"));
 
+// Trả true khi đã phản hồi 429.
+async function ipLimited(req, res, kind) {
+  const ip = await limit(`mfa:ip:${req.ip}`, MFA_IP);
+  if (!ip.limited) return false;
+  await refused(res, kind, { reason: "locked", retryAfter: ip.retryAfter });
+  return true;
+}
+
 router.post("/login/mfa", requireMfaPending, async (req, res) => {
+  if (await ipLimited(req, res, "totp")) return;
   const result = await verifyTotp(res.locals.mfaPending.userId, one(req.body.otp).trim());
   if (!result.ok) return refused(res, "totp", result);
   return finish(req, res, safeNext(res.locals.mfaPending.next));
@@ -57,6 +70,7 @@ router.post("/login/mfa", requireMfaPending, async (req, res) => {
 router.get("/login/mfa/recovery", requireMfaPending, (req, res) => render(res, "recovery"));
 
 router.post("/login/mfa/recovery", requireMfaPending, async (req, res) => {
+  if (await ipLimited(req, res, "recovery")) return;
   const result = await verifyRecovery(res.locals.mfaPending.userId, one(req.body.code));
   if (!result.ok) return refused(res, "recovery", result);
   // Dùng recovery code thường là đã mất thiết bị: đưa về hồ sơ, nhắc đổi thiết bị và tạo lại mã (ghi chú 22).

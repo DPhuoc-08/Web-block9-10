@@ -41,6 +41,20 @@ export async function peek(key, { windowMs }) {
 
 export const reset = (key) => prisma.rateLimit.deleteMany({ where: { key } });
 
+// Đặt khoá ngay, không tăng bộ đếm: dùng khi nơi gọi đã giữ lượt bằng hit() và tự quyết lúc khoá (auth/mfa.js, plan 14 L1).
+// Một câu ghi; khoá còn hiệu lực thì giữ nguyên, không kéo dài (gửi thêm khi đang khoá không làm người dùng bị khoá lâu hơn).
+// Trả lockedUntil.
+export async function lock(key, lockMs) {
+  const [row] = await prisma.$queryRaw`
+    INSERT INTO rate_limits (key, count, "windowStart", "lockedUntil")
+    VALUES (${key}, 0, now(), now() + ${lockMs}::int * interval '1 millisecond')
+    ON CONFLICT (key) DO UPDATE SET "lockedUntil" = CASE
+      WHEN rate_limits."lockedUntil" > now() THEN rate_limits."lockedUntil"
+      ELSE now() + ${lockMs}::int * interval '1 millisecond' END
+    RETURNING "lockedUntil"`;
+  return row.lockedUntil;
+}
+
 // Số giây còn phải chờ (header Retry-After của trang 429).
 export const retryAfter = (until) => Math.max(1, Math.ceil((new Date(until).getTime() - Date.now()) / 1000));
 
