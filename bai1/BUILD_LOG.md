@@ -307,3 +307,12 @@ Kết quả cuối: `check-auth` **153 ĐẠT**, `check-mfa` **86 ĐẠT**, `che
 **Rủi ro còn lại:** access token đã cấp vẫn dùng được tới 90 giây sau đăng xuất / thu hồi (JWT không tra DB); hai tab tải lại cùng lúc khi access đã hết hạn có thể làm người dùng bị đăng xuất (15.2 b nghiêm ngặt); cookie `csrf` không gắn với lần đăng nhập (double-submit thuần), dựa thêm vào SameSite và kiểm `Origin`.
 
 **Chưa làm:** `hotrotrinhbay.html`, `kichban.html`, sơ đồ luồng, `README`, `evidence/` vẫn mô tả session / `sid`; CLAUDE.md còn dòng "Không thêm JWT vào Bài 1", "phiên chỉ có `mfaPending`", "`regenerate` sid" (đề xuất cập nhật, chưa sửa vì là file hướng dẫn của người dùng). DB còn 71 dòng `refresh_tokens` của tài khoản seed do các script tạo (tự hết hạn sau 2 giờ).
+
+## Bước 41 — Bằng chứng cho ca refresh token bị dùng lại (plan 15.2 b)
+**Đã làm:** script `scripts/collect-refresh-evidence.mjs`, dùng lại `lib/browser.mjs` (Chrome headless qua DevTools Protocol). Hai Chrome độc lập đóng vai chủ tài khoản và kẻ gian; chạy kịch bản A (kẻ gian dùng trước) trên trình duyệt, kịch bản B (chủ dùng trước) bằng request trực tiếp. Ghi `evidence/screens/29–32`, `network/refresh-token-dung-lai.md`, `db/13-refresh-token-dung-lai.txt`, `curl/16-refresh-token-dung-lai.txt`, thêm mục vào `evidence/README.md`.
+
+**Quyết định:** script riêng, không chạy lại `collect-evidence.mjs`. Script cũ viết từ thời còn session (vân tay `sid`), chạy lại sẽ thu lại toàn bộ bằng chứng, vượt phạm vi được nhờ. Che token bằng vân tay 8 ký tự đầu SHA-256 (cùng quy ước với `sid` trước đây), trùng 8 ký tự đầu `tokenHash` nên đối chiếu được Network với DB. Ghi cả bước A4a (kẻ gian còn access chưa hết 90 giây vẫn vào được) để báo cáo trung thực rủi ro còn lại.
+
+**Đã kiểm tra:** chuỗi vân tay khớp: R0 được kẻ gian gửi ở A2 và chủ gửi ở A3; R1 được kẻ gian gửi ở A4b; DB cho thấy R0 có `usedAt` + `revokedAt`, R1 có `revokedAt`, family mới ở A5. Quét 3 file chữ: không còn chuỗi JWT, chuỗi ngẫu nhiên 43 ký tự hay mật khẩu. Log server không chứa token. Tài khoản thử đã xoá. Đã xem 4 ảnh. Lần chụp đầu, nhãn đè lên bảng và vài ảnh món chưa tải (lazy) → đổi vị trí nhãn, ép tải ảnh trước khi chụp, thu lại.
+
+**Chưa có:** ảnh chụp thật cửa sổ DevTools (bản Network là chữ do Chrome trả về qua DevTools Protocol, như các bằng chứng trước). Các mục cũ trong `evidence/README.md` vẫn mô tả thời còn session (vân tay `sid`, `db/08` có cột `data`), chưa thu lại.

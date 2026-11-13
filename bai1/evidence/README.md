@@ -45,3 +45,22 @@ Kết quả script trên code cuối: `check-policy` 32, `check-rbac` 159, `chec
 Giao diện ở 3 cỡ 1280, 820, 375: `03-trang-403`, `13-thiet-lap-mfa-da-che`, `14-ma-khoi-phuc-da-che`, `16-buoc-nhap-ma`, `20-sai-5-lan-tam-khoa`, `21-nhap-ma-khoi-phuc`, `26-xac-thuc-lai-de-tat-mfa`.
 
 Sơ đồ do nhóm vẽ (bản nháp từ code thật, nhóm duyệt): `diagrams/1-phan-quyen-bon-cong.svg`, `2-mfa-dang-nhap.svg`, `3-mfa-thiet-lap-va-xac-thuc-lai.svg`. Vẽ lại sau khi đổi code: `node evidence/diagrams/ve-so-do.mjs` từ thư mục `bai1/`.
+
+## Refresh token bị dùng lại (plan mục 15, thu 13/11/2026)
+
+Thu bằng `node scripts/collect-refresh-evidence.mjs` (trong `source-code/`): server thật ở cổng 3100, **hai Chrome headless độc lập** (hai profile, không chung cookie): một là chủ tài khoản, một là kẻ gian. Kẻ gian nhận đúng giá trị cookie `refresh` của chủ, như khi chép trong DevTools. Tài khoản thử `refresh.demo@demo.example`, xoá ở cuối.
+
+**Đã che:** access và refresh token → vân tay 8 ký tự đầu SHA-256. Vân tay này trùng 8 ký tự đầu cột `tokenHash` trong `db/13`, nên đối chiếu được mà không dùng lại được. Payload của access token (ai cũng đọc được) in `sub`, `tv`, `fam`, `iat`, `exp`, không in chữ ký. Mật khẩu → `<đã che>`. Script từ chối ghi nếu còn sót token hay mật khẩu. Nhãn xanh góc phải trong ảnh do script chèn trước khi chụp, không phải giao diện của app.
+
+| Bước | Kết quả cần chứng minh | Ảnh `screens/` | Network | Request `curl/` | DB `db/` |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| A1. Chủ đăng nhập | Cookie `access` 90 giây + `refresh` R0, HttpOnly, SameSite=Lax | `29` | mục A1 | | `13` (sau A1) |
+| A2. Kẻ gian gửi R0 | Vào được, server xoay vòng: R0 có `usedAt`, kẻ gian nhận R1 cùng family | `30` | mục A2 | | `13` (sau A2) |
+| A3. Chủ gửi R0 (đã dùng) | Phát hiện dùng lại → thu hồi **cả family**, xoá cookie, `303 /login` | `31` | mục A3 | | `13` (sau A3: R0 và R1 có `revokedAt`) |
+| A4a. Kẻ gian còn access chưa hết hạn | Vẫn `200` trong tối đa 90 giây: **rủi ro còn lại đã công bố** | | mục A4a | | |
+| A4b. Kẻ gian gửi R1 | Family đã thu hồi → `303 /login`, mất quyền vào | `32` | mục A4b | | |
+| A5. Chủ đăng nhập lại | Family mới, family cũ vẫn bị thu hồi | | mục A5 | | `13` (sau A5) |
+| B. Chủ refresh trước, kẻ gian dùng token cũ sau | Kẻ gian `303`; token mới nhất của chủ cũng `303` | | | `16` | dòng cuối `curl/16` |
+| Log server | Không chứa access / refresh token, mật khẩu | | | dòng cuối `curl/16` | |
+
+Network: `network/refresh-token-dung-lai.md`. Kiểm thử tự động cùng ca này: `check-auth` phần H.
