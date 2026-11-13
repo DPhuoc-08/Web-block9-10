@@ -3,9 +3,7 @@ import { getMe } from "../api/auth.js";
 import { getToken, subscribe } from "../auth/token.js";
 import { useLoad } from "./useLoad.js";
 
-// Chỉ theo dõi "đang có token hay không": refresh đổi chuỗi token mỗi 90 giây nhưng vẫn là cùng một lần đăng nhập, không cần hỏi lại /me.
-const signedIn = () => getToken() !== null;
-export const useToken = () => useSyncExternalStore(subscribe, signedIn);
+export const useToken = () => useSyncExternalStore(subscribe, getToken);
 
 // Ai đang đăng nhập: luôn hỏi GET /api/auth/me, không tự đọc payload của token, không lưu role (slide 44).
 // Layout gọi một lần rồi truyền xuống bằng <Outlet context>, không dùng Context giữ dữ liệu (như block7).

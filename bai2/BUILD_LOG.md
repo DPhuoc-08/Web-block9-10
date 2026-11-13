@@ -129,14 +129,3 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 **Đã kiểm tra:** `ve-so-do.mjs` chạy được. Chrome headless: `kichban.html`, `hotrotrinhbay.html` ở 1280 và 375px không cuộn ngang, bảng cuộn trong khung, không ảnh hỏng. File bằng chứng mới không chứa challenge, token, mã.
 
 **Chưa chắc:** sơ đồ cần nhóm duyệt (H2); chưa có ảnh DevTools (H1); H4 (CAPTCHA thật, Gmail thật, quét QR ở `web`) vẫn chờ người thử, nên vẫn chưa đánh dấu "đạt Bài 2".
-
-## Bước 40 — Access token 90 giây + refresh token (yêu cầu của giảng viên, plan mục 15)
-**Đã làm:** `api`: bảng `refresh_tokens` (chỉ thêm bảng; in host và SQL bằng `prisma migrate diff` trước `db push`, kiểm tra DB là project riêng của Bài 2). `src/auth/refresh.js` (thuần, không đụng `req`/`res`): cấp, xoay vòng, phát hiện dùng lại, thu hồi family. `ACCESS_TOKEN_TTL` 1800 → 90. `issueToken` trả thêm `refreshToken`, `refreshExpiresIn`. Thêm `POST /api/auth/refresh`, `POST /api/auth/logout`. `cleanup.js` xoá dòng hết hạn; `db.js` ẩn tham số câu SQL chạm `refresh_tokens`. `web`: `auth/token.js` giữ cả hai token trong `sessionStorage`; `api/client.js` gặp 401 thì refresh một lần (một promise dùng chung) rồi gửi lại; `useToken` chỉ theo dõi "có token hay không" để refresh 90 giây một lần không gọi lại `/me`; nút Đăng xuất gọi `/api/auth/logout`.
-
-**Quyết định, lý do:** xem plan mục 15. Refresh token là chuỗi ngẫu nhiên (không phải JWT) để chỉ có nghĩa khi tra được trong DB. Gửi trong body, không cookie: giữ hợp đồng `api` không cookie, không CSRF. Lưu `tokenVersion` trong dòng refresh token để reset mật khẩu, tắt MFA vô hiệu luôn refresh token mà không sửa hai route đó.
-
-**Phương án đã bỏ:** refresh token trong cookie HttpOnly (an toàn hơn trước XSS nhưng phải bật CORS `credentials`, thêm CSRF, trái hợp đồng `api`); refresh token dạng JWT (không thu hồi được nếu không tra DB, mà tra DB thì chuỗi ngẫu nhiên là đủ); hạn tuyệt đối 7 ngày từ lúc đăng nhập (trang giảng viên không nói; chọn hạn tính lại mỗi lần xoay vòng).
-
-**Đã kiểm tra:** `check-api` thêm phần G (19 ca): access 90 giây + refresh 7 ngày; DB chỉ có SHA-256; refresh token làm Bearer → 401; access token, challenge gửi tới `/refresh` → 401; rotation đổi token; dùng lại token cũ → 401 và token mới nhất của family cũng 401; hai request đồng thời cùng token → tối đa một request 200 (đo được `401,200`); đăng xuất thu hồi; `tokenVersion` tăng → 401; tài khoản không active → 401; bật MFA thì bước password không có refresh token; log server không có refresh token. Toàn bộ: lần đầu **236 ĐẠT, 1 CHƯA ĐẠT** — ca "Hạn 30 phút" ở phần A còn kỳ vọng cũ 1800 (kỳ vọng cũ, không phải lỗi code), sửa thành 90, chạy lại phần A **26 ĐẠT, 0 CHƯA ĐẠT**. `web`: `vite build` thành công.
-
-**Chưa chắc / chưa làm:** chưa thử tay trên trình duyệt luồng tự refresh (chờ 90 giây rồi thao tác ở trang quản trị). Tài liệu trình bày, sơ đồ JWT, `README`, `evidence/` còn ghi 30 phút, không refresh token.

@@ -11,5 +11,3 @@ export const resendOtp = (body) => api.post("/api/auth/activate/resend", body, a
 export const forgot = (body) => api.post("/api/auth/forgot", body, anon);
 export const resetPassword = (body) => api.post("/api/auth/reset", body, anon);
 export const getMe = (opts) => api.get("/api/auth/me", opts);
-// Đăng xuất: server thu hồi family của refresh token (plan mục 15). Không gửi access token (có thể đã hết hạn).
-export const logout = (refreshToken) => api.post("/api/auth/logout", { refreshToken }, anon);

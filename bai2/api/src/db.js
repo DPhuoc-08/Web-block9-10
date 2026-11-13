@@ -17,7 +17,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, ssl: 
 // cho thấy LIMIT/OFFSET, COUNT, ILIKE, tsquery, similarity chạy TẠI DATABASE (plan mục 5, 9). Mặc định tắt.
 // Log chỉ có câu SQL và giá trị tham số (từ khoá, số trang), không có chuỗi kết nối.
 // Câu SQL chạm bảng xác thực KHÔNG in tham số: tham số ở đó là hash mật khẩu, mã, token, bản mã secret (chuyển từ Bài 1).
-const SENSITIVE = /\b(users|activation_challenges|password_resets|rate_limits|recovery_codes|mfa_challenges|refresh_tokens)\b/;
+const SENSITIVE = /\b(users|activation_challenges|password_resets|rate_limits|recovery_codes|mfa_challenges)\b/;
 const logSql = process.env.LOG_SQL === "1";
 export const prisma = new PrismaClient({ adapter, log: logSql ? [{ emit: "event", level: "query" }] : [] });
 if (logSql) {
