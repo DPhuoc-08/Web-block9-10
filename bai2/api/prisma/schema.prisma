@@ -177,6 +177,7 @@ model User {
   passwordResets PasswordReset[]
   mfaChallenges  MfaChallenge[]
   recoveryCodes  RecoveryCode[]
+  refreshTokens  RefreshToken[]
 
   @@index([chefId])
   @@map("users")
@@ -250,4 +251,24 @@ model MfaChallenge {
 
   @@index([userId])
   @@map("mfa_challenges")
+}
+
+// Refresh token (yêu cầu của giảng viên, 13/11/2026; plan mục 15): chuỗi ngẫu nhiên, DB chỉ lưu SHA-256. Chỉ POST /api/auth/refresh
+// và /logout nhận chuỗi này. Mỗi lần refresh: dòng cũ có usedAt, dòng mới cùng familyId (rotation). Dòng đã dùng xuất hiện lại
+// nghĩa là có hai bên cùng giữ token → thu hồi cả family. tokenVersion lúc cấp: reset mật khẩu, tắt MFA làm refresh token cũ hết hiệu lực.
+model RefreshToken {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId     String
+  tokenHash    String    @unique
+  tokenVersion Int
+  expiresAt    DateTime
+  usedAt       DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }

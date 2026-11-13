@@ -29,7 +29,7 @@ export function useMfaSubmit(buildBody, onDone) {
     try {
       const data = await submitMfa({ challenge: held.challenge, ...buildBody() });
       dropChallenge();
-      setToken(data.accessToken);
+      setToken(data.accessToken, data.refreshToken);
       navigate(onDone(held, data), { replace: true });
     } catch (err) {
       if (err.kind === "unauthenticated") {

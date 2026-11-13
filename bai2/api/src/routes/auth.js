@@ -14,6 +14,7 @@ import { hit, peek, reset, limit, retryAfter } from "../auth/rate-limit.js";
 import { verifyRecovery, verifyTotp } from "../auth/mfa.js";
 import { ACCESS_TOKEN_TTL, signAccessToken } from "../auth/jwt.js";
 import { requireJwt } from "../auth/require-jwt.js";
+import { REFRESH_TOKEN_TTL, issueRefreshToken, revokeRefreshToken, rotateRefreshToken } from "../auth/refresh.js";
 
 const router = Router();
 
@@ -24,7 +25,9 @@ const expiresIn = (ms) => new Date(Date.now() + ms);
 const minutesOf = (seconds) => Math.max(1, Math.ceil(seconds / 60));
 const TOKEN_FORMAT = /^[A-Za-z0-9_-]{20,100}$/;
 
-const issueToken = (res, user, extra = {}) => okSecret(res, { accessToken: signAccessToken(user), expiresIn: ACCESS_TOKEN_TTL, ...extra });
+// Chỉ gọi khi đã qua đủ bước xác thực (password, và MFA nếu bật): cấp cặp access + refresh, refresh mở family mới.
+const issueToken = async (res, user, extra = {}) =>
+  okSecret(res, { accessToken: signAccessToken(user), expiresIn: ACCESS_TOKEN_TTL, refreshToken: await issueRefreshToken(user), refreshExpiresIn: REFRESH_TOKEN_TTL, ...extra });
 
 // Trả true khi đã phản hồi lỗi CAPTCHA. Thiếu và sai là hai mã khác nhau (slide 37).
 async function captchaRefused(res, token, message) {
@@ -85,7 +88,7 @@ router.post("/login", jsonBody, async (req, res) => {
   await reset(failKey(email));
   // Đã bật MFA: chỉ trả challenge, KHÔNG có accessToken. Mọi đường cấp token phải qua nhánh này (slide 37, 62).
   if (user.mfaEnabled) return okSecret(res, { next: "mfa", challenge: await issueChallenge(user.id), expiresIn: CHALLENGE_TTL / 1000 });
-  issueToken(res, user);
+  await issueToken(res, user);
 });
 
 // ---------- Bước MFA ----------
@@ -120,7 +123,27 @@ router.post("/mfa", jsonBody, async (req, res) => {
   // Đọc lại user vì trạng thái có thể đã đổi trong lúc chờ.
   const user = await prisma.user.findUnique({ where: { id: row.userId }, select: { id: true, status: true, mfaEnabled: true, tokenVersion: true } });
   if (!user || user.status !== "active" || !user.mfaEnabled) return challengeExpired(res);
-  issueToken(res, user, result.via === "recovery" ? { recoveryRemaining: result.remaining } : {});
+  await issueToken(res, user, result.via === "recovery" ? { recoveryRemaining: result.remaining } : {});
+});
+
+// ---------- Refresh token (plan mục 15) ----------
+// Không qua requireJwt: access token lúc này thường đã hết hạn. Chỉ nhận refresh token trong body; access token hay challenge gửi
+// vào đây không khớp định dạng nên bị từ chối. Không đi qua MFA lại: refresh token chỉ được cấp sau khi đã qua MFA.
+const refreshRefused = (res) => unauthenticated(res, CODES.UNAUTHENTICATED, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+const REFRESH_IP = { windowMs: 15 * MIN, max: 300 };
+
+router.post("/refresh", jsonBody, async (req, res) => {
+  const ip = await limit(`refresh:ip:${req.ip}`, REFRESH_IP);
+  if (ip.limited) return rateLimited(res, ip.retryAfter, `Quá nhiều yêu cầu. Vui lòng thử lại sau ${minutesOf(ip.retryAfter)} phút.`);
+  const result = await rotateRefreshToken(str(req.body.refreshToken));
+  if (result.error) return refreshRefused(res);
+  okSecret(res, { accessToken: signAccessToken(result.user), expiresIn: ACCESS_TOKEN_TTL, refreshToken: result.refreshToken, refreshExpiresIn: REFRESH_TOKEN_TTL });
+});
+
+// Đăng xuất: thu hồi family của refresh token ở server. Access token đang giữ vẫn dùng được tới exp (tối đa 90 giây).
+router.post("/logout", jsonBody, async (req, res) => {
+  await revokeRefreshToken(str(req.body.refreshToken));
+  ok(res, { loggedOut: true });
 });
 
 router.get("/me", requireJwt, (req, res) => {

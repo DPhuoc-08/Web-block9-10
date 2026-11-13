@@ -3,6 +3,7 @@
 //   node scripts/check-api.mjs B      → chỉ phần B
 // A: CORS, verify JWT. B: đăng nhập, challenge MFA. C: đăng ký, kích hoạt, quên mật khẩu. D: quản lý MFA.
 // E: token, RBAC, ABAC ở route dữ liệu. F: ai thấy món nháp; route công khai giữ kết quả như block7.
+// G: refresh token — rotation, phát hiện dùng lại, đăng xuất, tokenVersion (plan mục 15).
 // Tài khoản thử @demo.example, bản ghi "[TEST B9]" được xoá ở cuối. Không có nhánh code nào bỏ qua CAPTCHA hay MFA.
 import "./lib/test-env.mjs";
 import jwt from "jsonwebtoken";
@@ -10,6 +11,7 @@ import * as OTPAuth from "otpauth";
 import { prisma } from "../src/db.js";
 import { hashPassword } from "../src/auth/password.js";
 import { hashRecovery } from "../src/auth/recovery.js";
+import { sha256 } from "../src/auth/secrets.js";
 import { startServer, stopServer, serverLog } from "./lib/server.mjs";
 import { waitMail, otpIn, resetLinkIn, clearOutbox } from "./lib/outbox.mjs";
 
@@ -82,7 +84,7 @@ async function partA() {
   const token = await loginToken(user.email);
   const claims = jwt.decode(token);
   r.ok(JSON.stringify(Object.keys(claims).sort()) === JSON.stringify(["aud", "exp", "iat", "iss", "sub", "tv"]), "Payload chỉ có sub, tv, iat, exp, iss, aud", Object.keys(claims).join(","));
-  r.ok(claims.exp - claims.iat === 1800, "Hạn 30 phút", claims.exp - claims.iat);
+  r.ok(claims.exp - claims.iat === 90, "Hạn 90 giây (plan mục 15)", claims.exp - claims.iat);
   const me = await api("GET", "/api/auth/me", { token });
   r.ok(me.status === 200 && me.data.id === user.id && me.data.role === "viewer" && !("passwordHash" in me.data) && !("tokenVersion" in me.data), "Token hợp lệ: /me trả đúng người, không lộ cột nhạy cảm");
 
@@ -121,7 +123,7 @@ async function partB() {
   const user = await demoUser("login");
   const email = user.email;
   const ok1 = await post("/api/auth/login", { email: email.toUpperCase(), password: PW });
-  r.ok(ok1.status === 200 && ok1.ok && ok1.data.accessToken && ok1.data.expiresIn === 1800, "Đúng: trả accessToken (email chuẩn hoá)");
+  r.ok(ok1.status === 200 && ok1.ok && ok1.data.accessToken && ok1.data.expiresIn === 90, "Đúng: trả accessToken 90 giây (email chuẩn hoá)");
   r.ok(ok1.headers.get("cache-control") === "no-store", "Response có token: no-store");
   const wrong = await post("/api/auth/login", { email, password: "sai-mat-khau-1" });
   const absent = await post("/api/auth/login", { email: `khong-co@${D}`, password: "sai-mat-khau-1" });
@@ -565,6 +567,62 @@ async function partF() {
   results.push(r.counts);
 }
 
+async function partG() {
+  const r = reporter("G. Refresh token (plan mục 15)");
+  await clearIp();
+  const user = await demoUser("refresh");
+  const login = await post("/api/auth/login", { email: user.email, password: PW });
+  const rt0 = login.data?.refreshToken;
+  r.ok(login.data?.accessToken && login.data.expiresIn === 90 && rt0 && login.data.refreshExpiresIn === 7 * 24 * 3600, "Đăng nhập: access 90 giây + refresh 7 ngày");
+  const rows = await prisma.refreshToken.findMany({ where: { userId: user.id } });
+  r.ok(rows.length === 1 && rows[0].tokenHash === sha256(rt0) && !rows.some((x) => JSON.stringify(x).includes(rt0)), "DB chỉ lưu SHA-256, không lưu refresh token gốc");
+  r.ok((await api("GET", "/api/auth/me", { token: rt0 })).status === 401, "Refresh token gửi làm Bearer ở /me → 401");
+  r.ok((await post("/api/auth/refresh", { refreshToken: login.data.accessToken })).status === 401, "Access token gửi tới /refresh → 401");
+  r.ok((await post("/api/auth/refresh", {})).status === 401, "Thiếu refresh token → 401");
+
+  const r1 = await post("/api/auth/refresh", { refreshToken: rt0 });
+  const rt1 = r1.data?.refreshToken;
+  r.ok(r1.status === 200 && r1.data.accessToken && rt1 && rt1 !== rt0 && r1.headers.get("cache-control") === "no-store", "Refresh: cặp mới, refresh token đổi (rotation), no-store");
+  r.ok((await api("GET", "/api/auth/me", { token: r1.data.accessToken })).data?.id === user.id, "Access token mới dùng được");
+  const family = await prisma.refreshToken.findMany({ where: { userId: user.id }, orderBy: { id: "asc" } });
+  r.ok(family.length === 2 && family[0].usedAt && family[0].familyId === family[1].familyId, "Dòng cũ có usedAt, dòng mới cùng family");
+
+  const reuse = await post("/api/auth/refresh", { refreshToken: rt0 });
+  r.ok(reuse.status === 401 && reuse.code === "UNAUTHENTICATED", "Dùng lại refresh token cũ → 401", reuse.status);
+  r.ok((await post("/api/auth/refresh", { refreshToken: rt1 })).status === 401, "Phát hiện dùng lại → cả family bị thu hồi: token mới nhất cũng 401");
+
+  // Hai request cùng một token gửi đồng thời: chỉ một request được cặp mới.
+  const t2 = (await post("/api/auth/login", { email: user.email, password: PW })).data.refreshToken;
+  const burst = await Promise.all([post("/api/auth/refresh", { refreshToken: t2 }), post("/api/auth/refresh", { refreshToken: t2 })]);
+  r.ok(burst.filter((x) => x.status === 200).length <= 1, "Gửi đồng thời cùng token: tối đa một request được cặp mới", burst.map((x) => x.status).join(","));
+
+  const t3 = (await post("/api/auth/login", { email: user.email, password: PW })).data.refreshToken;
+  const out = await post("/api/auth/logout", { refreshToken: t3 });
+  r.ok(out.status === 200 && out.ok, "Đăng xuất: 200");
+  r.ok((await post("/api/auth/refresh", { refreshToken: t3 })).status === 401, "Sau đăng xuất: refresh token 401");
+
+  const t4 = (await post("/api/auth/login", { email: user.email, password: PW })).data.refreshToken;
+  await prisma.user.update({ where: { id: user.id }, data: { tokenVersion: { increment: 1 } } }); // như reset mật khẩu / tắt MFA (plan 12.7)
+  r.ok((await post("/api/auth/refresh", { refreshToken: t4 })).status === 401, "tokenVersion tăng → refresh token cấp trước đó 401");
+
+  const t5 = (await post("/api/auth/login", { email: user.email, password: PW })).data.refreshToken;
+  await prisma.user.update({ where: { id: user.id }, data: { status: "pending" } });
+  r.ok((await post("/api/auth/refresh", { refreshToken: t5 })).status === 401, "Tài khoản không còn active → refresh 401");
+  await prisma.user.update({ where: { id: user.id }, data: { status: "active" } });
+
+  // Bật MFA: bước password không có refresh token, chỉ có sau khi qua MFA.
+  await clearIp();
+  const mfaUser = await demoUser("refresh-mfa");
+  const { secret } = await enable(await loginToken(mfaUser.email));
+  const step1 = await post("/api/auth/login", { email: mfaUser.email, password: PW });
+  r.ok(step1.data?.next === "mfa" && !step1.text.includes("refreshToken") && !step1.text.includes("accessToken"), "Đã bật MFA: bước password không có refresh token");
+  r.ok((await post("/api/auth/refresh", { refreshToken: step1.data.challenge })).status === 401, "Challenge gửi tới /refresh → 401");
+  const good = await post("/api/auth/mfa", { challenge: step1.data.challenge, code: totp(secret) });
+  r.ok(good.ok && good.data.refreshToken && (await post("/api/auth/refresh", { refreshToken: good.data.refreshToken })).status === 200, "Qua MFA: có refresh token, refresh được");
+  r.ok(!serverLog().includes(rt0) && !serverLog().includes(rt1), "Log server không có refresh token");
+  results.push(r.counts);
+}
+
 async function cleanup() {
   await prisma.dish.deleteMany({ where: { name: { startsWith: "[TEST B9]" } } });
   await prisma.tag.deleteMany({ where: { name: { startsWith: "[TEST B9]" } } });
@@ -579,7 +637,7 @@ await cleanup();
 await startServer({ MAIL_TRANSPORT: "file", WEB_ORIGIN: WEB });
 let crashed = false;
 try {
-  for (const [k, fn] of Object.entries({ A: partA, B: partB, C: partC, D: partD, E: partE, F: partF })) if (run(k)) await fn();
+  for (const [k, fn] of Object.entries({ A: partA, B: partB, C: partC, D: partD, E: partE, F: partF, G: partG })) if (run(k)) await fn();
 } catch (e) {
   crashed = true;
   console.error(e);

@@ -57,7 +57,7 @@ export default function LoginPage() {
         navigate("/login/mfa");
         return;
       }
-      setToken(data.accessToken);
+      setToken(data.accessToken, data.refreshToken);
     } catch (err) {
       setPassword("");
       if (isBusiness(err, "VALIDATION_FAILED")) setErrors(err.fields);

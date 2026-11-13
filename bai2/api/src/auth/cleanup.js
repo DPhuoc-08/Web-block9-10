@@ -9,6 +9,8 @@ export async function cleanup() {
   const now = new Date();
   await Promise.all([
     prisma.mfaChallenge.deleteMany({ where: { expiresAt: { lt: now } } }),
+    // Refresh token hết hạn mới xoá; dòng đã dùng còn hạn được giữ lại để phát hiện dùng lại (thu hồi family).
+    prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: now } } }),
     prisma.rateLimit.deleteMany({ where: { windowStart: { lt: new Date(now - WINDOW_MAX_MS) }, OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }] } }),
   ]);
 }

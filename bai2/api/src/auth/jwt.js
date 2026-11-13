@@ -2,7 +2,8 @@
 // Token KHÔNG chứa role, email hay dữ liệu cá nhân: payload ai cũng đọc được, và role phải đọc từ DB ở mỗi request (ghi chú 33).
 import jwt from "jsonwebtoken";
 
-export const ACCESS_TOKEN_TTL = 1800; // giây; không có refresh token nên 30 phút (plan mục 4)
+// Giây. 90 giây theo yêu cầu của giảng viên (plan mục 15): token lộ chỉ dùng được rất ngắn; web tự đổi refresh token lấy token mới.
+export const ACCESS_TOKEN_TTL = 90;
 const ISSUER = "nhahang-api";
 const AUDIENCE = "nhahang-web";
 const ALGORITHM = "HS256";

@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import Flash from "./Flash.jsx";
-import { clearToken } from "../auth/token.js";
+import { clearToken, getRefreshToken } from "../auth/token.js";
+import { logout as logoutApi } from "../api/auth.js";
 import { useAuth } from "../hooks/useAuth.js";
 
 // Khung chung của mọi trang. <Outlet /> là chỗ router đặt trang khớp với URL hiện tại.
@@ -10,8 +11,11 @@ export default function Layout() {
   const isAdmin = pathname.startsWith("/admin");
   const navigate = useNavigate();
   const auth = useAuth();
-  // Đăng xuất chỉ xoá token ở trình duyệt này (plan 12.7). Bản sao token ở nơi khác vẫn dùng được tới hết hạn; đã công bố giới hạn này.
+  // Đăng xuất (plan mục 15): server thu hồi refresh token, nên bản sao refresh token ở nơi khác hết dùng được. Access token đã phát
+  // vẫn dùng được tới exp (tối đa 90 giây). Lỗi mạng khi gọi server vẫn xoá token ở trình duyệt này.
   function logout() {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) logoutApi(refreshToken).catch(() => {});
     clearToken("logged-out");
     navigate("/login?msg=logged-out");
   }

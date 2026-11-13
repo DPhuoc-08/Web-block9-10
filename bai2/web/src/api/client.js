@@ -1,4 +1,4 @@
-import { clearToken, getToken } from "../auth/token.js";
+import { clearToken, getRefreshToken, getToken, setToken } from "../auth/token.js";
 
 // Lớp gọi API DUY NHẤT của SPA. Các trang không gọi fetch trực tiếp mà gọi hàm trong api/*.js → đi qua đây.
 // Một chỗ giữ URL gốc, một chỗ kiểm tra đủ 3 tầng lỗi:
@@ -29,7 +29,32 @@ export const isBusiness = (err, code) => err instanceof ApiError && err.kind ===
 
 // anonymous: route công khai và route trước đăng nhập, KHÔNG gửi token (GET không sinh preflight thừa).
 // on401: "throw" = trang tự xử lý; mặc định xoá token, route guard đưa về đăng nhập và nhớ trang đang mở (slide 39).
-export async function request(method, path, { body, signal, anonymous = false, on401 = "expire" } = {}) {
+// Đổi refresh token lấy cặp mới (plan mục 15). Một lần gọi tại một thời điểm: nhiều request cùng gặp 401 thì chờ chung một lần refresh,
+// vì refresh token chỉ dùng được một lần (gửi hai lần cùng token = server coi là bị đánh cắp và thu hồi cả family).
+// Kết quả: "ok" | "rejected" (server từ chối → phải đăng nhập lại) | "error" (mạng, 429, 500 → KHÔNG đăng xuất).
+let refreshing = null;
+function refreshTokens() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return Promise.resolve("rejected");
+  refreshing ??= (async () => {
+    try {
+      const res = await fetch(BASE_URL + "/api/auth/refresh", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken }) });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.ok && json.data?.accessToken) {
+        setToken(json.data.accessToken, json.data.refreshToken);
+        return "ok";
+      }
+      return res.status === 401 ? "rejected" : "error";
+    } catch {
+      return "error";
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
+export async function request(method, path, { body, signal, anonymous = false, on401 = "expire", retried = false } = {}) {
   const init = { method, signal, headers: {} };
   // Gắn Authorization ở đúng một chỗ, và URL luôn là BASE_URL của API này (slide 39); các trang không tự gắn header.
   const token = anonymous ? null : getToken();
@@ -61,6 +86,13 @@ export async function request(method, path, { body, signal, anonymous = false, o
     const e = json.error ?? {};
     const info = { status: res.status, code: e.code ?? null, message: e.message ?? "Yêu cầu không thực hiện được." };
     if (res.status === 401) {
+      // Access token hết hạn (90 giây) hoặc bị từ chối: thử refresh MỘT lần rồi gửi lại đúng request này. Request ẩn danh
+      // (không gửi token) và lần gửi lại không refresh nữa, nên không có vòng lặp.
+      if (token && !retried && on401 !== "throw") {
+        const outcome = await refreshTokens();
+        if (outcome === "ok") return request(method, path, { body, signal, anonymous, on401, retried: true });
+        if (outcome === "error") throw new ApiError("network", { message: "Không kết nối được tới máy chủ." });
+      }
       if (on401 !== "throw") clearToken("expired");
       throw new ApiError("unauthenticated", info);
     }
