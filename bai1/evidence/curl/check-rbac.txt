@@ -93,7 +93,7 @@
 ĐẠT      Form đã mở, status đổi → PATCH bị từ chối, dữ liệu không đổi — 403
 ĐẠT      Admin đổi được status, chefId — 2 draft
 ĐẠT      Admin gửi status sai → 400 — 400
-ĐẠT      Editor và Admin gửi cùng lúc: không lỗi 500 — 303 303
+ĐẠT      Editor và Admin gửi cùng lúc: không lỗi 500 — 403 303
 ĐẠT      Hạ role sau khi mở form → PATCH 403 (đọc role từ DB mỗi request) — 403
 ĐẠT      Editor chưa gắn đầu bếp không thêm được món
 ĐẠT      Editor chưa gắn đầu bếp không khớp món nào

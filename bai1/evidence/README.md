@@ -1,8 +1,8 @@
-# Bằng chứng nộp — Block 9, Bài 1 (SSR: RBAC, ABAC, MFA)
+# Bằng chứng nộp — Block 9, Bài 1 (SSR: RBAC, ABAC, MFA, JWT access + refresh token)
 
-Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `source-code/`): script chạy server thật ở cổng 3100, điều khiển **Chrome thật** (headless, DevTools Protocol) qua từng kịch bản, gửi thêm request trực tiếp như `curl -i`, rồi đọc database. MFA dùng tài khoản thử `mfa.demo@demo.example`, xoá ở cuối; sau đó seed lại.
+Thu lần đầu 09/11/2026, **thu lại 13/11/2026** sau khi Bài 1 bỏ session, chuyển sang JWT access token 90 giây + refresh token theo yêu cầu của giảng viên (plan mục 15), bằng `node scripts/collect-evidence.mjs` (trong `source-code/`): script chạy server thật ở cổng 3100, điều khiển **Chrome thật** (headless, DevTools Protocol) qua từng kịch bản, gửi thêm request trực tiếp như `curl -i`, rồi đọc database. MFA dùng tài khoản thử `mfa.demo@demo.example`, xoá ở cuối cùng các bản ghi thử (lần thu lại không chạy seed). Phần access / refresh token thu bằng `node scripts/collect-refresh-evidence.mjs` (mục cuối).
 
-**Đã che:** email thật của nhóm → `<email nhóm đã che>`; mật khẩu, mã TOTP, recovery code, reset token, `_csrf` → `<đã che>`; `sid` → vân tay 8 ký tự đầu SHA-256 (so được trước và sau, không dùng lại được). Trong ảnh, QR, chuỗi secret và recovery code được thay ngay trong trang **trước khi chụp**. Bản mã `mfaSecret` chỉ ghi độ dài và vân tay; hash chỉ để 6 ký tự đầu. Script từ chối ghi nếu còn sót giá trị bí mật nó biết. Thư mục này không có `.env`, chuỗi kết nối, host database, `SESSION_SECRET`, `OTP_PEPPER`, `MFA_ENCRYPTION_KEY`.
+**Đã che:** email thật của nhóm → `<email nhóm đã che>`; mật khẩu, mã TOTP, recovery code, reset token, `_csrf` → `<đã che>`; cookie `access`, `refresh`, `mfa`, `mfa_reauth`, `csrf` → vân tay 8 ký tự đầu SHA-256 (so được trước và sau, không dùng lại được; với `refresh` và `mfa`, vân tay trùng 8 ký tự đầu cột `tokenHash` trong `db/`). Trong ảnh, QR, chuỗi secret và recovery code được thay ngay trong trang **trước khi chụp**. Bản mã `mfaSecret` chỉ ghi độ dài và vân tay; hash chỉ để 6 ký tự đầu. Script từ chối ghi nếu còn sót giá trị bí mật nó biết. Thư mục này không có `.env`, chuỗi kết nối, host database, `JWT_SECRET`, `OTP_PEPPER`, `MFA_ENCRYPTION_KEY`.
 
 **Làm bằng tay:** quét QR bằng Microsoft Authenticator trên điện thoại và đăng nhập bằng mã từ app (nhóm làm, 09/11/2026, không lưu ảnh vì chứa QR).
 
@@ -22,11 +22,11 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `source-c
 | Gửi `PATCH` trực tiếp, bỏ qua form | Cùng kết quả như qua form | như ca 3, 4 | so với mục 3, 4, 6 | `05` | đọc lại ở `curl/05` |
 | Sửa role, chủ sở hữu trong hidden field | Quyền không tăng | `09` | mục 6 | `06` | `06` |
 | **Slide 57** | | | | | |
-| Password đúng, chưa nhập OTP | Không vào được quản trị, không có phiên đầy đủ | `16-*`, `17` | mục 8a, 8b, 8c | `08` | `08` (`data` không có `userId`) |
+| Password đúng, chưa nhập OTP | Không vào được quản trị: chỉ có challenge (cookie `mfa`), chưa có access / refresh token | `16-*`, `17` | mục 8a, 8b, 8c | `08` | `08-cho-mfa` (`mfa_challenges` đang chờ; access + refresh chỉ có sau khi nhập đúng mã) |
 | OTP sai quá giới hạn, hoặc mã dùng lại | Khoá tạm; mã đã dùng bị từ chối; kể cả khi 30 mã gửi cùng lúc | `19`, `20-*` | mục 9a, 9b | `09`, `15` | `09` (`count`, `lockedUntil`, `mfaLastStep`), `15` (30 lượt) |
 | Recovery code dùng lần hai | Bị từ chối | `21-*`, `22`, `23` | mục 10a, 10b | `10` | `10` (`usedAt`) |
 | Reset password xong, đăng nhập | Vẫn qua bước MFA | `24`, `25` | mục 11a, 11b | `11` | `11` (vân tay `mfaSecret` không đổi), `mail/1` |
-| **Chức năng cũ** | Không hồi quy | | | `check-ssr.txt` 124, `check-auth.txt` 135 | |
+| **Chức năng cũ** | Không hồi quy sau khi bỏ session | | | `check-ssr.txt` 124, `check-auth.txt` 154 | |
 
 ## Ngoài bảng của đề
 
@@ -39,14 +39,19 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `source-c
 | Lỗi do agent tạo ra (slide 58): giới hạn sai mã MFA bị vượt khi gửi đồng thời, trước và sau khi sửa | | | `15`, `check-mfa.txt` phần B; BUILD_LOG bước 35 | |
 | Lỗi khác: secret chờ khi đổi thiết bị không có hạn | | | `check-mfa.txt` phần D; BUILD_LOG bước 36 | |
 | Lỗi khác: nút Xoá tràn khung, sau khi sửa | `28` | | `14`, BUILD_LOG bước 8 | |
+| Lỗi khi chuyển sang JWT (L5): đặt lại mật khẩu không huỷ bước MFA đang chờ | | | `check-mfa.txt` phần B ("Reset xoá cả challenge đang chờ MFA (L5)"); BUILD_LOG bước 40 | |
+| Lỗi khi chuyển sang JWT (L6): đọc cookie sai tên, mất ô CAPTCHA khi mở lại /login | | | `check-auth.txt` phần C; BUILD_LOG bước 40 | |
+| Cấu hình hạn refresh ngắn hơn access bị chặn khi khởi động | | | `check-auth.txt` phần H; BUILD_LOG bước 42 | |
 
-Kết quả script trên code cuối: `check-policy` 32, `check-rbac` 159, `check-mfa` 84, `check-auth` 135, `check-ssr` 124, tất cả 0 CHƯA ĐẠT.
+Kết quả script trên code cuối (13/11/2026): `check-policy` 32, `check-rbac` 159, `check-mfa` 86, `check-auth` 154 (phần H: access + refresh token), `check-ssr` 124, tất cả 0 CHƯA ĐẠT.
 
 Giao diện ở 3 cỡ 1280, 820, 375: `03-trang-403`, `13-thiet-lap-mfa-da-che`, `14-ma-khoi-phuc-da-che`, `16-buoc-nhap-ma`, `20-sai-5-lan-tam-khoa`, `21-nhap-ma-khoi-phuc`, `26-xac-thuc-lai-de-tat-mfa`.
 
-Sơ đồ do nhóm vẽ (bản nháp từ code thật, nhóm duyệt): `diagrams/1-phan-quyen-bon-cong.svg`, `2-mfa-dang-nhap.svg`, `3-mfa-thiet-lap-va-xac-thuc-lai.svg`. Vẽ lại sau khi đổi code: `node evidence/diagrams/ve-so-do.mjs` từ thư mục `bai1/`.
+Sơ đồ do nhóm vẽ (bản nháp từ code thật, nhóm duyệt; vẽ lại 13/11 theo JWT): `diagrams/1-phan-quyen-bon-cong.svg`, `2-mfa-dang-nhap.svg`, `3-mfa-thiet-lap-va-xac-thuc-lai.svg`, **`4-access-refresh-token.svg`** (mới). Vẽ lại sau khi đổi code: `node evidence/diagrams/ve-so-do.mjs` từ thư mục `bai1/`.
 
-## Refresh token bị dùng lại (plan mục 15, thu 13/11/2026)
+## Access token + refresh token (plan mục 15, thu 13/11/2026)
+
+### A, B — refresh token bị dùng lại
 
 Thu bằng `node scripts/collect-refresh-evidence.mjs` (trong `source-code/`): server thật ở cổng 3100, **hai Chrome headless độc lập** (hai profile, không chung cookie): một là chủ tài khoản, một là kẻ gian. Kẻ gian nhận đúng giá trị cookie `refresh` của chủ, như khi chép trong DevTools. Tài khoản thử `refresh.demo@demo.example`, xoá ở cuối.
 
@@ -64,3 +69,17 @@ Thu bằng `node scripts/collect-refresh-evidence.mjs` (trong `source-code/`): s
 | Log server | Không chứa access / refresh token, mật khẩu | | | dòng cuối `curl/16` | |
 
 Network: `network/refresh-token-dung-lai.md`. Kiểm thử tự động cùng ca này: `check-auth` phần H.
+
+### C–F — vòng đời token khi dùng bình thường
+
+Cùng script, cùng cách che. Network: `network/refresh-token-vong-doi.md`; DB: `db/14-refresh-token-vong-doi.txt`. Ca F chạy lại server với `REFRESH_IDLE_MINUTES=2`, `REFRESH_ABSOLUTE_MINUTES=3` và **chờ thời gian thật** (khoảng 3 phút), không xoá cookie bằng tay, không sửa DB.
+
+| Ca | Kết quả cần chứng minh | Ảnh `screens/` | Network | DB `db/14` |
+| :--- | :--- | :--- | :--- | :--- |
+| C. Access hết hạn đúng lúc gửi form | Request chỉ mang `refresh` → server xoay vòng rồi xử lý form → 303, dữ liệu được ghi; `document.cookie` rỗng (HttpOnly) | `33` | mục C1 | sau C1 |
+| D. Đăng xuất | Server thu hồi family; bản sao refresh chép trước khi đăng xuất → 303 | | mục D1, D2 | sau D |
+| E. Đổi mật khẩu | Máy khác bị đăng xuất **ngay** dù access chưa hết 90 giây (`tv` lệch); máy đang dùng nhận family mới | `34` | mục E1, E2 | trước / sau E (`tokenVersion` 0 → 1) |
+| F1. Thao tác sau 90 giây | Access tự hết, xoay vòng được; Max-Age refresh mới bị cắt theo trần 3 phút | | mục F1 | sau F |
+| F2. Để yên quá 2 phút | Phải đăng nhập lại (hạn không hoạt động) | `35` | mục F2 | sau F |
+| F3. Vẫn thao tác, quá 3 phút từ lúc đăng nhập | Phải đăng nhập lại (trần tuyệt đối) | | mục F3 | sau F |
+| F4. Gửi thẳng bản sao refresh đã hết hạn | Server từ chối theo `expiresAt` (không chỉ nhờ trình duyệt bỏ cookie) | | mục F4 | |

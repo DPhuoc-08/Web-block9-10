@@ -1,16 +1,16 @@
-## Trước: Editor A đang mở form  (lúc 2026-11-09 07:58:30Z)
+## Trước: Editor A đang mở form  (lúc 2026-11-13 12:43:55Z)
 
-dishes #1207  name="[TEST B9] Nháp của A"  chefId=1  status=draft  available=true
+dishes #1224  name="[TEST B9] Nháp của A"  chefId=1  status=draft  available=true
 
-## Sau: PATCH bị từ chối, tên vẫn như cũ  (lúc 2026-11-09 07:58:32Z)
+## Sau: PATCH bị từ chối, tên vẫn như cũ  (lúc 2026-11-13 12:43:57Z)
 
-dishes #1207  name="[TEST B9] Nháp của A"  chefId=1  status=published  available=true
+dishes #1224  name="[TEST B9] Nháp của A"  chefId=1  status=published  available=true
 
-## Hạ role Editor A bằng SQL trong lúc đang mở form  (lúc 2026-11-09 07:58:34Z)
+## Hạ role Editor A bằng SQL trong lúc đang mở form  (lúc 2026-11-13 12:43:59Z)
 
 users #2  email=<email nhóm đã che>  role=viewer  chefId=1  status=active
 
-## Đã trả lại role  (lúc 2026-11-09 07:58:35Z)
+## Đã trả lại role  (lúc 2026-11-13 12:44:00Z)
 
 users #2  email=<email nhóm đã che>  role=editor  chefId=1  status=active
 

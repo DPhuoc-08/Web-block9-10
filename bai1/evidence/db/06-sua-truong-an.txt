@@ -1,12 +1,12 @@
-## Trước  (lúc 2026-11-09 07:58:37Z)
+## Trước  (lúc 2026-11-13 12:44:01Z)
 
-dishes #1207  name="[TEST B9] Nháp của A"  chefId=1  status=draft  available=true
+dishes #1224  name="[TEST B9] Nháp của A"  chefId=1  status=draft  available=true
 
-## Sau  (lúc 2026-11-09 07:58:42Z)
+## Sau  (lúc 2026-11-13 12:44:06Z)
 
-dishes #1207  name="[TEST B9] Nháp của A"  chefId=1  status=draft  available=true
+dishes #1224  name="[TEST B9] Nháp của A"  chefId=1  status=draft  available=true
 
-## Vai trò không tăng  (lúc 2026-11-09 07:58:42Z)
+## Vai trò không tăng  (lúc 2026-11-13 12:44:06Z)
 
 users #2  email=<email nhóm đã che>  role=editor  chefId=1  status=active
 

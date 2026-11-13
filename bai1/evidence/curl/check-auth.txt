@@ -3,7 +3,7 @@
 ĐẠT      Đăng ký (kèm role=admin) → 303 /activate, user pending, role viewer
 ĐẠT      Mật khẩu lưu Argon2id; mã lưu HMAC (64 hex), purpose activation
 ĐẠT      Mã 6 số có trong email, KHÔNG có trong response / trang
-ĐẠT      Tài khoản pending đăng nhập đúng mật khẩu → không cấp session
+ĐẠT      Tài khoản pending đăng nhập đúng mật khẩu → không cấp token
 ĐẠT      Dùng mã kích hoạt làm mật khẩu ở /login → bị từ chối
 ĐẠT      Đăng ký lại email đang pending → cùng 303, KHÔNG ghi đè mật khẩu
 ĐẠT      Đăng ký email đã active → cùng 303, không đổi gì, không gửi thư
@@ -16,7 +16,7 @@
 ĐẠT      Lần sai thứ 5 → khoá kích hoạt 15 phút
 ĐẠT      Đang khoá: mã ĐÚNG cũng → 429 (Retry-After), vẫn pending
 ĐẠT      Hết khoá, mã mới đúng → 303 /login, active, có emailVerifiedAt, usedAt
-ĐẠT      Kích hoạt xong KHÔNG tự đăng nhập (phiên không có userId, /admin → 303)
+ĐẠT      Kích hoạt xong KHÔNG tự đăng nhập (không có token, /admin → 303)
 ĐẠT      Dùng lại mã đã dùng → INVALID_OTP, bản ghi không đổi
 ĐẠT      Tài khoản vừa kích hoạt đăng nhập được (bước riêng)
 ĐẠT      2 request cùng mã đúng song song → một 303, một INVALID_OTP — 303 + INVALID_OTP
@@ -40,55 +40,57 @@
 ĐẠT      Mở lại /login: vẫn hiện CAPTCHA (server nhớ email vừa gõ)
 ĐẠT      Đủ ngưỡng, bỏ trường CAPTCHA, mật khẩu ĐÚNG → chặn trước bước so mật khẩu, không đăng nhập, bộ đếm không đổi
 ĐẠT      Giải đúng CAPTCHA nhưng sai mật khẩu → bộ đếm tiếp tục tăng (4)
-ĐẠT      Xoá cookie / phiên ẩn danh mới → vẫn phải CAPTCHA (bộ đếm theo email ở DB)
+ĐẠT      Xoá cookie (trình duyệt mới) → vẫn phải CAPTCHA (bộ đếm theo email ở DB)
 ĐẠT      Lần sai thứ 10 → 429 Tạm khoá (Retry-After), khoá 5 phút
-ĐẠT      Đang khoá, gửi mật khẩu ĐÚNG + CAPTCHA đúng → vẫn 429, không có phiên
+ĐẠT      Đang khoá, gửi mật khẩu ĐÚNG + CAPTCHA đúng → vẫn 429, không có token
 ĐẠT      Hết thời gian khoá, cửa sổ đếm còn hiệu lực → vẫn cần CAPTCHA
 ĐẠT      Đăng nhập đúng (có CAPTCHA) → 303, xoá bộ đếm theo email, KHÔNG xoá giới hạn IP
 ĐẠT      Email không tồn tại: 3 lần sai rồi bị đòi CAPTCHA, như email có thật — INVALID_CREDENTIALS,INVALID_CREDENTIALS,INVALID_CREDENTIALS,CAPTCHA_REQUIRED
 ĐẠT      31 lần gửi form từ một IP trong 15 phút → lần 31 nhận 429
 
 == D. Đăng nhập, đăng xuất, chặn CRUD, CSRF ==
-ĐẠT      Khách xem thực đơn: 200, không có Set-Cookie (không tạo phiên)
+ĐẠT      Khách xem thực đơn: 200, không có Set-Cookie (không cấp cookie nào)
 ĐẠT      20 route GET của /admin khi chưa đăng nhập → 303 /login?next=<trang>
 ĐẠT      14 request POST / PATCH / DELETE khi chưa đăng nhập → 303 /login, dữ liệu không đổi
 ĐẠT      14 request ghi KHÔNG cookie, KHÔNG _csrf (curl trần) → cũng 303 /login, dữ liệu không đổi
-ĐẠT      Cookie sid bịa → 303 /login (không lỗi 500)
+ĐẠT      Cookie access / refresh bịa → 303 /login (không lỗi 500)
 ĐẠT      Sai mật khẩu / email không có → cùng 200, cùng nội dung
 ĐẠT      Form giữ email, không điền lại mật khẩu
-ĐẠT      Sai mật khẩu → không có phiên đăng nhập
-ĐẠT      Đăng nhập đúng (email viết hoa + khoảng trắng) → 303, Set-Cookie sid HttpOnly SameSite=Lax — sid=…; Path=/; Expires=Mon, 09 Nov 2026 09:49:53 GMT; HttpOnly; SameSite=Lax
-ĐẠT      sid trước ≠ sid sau đăng nhập; phiên cũ bị xoá (chống session fixation)
-ĐẠT      Bản ghi phiên mới có userId của tài khoản
+ĐẠT      Sai mật khẩu → không có access / refresh token
+ĐẠT      Đăng nhập đúng (email viết hoa + khoảng trắng) → 303, Set-Cookie access + refresh HttpOnly SameSite=Lax — login_email,access,refresh,mfa_reauth,csrf,login_email,access,refresh
+ĐẠT      Access token: JWT 90 giây, sub là id, không có role / email — 90
+ĐẠT      Refresh token: DB có dòng của user, cùng family với access, chỉ lưu hash
+ĐẠT      CSRF token trước khi đăng nhập bị bỏ (trang sau tạo token mới)
 ĐẠT      Vào /admin/dishes: 200, Cache-Control no-store, header có email + Đăng xuất (form POST)
 ĐẠT      Đã đăng nhập mà mở /login → 303
 ĐẠT      next=/admin/chefs?page=2 → về đúng trang đó
 ĐẠT      next trỏ ra ngoài (//host, https://, /\host) → bỏ qua, về /admin/dishes
-ĐẠT      Pending đúng mật khẩu → 200, báo chưa kích hoạt, không có phiên đăng nhập
+ĐẠT      Pending đúng mật khẩu → 200, báo chưa kích hoạt, không có token
 ĐẠT      Pending vẫn bị chặn ở /admin
 ĐẠT      Đã đăng nhập, POST thiếu _csrf → 403, không ghi
 ĐẠT      _csrf sai → 403, không ghi
 ĐẠT      Form gửi từ trang khác (Origin lạ) → 403, không ghi
 ĐẠT      Origin: null (trang lạ đặt no-referrer / iframe sandbox) ở route quản trị → 403
 ĐẠT      ?_method=DELETE thiếu _csrf → 403 (kiểm tra trước method-override)
-ĐẠT      Dừng + chạy lại server, dùng lại cookie → vẫn đăng nhập, bản ghi phiên còn trong DB
-ĐẠT      Còn đăng nhập, POST /logout thiếu _csrf → 403, phiên còn nguyên
-ĐẠT      Đăng xuất → 303 /login, Set-Cookie xoá sid
-ĐẠT      Bản ghi phiên đã bị xoá ở server
-ĐẠT      Dùng lại bản sao sid cũ sau khi đăng xuất → 303 /login
+ĐẠT      Dừng + chạy lại server, dùng lại cookie → vẫn đăng nhập
+ĐẠT      Còn đăng nhập, POST /logout thiếu _csrf → 403, refresh token còn nguyên
+ĐẠT      Đăng xuất → 303 /login, Set-Cookie xoá access + refresh
+ĐẠT      Cả family refresh token đã bị thu hồi ở server
+ĐẠT      Dùng lại bản sao refresh token sau khi đăng xuất → 303 /login
 ĐẠT      GET /logout → 404 (đăng xuất chỉ bằng POST)
 ĐẠT      Đã đăng xuất ở tab khác, bấm Đăng xuất ở tab này → 303 /login, không phải 403 — 303
-ĐẠT      POST /logout không có phiên, không _csrf → 303 /login, không đổi gì — 303
+ĐẠT      POST /logout khi chưa đăng nhập, không _csrf → 303 /login, không đổi gì — 303
 
 == E. Quên mật khẩu, đặt lại mật khẩu ==
 ĐẠT      Email có / không có → cùng 303, cùng trang “Kiểm tra email của bạn”
-ĐẠT      Thời gian phản hồi gần nhau (việc ghi DB + gửi thư chạy sau khi trả lời) — 154ms / 168ms
+ĐẠT      Thời gian phản hồi gần nhau (việc ghi DB + gửi thư chạy sau khi trả lời) — 125ms / 90ms
 ĐẠT      Email chứa link APP_ORIGIN/reset?token=…; DB chỉ lưu SHA-256, hạn 15 phút
 ĐẠT      GET /reset với token hợp lệ: chỉ hiện form, usedAt vẫn rỗng, Referrer-Policy no-referrer
 ĐẠT      Mật khẩu mới không khớp → VALIDATION_FAILED, token chưa bị dùng
 ĐẠT      Tab 1 đã đăng nhập bằng mật khẩu cũ
 ĐẠT      Đặt lại thành công → 303 /login, đổi passwordHash, KHÔNG tự đăng nhập
-ĐẠT      Sid cũ của tab 1 bị từ chối; mọi phiên của user đã bị xoá
+ĐẠT      tokenVersion tăng, mọi family refresh token của user bị thu hồi
+ĐẠT      Tab 1 (access token còn hạn nhưng tv cũ, refresh đã thu hồi) → 303 /login
 ĐẠT      Có thư báo “Mật khẩu đã được đổi” (không chứa mật khẩu)
 ĐẠT      Mật khẩu cũ bị từ chối, mật khẩu mới đăng nhập được
 ĐẠT      Dùng lại token đã dùng (GET và POST) → “Link không dùng được”, mật khẩu không đổi
@@ -96,7 +98,7 @@
 ĐẠT      Token hết hạn → GET / POST đều “Link không dùng được”, mật khẩu không đổi
 ĐẠT      Token bịa → cùng một trang với token hết hạn / đã dùng
 ĐẠT      2 request cùng token song song → một 303, một “Link không dùng được” — 303 + INVALID_RESET_TOKEN
-ĐẠT      Reset token dùng làm mã kích hoạt / mật khẩu / cookie sid → đều bị từ chối
+ĐẠT      Reset token dùng làm mã kích hoạt / mật khẩu / cookie access, refresh → đều bị từ chối
 ĐẠT      Đặt lại mật khẩu tài khoản pending → đổi được mật khẩu nhưng vẫn pending
 ĐẠT      4 yêu cầu /forgot cùng email (có tài khoản) trong 1 giờ → lần 4 nhận 429 — 303,303,303,429
 ĐẠT      4 yêu cầu /forgot cùng email (không có tài khoản) trong 1 giờ → lần 4 nhận 429 — 303,303,303,429
@@ -134,18 +136,37 @@
 ĐẠT      Đổi đúng → 303 về hồ sơ — /admin/profile?msg=password-changed
 ĐẠT      Hash mới dạng Argon2id
 ĐẠT      Đổi thành công xoá bộ đếm sai
-ĐẠT      sid đổi, phiên cũ của thiết bị này đã xoá
-ĐẠT      loginAt giữ nguyên: không kéo dài hạn tối đa 12 giờ
+ĐẠT      Thiết bị này nhận family mới, access token mang tokenVersion mới
+ĐẠT      Trần tuyệt đối giữ nguyên: đổi mật khẩu không kéo dài hạn tối đa 12 giờ
 ĐẠT      Thiết bị này vẫn đăng nhập, có thông báo
 ĐẠT      Thiết bị khác → 303 /login
-ĐẠT      Bản sao sid cũ → 303 /login
-ĐẠT      Chỉ còn đúng một phiên của tài khoản
+ĐẠT      Bản sao cookie cũ của thiết bị này → 303 /login
+ĐẠT      Chỉ còn đúng một refresh token hiệu lực của tài khoản
 ĐẠT      Link đặt lại chưa dùng bị vô hiệu
 ĐẠT      Có thư báo đã đổi, không chứa mật khẩu
 ĐẠT      Mật khẩu cũ không đăng nhập được
 ĐẠT      Mật khẩu mới đăng nhập được
-ĐẠT      Hai request đổi mật khẩu đồng thời → đúng một request thắng — 303 /admin/profile?msg=password-changed, 400 
+ĐẠT      Hai request đổi mật khẩu đồng thời → đúng một request thắng — 400 , 303 /admin/profile?msg=password-changed
 ĐẠT      Hash cuối đúng là mật khẩu của request thắng
 ĐẠT      Log server không chứa mật khẩu
 
-TỔNG: 135 ĐẠT, 0 CHƯA ĐẠT
+== H. Access token 90 giây + refresh token (plan mục 15) ==
+ĐẠT      Không còn access, còn refresh → 200, server cấp cặp mới ngay trong request (refresh token đổi)
+ĐẠT      Rotation: dòng cũ có usedAt, dòng mới cùng family
+ĐẠT      Access hết hạn đúng lúc gửi form → server refresh rồi xử lý tiếp, dữ liệu form được ghi — 303
+ĐẠT      Refresh token đã dùng gửi lại → 303 /login
+ĐẠT      Phát hiện dùng lại → cả family bị thu hồi
+ĐẠT      Token mới nhất của chủ thật cũng hết dùng được → phải đăng nhập lại
+ĐẠT      Hai request đồng thời cùng refresh token → tối đa một 200, family bị thu hồi — 303,200
+ĐẠT      Mặc định: token sống 120 phút không hoạt động, cả lần đăng nhập tối đa 720 phút — 120/720
+ĐẠT      Xoay vòng không kéo dài quá trần tuyệt đối của family
+ĐẠT      Refresh token quá hạn (không hoạt động / chạm trần) → 303 /login
+ĐẠT      REFRESH_IDLE_MINUTES=2, REFRESH_ABSOLUTE_MINUTES=5 → refresh 2 / 5 phút, access vẫn 90 giây
+ĐẠT      IDLE > ABSOLUTE → server không khởi động
+ĐẠT      IDLE = 1 phút (ngắn hơn access 90 giây) → server không khởi động
+ĐẠT      Access token chữ ký sai / alg none / sai audience / tv lệch → 303 /login
+ĐẠT      Tài khoản không còn active → access token còn hạn cũng bị từ chối
+ĐẠT      GET /favicon.ico → 204, không xoay vòng refresh token
+ĐẠT      Log server không chứa access / refresh token
+
+TỔNG: 154 ĐẠT, 0 CHƯA ĐẠT

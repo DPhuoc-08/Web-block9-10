@@ -2,7 +2,8 @@
 // Network và Application (Cookies) của Chrome thật, request gửi trực tiếp, bản ghi DB. Mọi bí mật đều đã che.
 //   node scripts/collect-evidence.mjs
 // Tự chạy server thật ở cổng 3100, không đụng server đang chạy ở 3000. MFA dùng tài khoản thử @demo.example, xoá ở cuối.
-// Khoá phần còn lại của DB: bản ghi "[TEST B9]" và bộ đếm được dọn ở cuối; seed lại sau khi chạy để sessions và số id sạch.
+// Khoá phần còn lại của DB: bản ghi "[TEST B9]" và bộ đếm được dọn ở cuối. Từ plan mục 15: đăng nhập bằng cookie access (JWT
+// 90 giây) + refresh (DB lưu hash), chờ MFA bằng cookie mfa (challenge, DB lưu hash) — không còn sid / bảng sessions.
 import "./lib/test-env.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -28,16 +29,17 @@ const NEW_PW = "mat-khau-moi-456";
 const BAD_OTP = (real) => (real === "000000" ? "111111" : "000000");
 
 // ---------- che dữ liệu nhạy cảm ----------
-// sid thay bằng vân tay (8 ký tự đầu SHA-256): vẫn so được sid trước và sau đăng nhập, không dùng lại được.
+// Cookie access, refresh, mfa, mfa_reauth, csrf thay bằng vân tay (8 ký tự đầu SHA-256): so được trước / sau, không dùng lại được.
+// Vân tay của refresh và mfa trùng 8 ký tự đầu cột tokenHash trong DB (DB lưu SHA-256), nên đối chiếu được với db/.
 const print = (v) => createHash("sha256").update(String(v)).digest("hex").slice(0, 8);
-const sidPrint = (cookieValue) => { const v = decodeURIComponent(cookieValue); return print(v.match(/^s:([^.]+)\./)?.[1] ?? v); };
+const TOKEN_COOKIES = /\b(access|refresh|mfa_reauth|mfa|csrf)=([^;\s,&"|]+)/g;
 const SECRET_FIELDS = ["_csrf", "password", "passwordConfirm", "otp", "code", "factor", "token", "g-recaptcha-response"];
 const secrets = [PW, DEMO_PW, NEW_PW, process.env.JWT_SECRET, process.env.OTP_PEPPER, process.env.MFA_ENCRYPTION_KEY, process.env.RECAPTCHA_SECRET_KEY, process.env.SMTP_PASS].filter((s) => s && s.length >= 6);
 const realEmails = [VIEWER, EDITOR_A, EDITOR_B, ADMIN, process.env.SMTP_USER, process.env.MAIL_FROM?.match(/[^\s<>"]+@[^\s<>"]+/)?.[0]].filter(Boolean).sort((a, b) => b.length - a.length);
 function mask(text) {
   let t = String(text);
   for (const e of realEmails) t = t.split(e).join("<email nhóm đã che>").split(encodeURIComponent(e)).join("<email nhóm đã che>");
-  t = t.replace(/sid=([^;\s,&"|]+)/g, (_, v) => `sid=<đã che · vân tay ${sidPrint(v)}>`);
+  t = t.replace(TOKEN_COOKIES, (_, name, v) => `${name}=<đã che · vân tay ${print(decodeURIComponent(v))}>`);
   for (const f of SECRET_FIELDS) t = t.replace(new RegExp(`(^|[?&\\s])${f}=[^&\\s]*`, "gm"), `$1${f}=<đã che>`);
   for (const s of secrets) t = t.split(s).join("<đã che>");
   return t;
@@ -49,7 +51,7 @@ const time = (d) => (d ? new Date(d).toISOString().replace("T", " ").slice(0, 19
 const files = new Map();
 const shots = new Map();
 const add = (path, line = "") => files.set(path, (files.get(path) ?? "") + line + "\n");
-// Chặn cuối: còn sót giá trị bí mật script biết (secret TOTP, recovery code, sid, hash đầy đủ...) thì không ghi gì.
+// Chặn cuối: còn sót giá trị bí mật script biết (secret TOTP, recovery code, token, hash đầy đủ...) thì không ghi gì.
 const known = new Set(secrets);
 async function save() {
   for (const [path, text] of files) {
@@ -117,7 +119,7 @@ function cookieTable(heading, cookies) {
   add(NET, `### Application → Cookies: ${heading}\n`);
   add(NET, "| Name | Value | Domain | Path | Expires | HttpOnly | Secure | SameSite |\n| --- | --- | --- | --- | --- | --- | --- | --- |");
   for (const c of cookies) known.add(decodeURIComponent(c.value));
-  for (const c of cookies) add(NET, `| ${c.name} | sid=${c.value} | ${c.domain} | ${c.path} | ${c.session ? "Session" : time(c.expires * 1000)} | ${c.httpOnly ? "✓" : ""} | ${c.secure ? "✓" : ""} | ${c.sameSite ?? ""} |`);
+  for (const c of cookies) add(NET, `| ${c.name} | ${c.name}=${c.value} | ${c.domain} | ${c.path} | ${c.session ? "Session" : time(c.expires * 1000)} | ${c.httpOnly ? "✓" : ""} | ${c.secure ? "✓" : ""} | ${c.sameSite ?? ""} |`);
   if (!cookies.length) add(NET, "| (không có cookie) | | | | | | | |");
   add(NET);
 }
@@ -141,21 +143,21 @@ async function dbUsers(file, heading, emails) {
 }
 async function dbMfa(file, heading, email = DEMO) {
   add(file, `## ${heading}  (lúc ${time(new Date())})\n`);
-  const u = await prisma.user.findUnique({ where: { email }, include: { recoveryCodes: { orderBy: { id: "asc" } }, sessions: true, passwordResets: { orderBy: { id: "asc" } } } });
+  const u = await prisma.user.findUnique({ where: { email }, include: { recoveryCodes: { orderBy: { id: "asc" } }, refreshTokens: { orderBy: { id: "asc" } }, mfaChallenges: { orderBy: { id: "asc" } }, passwordResets: { orderBy: { id: "asc" } } } });
   const sealed = (v) => (v ? `<bản mã AES-256-GCM, ${v.length} ký tự, vân tay ${print(v)}>` : "—");
   for (const v of [u.mfaSecret, u.mfaPendingSecret, u.passwordHash]) if (v) known.add(v);
-  add(file, `users #${u.id}  role=${u.role}  status=${u.status}  mfaEnabled=${u.mfaEnabled}  mfaLastStep=${u.mfaLastStep ?? "—"}`);
+  add(file, `users #${u.id}  role=${u.role}  status=${u.status}  mfaEnabled=${u.mfaEnabled}  mfaLastStep=${u.mfaLastStep ?? "—"}  tokenVersion=${u.tokenVersion}`);
   add(file, `  passwordHash: vân tay ${print(u.passwordHash)}`);
   add(file, `  mfaSecret = ${sealed(u.mfaSecret)}`);
   add(file, `  mfaPendingSecret = ${sealed(u.mfaPendingSecret)}`);
   add(file, `  recovery_codes: ${u.recoveryCodes.length} mã, ${u.recoveryCodes.filter((c) => c.usedAt).length} đã dùng`);
   for (const c of u.recoveryCodes) { known.add(c.codeHash); add(file, `    #${c.id} codeHash=${hashHead(c.codeHash)} usedAt=${time(c.usedAt)}`); }
   for (const p of u.passwordResets) { known.add(p.tokenHash); add(file, `  password_resets #${p.id}: tokenHash=${hashHead(p.tokenHash)} hạn=${time(p.expiresAt)} usedAt=${time(p.usedAt)}`); }
-  add(file, `  sessions gắn với user: ${u.sessions.length}`);
-  for (const s of u.sessions) {
-    known.add(s.sid);
-    add(file, `    sid vân tay ${print(s.sid)}  cột userId=${s.userId ?? "—"}  expiresAt=${time(s.expiresAt)}  data có khoá: ${Object.keys(s.data).join(", ")}  → ${s.data.userId ? "phiên đầy đủ" : s.data.mfaPending ? "phiên CHỜ MFA (data không có userId)" : "ẩn danh"}`);
-  }
+  // Vân tay = 8 ký tự đầu tokenHash = 8 ký tự đầu SHA-256 của cookie (trùng với vân tay ở curl/, network/).
+  add(file, `  mfa_challenges (bước password đã qua, chờ MFA): ${u.mfaChallenges.length}`);
+  for (const m of u.mfaChallenges) { known.add(m.tokenHash); add(file, `    vân tay ${m.tokenHash.slice(0, 8)}  hạn=${time(m.expiresAt)}  usedAt=${time(m.usedAt)}  → ${m.usedAt ? "đã dùng để cấp token" : m.expiresAt > new Date() ? "đang chờ MFA (chưa có access / refresh token)" : "hết hạn"}`); }
+  add(file, `  refresh_tokens: ${u.refreshTokens.length}`);
+  for (const r of u.refreshTokens) { known.add(r.tokenHash); add(file, `    family ${r.familyId.slice(0, 8)}…  vân tay ${r.tokenHash.slice(0, 8)}  tv=${r.tokenVersion}  hạn=${time(r.expiresAt)}  usedAt=${time(r.usedAt)}  revokedAt=${time(r.revokedAt)}`); }
   for (const l of await prisma.rateLimit.findMany({ where: { key: `mfa-fail:user:${u.id}` } })) add(file, `  rate_limits ${l.key}  count=${l.count}  windowStart=${time(l.windowStart)}  lockedUntil=${time(l.lockedUntil)}`);
   add(file);
 }
@@ -174,7 +176,8 @@ async function run() {
   const where = () => b.eval("return location.pathname + location.search;");
   const errorCode = () => b.eval(`return document.querySelector("[data-error-code]")?.dataset.errorCode ?? "";`);
   const pageTitle = () => b.eval("return document.title;");
-  const sidNow = async () => { const c = (await b.cookies()).find((x) => x.name === "sid"); return c ? sidPrint(c.value) : "(không có)"; };
+  // Cookie đăng nhập đang có trong Chrome, dạng vân tay: "access …, refresh …" hoặc "mfa …".
+  const tokensNow = async () => { const list = (await b.cookies()).filter((x) => ["access", "refresh", "mfa"].includes(x.name)); return list.length ? list.map((x) => `${x.name} ${print(decodeURIComponent(x.value))}`).sort().join(", ") : "(không có)"; };
   const forget = () => b.send("Network.clearBrowserCookies");
   async function browserLogin(email, password) {
     await forget();
@@ -221,7 +224,7 @@ async function run() {
       await forget();
       await b.goto(`${BASE}/admin/dishes`);
       network("1. Chưa đăng nhập vào /admin/dishes → 303 /login", b.takeNetwork());
-      cookieTable("sau khi bị chuyển về /login (chỉ có phiên ẩn danh)", await b.cookies());
+      cookieTable("sau khi bị chuyển về /login (không có access / refresh)", await b.cookies());
       await shot("01-chua-dang-nhap-ve-login-1280");
       check(F, (await where()).startsWith("/login"), `Chrome đến ${await where()}`);
     }
@@ -419,12 +422,13 @@ async function run() {
     // ===== Slide 57, ca 1: password đúng, chưa nhập OTP =====
     let usedOtp;
     {
-      const F = "curl/08-password-dung-chua-otp.txt", D = "db/08-phien-cho-mfa.txt";
+      const F = "curl/08-password-dung-chua-otp.txt", D = "db/08-cho-mfa.txt";
       await b.submit(".account form");
       await browserLogin(DEMO, DEMO_PW);
       network("8a. Password đúng, đã bật MFA: 303 /login/mfa", b.takeNetwork());
-      const pendingSid = await sidNow();
-      cookieTable("phiên chờ MFA", await b.cookies());
+      const pending = await tokensNow();
+      cookieTable("chờ MFA: chỉ có cookie mfa (challenge), chưa có access / refresh", await b.cookies());
+      check(F, /^mfa [0-9a-f]{8}$/.test(pending), `Sau bước password chỉ có challenge: ${pending}`);
       check(F, (await where()) === "/login/mfa", `Chrome đến ${await where()}`);
       await shot3("16-buoc-nhap-ma");
       await dbMfa(D, "Sau bước password");
@@ -432,13 +436,13 @@ async function run() {
       await c.get("/login");
       const res = await c.post("/login", [["email", DEMO], ["password", DEMO_PW]]);
       check(F, res.status === 303 && res.location === "/login/mfa", "Request trực tiếp: password đúng → 303 /login/mfa");
-      add(F, "# Dùng cookie của phiên chờ MFA gọi thẳng khu quản trị\n");
+      add(F, "# Dùng cookie của bước chờ MFA (chỉ có challenge) gọi thẳng khu quản trị\n");
       for (const [m, p] of [["GET", "/admin/dishes"], ["GET", "/admin/profile"], ["POST", "/admin/dishes"], ["GET", "/admin/profile/mfa/setup"]]) {
-        const r = await call(F, c, m, p, m === "POST" ? form(`${T} phiên chờ`, A.chefId) : null, { csrf: false, note: "phiên chờ MFA" });
+        const r = await call(F, c, m, p, m === "POST" ? form(`${T} chờ MFA`, A.chefId) : null, { csrf: false, note: "chỉ có challenge MFA" });
         check(F, r.status === 303 && (r.location ?? "").startsWith("/login"), `${m} ${p} → 303 /login`);
       }
       await b.goto(`${BASE}/admin/dishes`);
-      network("8b. Phiên chờ MFA mở /admin/dishes → bị chặn", b.takeNetwork());
+      network("8b. Chờ MFA (chỉ có challenge) mở /admin/dishes → bị chặn", b.takeNetwork());
       check(F, !(await where()).startsWith("/admin"), `Chrome không vào được quản trị, đang ở ${await where()}`);
       await shot("17-phien-cho-khong-vao-duoc-quan-tri-1280");
 
@@ -447,10 +451,10 @@ async function run() {
       await b.fill("form.auth-form", { otp: usedOtp });
       b.takeNetwork();
       await b.submit("form.auth-form");
-      network("8c. Nhập đúng mã: sid mới, phiên đầy đủ", b.takeNetwork());
-      const fullSid = await sidNow();
-      cookieTable("phiên đầy đủ sau MFA", await b.cookies());
-      check(F, fullSid !== pendingSid && (await where()).startsWith("/admin"), `Đổi sid: ${pendingSid} → ${fullSid}, đến ${await where()}`);
+      network("8c. Nhập đúng mã: tiêu thụ challenge, cấp access + refresh", b.takeNetwork());
+      const full = await tokensNow();
+      cookieTable("đăng nhập đầy đủ sau MFA", await b.cookies());
+      check(F, /access [0-9a-f]{8}, refresh [0-9a-f]{8}$/.test(full) && !full.includes("mfa") && (await where()).startsWith("/admin"), `Cookie: ${pending} → ${full}, đến ${await where()}`);
       await shot("18-qua-mfa-vao-quan-tri-375");
       await dbMfa(D, "Sau khi nhập đúng mã");
     }
@@ -494,7 +498,7 @@ async function run() {
       await b.fill("form.auth-form", { code: codes[0] });
       b.takeNetwork();
       await b.submit("form.auth-form");
-      network("10a. Recovery code lần đầu: sid mới, về hồ sơ", b.takeNetwork());
+      network("10a. Recovery code lần đầu: cấp access + refresh, về hồ sơ", b.takeNetwork());
       check(F, (await where()).startsWith("/admin/profile"), `Chrome: dùng mã lần đầu → ${await where()}`);
       await shot("22-nhac-doi-thiet-bi-sau-recovery-1280");
       await dbMfa(D, "Sau lần dùng đầu: đúng một dòng có usedAt");
@@ -543,7 +547,7 @@ async function run() {
       await b.fill("form.auth-form", { password: NEW_PW, passwordConfirm: NEW_PW });
       b.takeNetwork();
       await b.submit("form.auth-form");
-      network("11a. Đặt mật khẩu mới: không tạo phiên", b.takeNetwork());
+      network("11a. Đặt mật khẩu mới: không cấp token", b.takeNetwork());
       await shot("24-dat-lai-mat-khau-xong-375");
       await dbMfa(D, "Sau khi reset: mfaEnabled và vân tay mfaSecret không đổi, usedAt có giá trị");
       const after = await prisma.user.findUnique({ where: { id: demo.id } });

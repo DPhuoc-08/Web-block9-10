@@ -141,7 +141,7 @@ async function partB() {
     r.ok(a.status === 303 && (a.location ?? "").includes("/login"), `Phiên chờ MFA không vào được ${path}`, `${a.status} ${a.location}`);
   }
   const mfaPage = await c.get("/login/mfa");
-  r.ok(mfaPage.status === 200, "Trang nhập mã mở được bằng phiên chờ");
+  r.ok(mfaPage.status === 200, "Trang nhập mã mở được bằng challenge (cookie mfa)");
   const write = await c.post("/admin/dishes/1?_method=DELETE", []);
   r.ok(write.status === 303 && (write.location ?? "").includes("/login"), "Phiên chờ gửi ghi → /login, không ghi được", write.status);
   await c.get("/login/mfa");
@@ -210,7 +210,7 @@ async function partB() {
   r.ok(evaluated === 4 && wrongResults.every((x) => x.status === 200 || x.status === 429), "Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429", evaluated);
   const burstRow = await prisma.rateLimit.findUnique({ where: { key: `mfa-fail:user:${u.id}` } });
   r.ok(burstRow?.count === 30 && Boolean(burstRow.lockedUntil), "DB: bộ đếm ghi đủ 30 lượt và đang khoá", burstRow?.count);
-  r.ok((await burst.c.get("/admin/dishes")).status === 303, "Gửi đồng thời: không có phiên đầy đủ");
+  r.ok((await burst.c.get("/admin/dishes")).status === 303, "Gửi đồng thời: không được cấp token, không vào được quản trị");
   await clearMfaCounter(u.id);
   await clearMfaIp();
 
@@ -232,7 +232,7 @@ async function partB() {
   await cancel.c.get("/login/mfa");
   a = await cancel.c.post("/login/mfa/cancel");
   r.ok(a.status === 303 && a.location === "/login", "Huỷ → về đăng nhập", a.location);
-  r.ok((await cancel.c.get("/login/mfa")).status === 303, "Huỷ xong không còn phiên chờ");
+  r.ok((await cancel.c.get("/login/mfa")).status === 303, "Huỷ xong challenge hết dùng được");
 
   await prisma.mfaChallenge.deleteMany({ where: { userId: u.id } });
   const old = await pendingLogin();
@@ -250,10 +250,10 @@ async function partB() {
   const newPassword = `${password}-moi`;
   a = await resetter.post("/reset", [["token", token], ["password", newPassword], ["confirmPassword", newPassword], ["passwordConfirm", newPassword]]);
   r.ok(a.status === 303, "Reset password thành công", `${a.status} ${a.location}`);
-  r.ok(resetter.jar.size === 0 || (await resetter.get("/admin/dishes")).status === 303, "Reset không tạo phiên đăng nhập");
+  r.ok(resetter.jar.size === 0 || (await resetter.get("/admin/dishes")).status === 303, "Reset không cấp access / refresh token");
   r.ok((await userRow()).mfaEnabled === true, "Reset không tắt MFA");
   const w = await waiting.c.get("/login/mfa");
-  r.ok(w.status === 303, "Reset xoá cả phiên đang chờ MFA", w.status);
+  r.ok(w.status === 303, "Reset xoá cả challenge đang chờ MFA (L5)", w.status);
   const fresh = client();
   await fresh.get("/login");
   a = await fresh.post("/login", [["email", email], ["password", newPassword]]);
@@ -269,7 +269,7 @@ async function partC() {
   const { codes } = await enable(setup);
   const u = await userRow();
   const { c } = await pendingLogin();
-  r.ok((await c.get("/login/mfa/recovery")).status === 200, "Trang nhập mã khôi phục mở bằng phiên chờ");
+  r.ok((await c.get("/login/mfa/recovery")).status === 200, "Trang nhập mã khôi phục mở bằng challenge (cookie mfa)");
   let a = await c.post("/login/mfa/recovery", [["code", "AAAAA-AAAAA"]]);
   r.ok(a.status === 200 && errorCode(a) === "INVALID_OTP", "Mã không có thật: INVALID_OTP");
   a = await c.post("/login/mfa/recovery", [["code", codes[0]]]);

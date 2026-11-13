@@ -12,11 +12,11 @@ $ GET /admin/dishes/new
 
 ĐẠT: GET /admin/dishes/new → 303 /login
 
-$ GET /admin/dishes/1207/edit
+$ GET /admin/dishes/1224/edit
   Cookie: (không có)
-→ 303  Location: /login?next=%2Fadmin%2Fdishes%2F1207%2Fedit
+→ 303  Location: /login?next=%2Fadmin%2Fdishes%2F1224%2Fedit
 
-ĐẠT: GET /admin/dishes/1207/edit → 303 /login
+ĐẠT: GET /admin/dishes/1224/edit → 303 /login
 
 $ POST /admin/dishes
   Cookie: (không có)
@@ -25,26 +25,26 @@ $ POST /admin/dishes
 
 ĐẠT: POST /admin/dishes → 303 /login
 
-$ POST /admin/dishes/1207?_method=PATCH
+$ POST /admin/dishes/1224?_method=PATCH
   Cookie: (không có)
   name=ghi+th%E1%BB%AD
 → 303  Location: /login
 
-ĐẠT: POST /admin/dishes/1207?_method=PATCH → 303 /login
+ĐẠT: POST /admin/dishes/1224?_method=PATCH → 303 /login
 
-$ POST /admin/dishes/1207?_method=DELETE
+$ POST /admin/dishes/1224?_method=DELETE
   Cookie: (không có)
   name=ghi+th%E1%BB%AD
 → 303  Location: /login
 
-ĐẠT: POST /admin/dishes/1207?_method=DELETE → 303 /login
+ĐẠT: POST /admin/dishes/1224?_method=DELETE → 303 /login
 
-$ POST /admin/dishes/1207/availability?_method=PATCH
+$ POST /admin/dishes/1224/availability?_method=PATCH
   Cookie: (không có)
   name=ghi+th%E1%BB%AD
 → 303  Location: /login
 
-ĐẠT: POST /admin/dishes/1207/availability?_method=PATCH → 303 /login
+ĐẠT: POST /admin/dishes/1224/availability?_method=PATCH → 303 /login
 
 $ GET /admin/profile/mfa/setup
   Cookie: (không có)

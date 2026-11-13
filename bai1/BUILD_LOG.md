@@ -316,3 +316,26 @@ Kết quả cuối: `check-auth` **153 ĐẠT**, `check-mfa` **86 ĐẠT**, `che
 **Đã kiểm tra:** chuỗi vân tay khớp: R0 được kẻ gian gửi ở A2 và chủ gửi ở A3; R1 được kẻ gian gửi ở A4b; DB cho thấy R0 có `usedAt` + `revokedAt`, R1 có `revokedAt`, family mới ở A5. Quét 3 file chữ: không còn chuỗi JWT, chuỗi ngẫu nhiên 43 ký tự hay mật khẩu. Log server không chứa token. Tài khoản thử đã xoá. Đã xem 4 ảnh. Lần chụp đầu, nhãn đè lên bảng và vài ảnh món chưa tải (lazy) → đổi vị trí nhãn, ép tải ảnh trước khi chụp, thu lại.
 
 **Chưa có:** ảnh chụp thật cửa sổ DevTools (bản Network là chữ do Chrome trả về qua DevTools Protocol, như các bằng chứng trước). Các mục cũ trong `evidence/README.md` vẫn mô tả thời còn session (vân tay `sid`, `db/08` có cột `data`), chưa thu lại.
+
+## Bước 42 — Rà lại bằng chứng Bài 1 theo cơ chế JWT (plan mục 15)
+**Bối cảnh:** sau bước 40, 25 file trong `evidence/` vẫn mô tả session (`sid`, bảng `sessions`, `mfaPending`, "phiên đầy đủ") — tức mô tả SAI cơ chế đang chạy. Rà từng file: cái nào còn cần thì thu lại theo code mới, cái nào không còn đúng thì xoá, chức năng mới chưa có bằng chứng thì thêm.
+
+**Đã làm:**
+- `scripts/collect-evidence.mjs`: thay vân tay `sid` bằng vân tay cookie `access`, `refresh`, `mfa`, `mfa_reauth`, `csrf`; bản ghi DB đọc `mfa_challenges`, `refresh_tokens`, `tokenVersion` thay `sessions`; kiểm tra ở ca 8 đổi thành "sau password chỉ có cookie mfa" và "qua MFA mới có access + refresh, không còn mfa". Chạy lại: 27 file chữ, 42 ảnh, không ca nào CHƯA ĐẠT.
+- **Xoá** `db/08-phien-cho-mfa.txt` (đọc bảng sessions) — thay bằng `db/08-cho-mfa.txt`.
+- **Giữ** `curl/15-gui-dong-thoi.txt` (bằng chứng lỗi L1, trước / sau khi sửa) và thêm phần "sau khi chuyển sang JWT" từ lần chạy mới.
+- `curl/check-*.txt`: chạy lại cả 5 bộ, che email thật của nhóm. Đổi chữ của 9 nhãn ca kiểm thử còn ghi "phiên" cho đúng cơ chế mới (không đổi logic).
+- **Thêm** bằng chứng chức năng mới (`collect-refresh-evidence.mjs` ca C–F): tự refresh khi access hết hạn đúng lúc gửi form, dữ liệu vẫn ghi, `document.cookie` rỗng (C, ảnh 33); đăng xuất thu hồi refresh ở server (D); đổi mật khẩu đẩy máy khác ra ngay dù access còn hạn (E, ảnh 34); hạn không hoạt động và trần tuyệt đối đo bằng thời gian thật với `REFRESH_IDLE_MINUTES=2`, `REFRESH_ABSOLUTE_MINUTES=3` (F1–F3, ảnh 35), và server từ chối bản sao refresh đã hết hạn gửi thẳng (F4). File: `network/refresh-token-vong-doi.md`, `db/14-refresh-token-vong-doi.txt`.
+- Sơ đồ: vẽ lại 1, 2, 3 theo code mới (cookie `access`/`csrf` double-submit, challenge MFA, giữ mã khôi phục theo `fam`, vé `mfa_reauth`); **thêm** `4-access-refresh-token.svg` (luồng loadUser → xoay vòng → phát hiện dùng lại), mọi ô ghi `file:dòng` dò từ code.
+- `evidence/README.md`: sửa phần đầu (cách che, ngày thu lại, không còn `sid`/`SESSION_SECRET`), dòng slide 57 ca 1, số liệu kiểm thử, danh sách sơ đồ, thêm lỗi L5, L6 và bảng C–F.
+
+### Phát hiện khi làm bằng chứng (do agent viết ở bước 40)
+**L7. Cấu hình hạn refresh ngắn hơn access token không bị chặn.**
+- Tái hiện: đặt `REFRESH_IDLE_MINUTES=1` → refresh hết hạn ở giây 60, access còn tới giây 90. Trong lúc access còn hạn server không dùng tới refresh nên không gia hạn nó → người dùng luôn bị đăng xuất sau khoảng 90 giây dù đang thao tác. Lúc đầu mình định dùng 1 / 2 phút cho ca F và nhận ra khi tính dòng thời gian.
+- Nguyên nhân: `assertRefreshConfig` chỉ đòi IDLE ≥ 1 và IDLE ≤ ABSOLUTE.
+- Sửa: IDLE × 60 phải lớn hơn `ACCESS_TOKEN_TTL` (90), tức ≥ 2; sai thì server không khởi động (`src/auth/refresh.js`). Thêm ca "IDLE = 1 phút → server không khởi động" vào `check-auth` phần H; ghi vào `.env.example`, plan 15.2 a.
+- Bằng chứng: `check-auth` 154 ĐẠT (phần H 17).
+
+**Đã kiểm tra:** 5 bộ kiểm thử trên code cuối: policy 32, rbac 159, mfa 86, auth 154, ssr 124, 0 CHƯA ĐẠT. Quét toàn bộ file chữ trong `evidence/` bằng giá trị thật trong `.env` (mật khẩu seed, `JWT_SECRET`, `OTP_PEPPER`, `MFA_ENCRYPTION_KEY`, secret reCAPTCHA, mật khẩu SMTP, email thật, chuỗi kết nối) và mẫu JWT / chuỗi token 43 ký tự: không lộ. Đã xem ảnh mới 33, 34, 35 và ảnh nhạy cảm 13, 14 (QR, secret, mã khôi phục đã che). Ở F2, F3 Chrome đã tự bỏ cookie refresh (Max-Age bằng hạn trong DB) nên thêm F4 để chứng minh server tự từ chối theo `expiresAt`.
+
+**Chưa có:** ảnh chụp thật cửa sổ DevTools (Network là bản chữ do Chrome trả về qua DevTools Protocol). Lần thu lại không chạy seed (seed xoá toàn bộ DB dùng chung với block7/8); bản ghi thử đã xoá ở cuối mỗi script. `hotrotrinhbay.html`, `kichban.html`, `README` của Bài 1 vẫn mô tả session.

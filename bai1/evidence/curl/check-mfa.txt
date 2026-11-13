@@ -12,7 +12,7 @@
 ĐẠT      Hiện 10 mã, DB có 10 bản ghi — 10
 ĐẠT      Trang mã không lưu cache
 ĐẠT      DB chỉ có HMAC, chưa dùng
-ĐẠT      Bảng sessions không chứa mã gốc
+ĐẠT      Mã gốc không nằm trong DB (users, refresh_tokens, mfa_challenges) hay cookie
 ĐẠT      Mở lại trang mã: không hiện lại — /admin/profile?msg=mfa-codes-gone
 ĐẠT      Log server không chứa secret, recovery code
 ĐẠT      Đang bật: POST thiết lập không tạo secret mới
@@ -22,17 +22,18 @@
 
 == B. Đăng nhập có MFA ==
 ĐẠT      Password đúng, đã bật MFA → 303 /login/mfa — 303 /login/mfa
-ĐẠT      Bản ghi phiên chỉ có mfaPending, không có userId
+ĐẠT      Bước password chỉ cấp challenge (cookie mfa, Path=/login/mfa, DB lưu hash), không có access / refresh token
 ĐẠT      Phiên chờ MFA không vào được /admin — 303 /login?next=%2Fadmin
 ĐẠT      Phiên chờ MFA không vào được /admin/dishes — 303 /login?next=%2Fadmin%2Fdishes
 ĐẠT      Phiên chờ MFA không vào được /admin/chefs/new — 303 /login?next=%2Fadmin%2Fchefs%2Fnew
 ĐẠT      Phiên chờ MFA không vào được /admin/profile — 303 /login?next=%2Fadmin%2Fprofile
 ĐẠT      Phiên chờ MFA không vào được /admin/profile/mfa/setup — 303 /login?next=%2Fadmin%2Fprofile%2Fmfa%2Fsetup
-ĐẠT      Trang nhập mã mở được bằng phiên chờ
+ĐẠT      Trang nhập mã mở được bằng challenge (cookie mfa)
 ĐẠT      Phiên chờ gửi ghi → /login, không ghi được — 303
 ĐẠT      Mã sai: INVALID_OTP, vẫn ở bước MFA — INVALID_OTP
 ĐẠT      Mã đúng → 303 vào quản trị — 303 /admin/dishes
-ĐẠT      sid đổi khi qua bước MFA
+ĐẠT      Qua bước MFA: có access + refresh, challenge đã dùng, cookie mfa bị xoá
+ĐẠT      Challenge đã dùng gửi lại → 303 /login (dùng một lần)
 ĐẠT      Phiên đầy đủ vào được quản trị
 ĐẠT      Dùng lại mã vừa được chấp nhận → từ chối — 200 INVALID_OTP
 ĐẠT      Sau MFA về đúng trang đang mở — /admin/chefs
@@ -44,20 +45,20 @@
 ĐẠT      Gửi đồng thời: mã đúng gửi khi 5 mã sai đã có phản hồi → 429 — 429 
 ĐẠT      Gửi đồng thời 29 mã sai: đúng 4 mã được kiểm (INVALID_OTP), còn lại 429 — 4
 ĐẠT      DB: bộ đếm ghi đủ 30 lượt và đang khoá — 30
-ĐẠT      Gửi đồng thời: không có phiên đầy đủ
+ĐẠT      Gửi đồng thời: không được cấp token, không vào được quản trị
 ĐẠT      Đủ 30 lần từ một IP: mã đúng vẫn 429 — 429
 ĐẠT      Bị chặn theo IP thì chưa tới bộ đếm theo user
 ĐẠT      Huỷ → về đăng nhập — /login
-ĐẠT      Huỷ xong không còn phiên chờ
+ĐẠT      Huỷ xong challenge hết dùng được
 ĐẠT      Phiên chờ quá 5 phút → đăng nhập lại — /login?msg=mfa-expired
 ĐẠT      Reset password thành công — 303 /login?msg=password-reset
-ĐẠT      Reset không tạo phiên đăng nhập
+ĐẠT      Reset không cấp access / refresh token
 ĐẠT      Reset không tắt MFA
-ĐẠT      Reset xoá cả phiên đang chờ MFA — 303
+ĐẠT      Reset xoá cả challenge đang chờ MFA (L5) — 303
 ĐẠT      Reset xong đăng nhập vẫn qua bước MFA — /login/mfa
 
 == C. Recovery code ==
-ĐẠT      Trang nhập mã khôi phục mở bằng phiên chờ
+ĐẠT      Trang nhập mã khôi phục mở bằng challenge (cookie mfa)
 ĐẠT      Mã không có thật: INVALID_OTP
 ĐẠT      Mã đúng → về hồ sơ — /admin/profile?msg=mfa-recovery-used
 ĐẠT      usedAt được ghi — 1
@@ -79,6 +80,7 @@
 ĐẠT      Secret đang dùng không bị ghi đè
 ĐẠT      Phiên khác chưa xác thực lại: không đọc được secret chờ — 303
 ĐẠT      Phiên khác chưa xác thực lại: không xác nhận được secret chờ
+ĐẠT      Chép vé xác thực lại sang lần đăng nhập khác (fam khác) → vẫn bị từ chối
 ĐẠT      Quá 10 phút sau xác thực lại: không mở được trang đổi thiết bị — 303
 ĐẠT      Xác nhận: chuyển sang secret mới — /admin/profile?msg=mfa-replaced
 ĐẠT      Thay thiết bị không đổi nhóm recovery code
@@ -91,4 +93,4 @@
 ĐẠT      Tắt MFA xoá recovery code
 ĐẠT      Tắt xong đăng nhập không cần mã — /admin/dishes
 
-TỔNG: 84 ĐẠT, 0 CHƯA ĐẠT
+TỔNG: 86 ĐẠT, 0 CHƯA ĐẠT

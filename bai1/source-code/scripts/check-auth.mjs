@@ -85,7 +85,7 @@ async function partD() {
   // Chưa đăng nhập: MỌI route của cụm CRUD → 303 /login, dữ liệu không đổi (cả request gửi thẳng như curl).
   const anon = client();
   const guest = await anon.get("/dishes");
-  r.ok(guest.status === 200 && !guest.headers.get("set-cookie"), "Khách xem thực đơn: 200, không có Set-Cookie (không tạo phiên)");
+  r.ok(guest.status === 200 && !guest.headers.get("set-cookie"), "Khách xem thực đơn: 200, không có Set-Cookie (không cấp cookie nào)");
   const before = await counts();
   const gets = ["/admin", "/admin/dishes", "/admin/dishes?page=2", "/admin/dishes/new", "/admin/dishes/1/edit", "/admin/dishes/1/delete", "/admin/chefs", "/admin/chefs/new", "/admin/chefs/1/edit", "/admin/chefs/1/delete", "/admin/ingredients", "/admin/ingredients/new", "/admin/ingredients/1/edit", "/admin/ingredients/1/delete", "/admin/tags", "/admin/tags/new", "/admin/tags/1/edit", "/admin/tags/1/delete", "/admin/profile", "/admin/profile/password"];
   const badGets = [];
@@ -197,7 +197,7 @@ async function partD() {
   const tab2Out = await secondTab.post("/logout");
   r.ok(tab2Out.status === 303 && tab2Out.location === "/login?msg=logged-out", "Đã đăng xuất ở tab khác, bấm Đăng xuất ở tab này → 303 /login, không phải 403", `${tab2Out.status}`);
   const bareOut = await client().post("/logout", [], { csrf: false });
-  r.ok(bareOut.status === 303 && bareOut.location === "/login?msg=logged-out", "POST /logout không có phiên, không _csrf → 303 /login, không đổi gì", `${bareOut.status}`);
+  r.ok(bareOut.status === 303 && bareOut.location === "/login?msg=logged-out", "POST /logout khi chưa đăng nhập, không _csrf → 303 /login, không đổi gì", `${bareOut.status}`);
   results.push(r.counts);
 }
 
@@ -363,7 +363,7 @@ async function partC() {
   r.ok(code(res) === "INVALID_CREDENTIALS" && (await fails()) === 4, "Giải đúng CAPTCHA nhưng sai mật khẩu → bộ đếm tiếp tục tăng (4)");
   const fresh = client();
   res = await attempt(pw, { who: fresh });
-  r.ok(code(res) === "CAPTCHA_REQUIRED" && (await fails()) === 4, "Xoá cookie / phiên ẩn danh mới → vẫn phải CAPTCHA (bộ đếm theo email ở DB)");
+  r.ok(code(res) === "CAPTCHA_REQUIRED" && (await fails()) === 4, "Xoá cookie (trình duyệt mới) → vẫn phải CAPTCHA (bộ đếm theo email ở DB)");
   for (let i = 5; i <= 9; i++) await attempt(`sai-${i}`, { token: true });
   res = await attempt("sai-10", { token: true });
   r.ok(res.status === 429 && res.headers.get("retry-after") && (await prisma.rateLimit.findUnique({ where: { key } })).lockedUntil > new Date(), "Lần sai thứ 10 → 429 Tạm khoá (Retry-After), khoá 5 phút");
@@ -721,6 +721,10 @@ async function partH() {
   let refused = "";
   try { await startServer({ MAIL_TRANSPORT: "file", REFRESH_IDLE_MINUTES: "10", REFRESH_ABSOLUTE_MINUTES: "5" }); } catch (err) { refused = err.message; }
   r.ok(refused.includes("REFRESH_IDLE_MINUTES"), "IDLE > ABSOLUTE → server không khởi động");
+  await stopServer();
+  refused = "";
+  try { await startServer({ MAIL_TRANSPORT: "file", REFRESH_IDLE_MINUTES: "1", REFRESH_ABSOLUTE_MINUTES: "5" }); } catch (err) { refused = err.message; }
+  r.ok(refused.includes("REFRESH_IDLE_MINUTES"), "IDLE = 1 phút (ngắn hơn access 90 giây) → server không khởi động");
   await stopServer();
   await startServer({ MAIL_TRANSPORT: "file" });
 

@@ -1,0 +1,46 @@
+## Sau bước password  (lúc 2026-11-13 12:44:23Z)
+
+users #123  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59819127  tokenVersion=0
+  passwordHash: vân tay 623ac75d
+  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay c4613de1>
+  mfaPendingSecret = —
+  recovery_codes: 10 mã, 0 đã dùng
+    #441 codeHash=c99f06…(64 ký tự) usedAt=—
+    #442 codeHash=411fda…(64 ký tự) usedAt=—
+    #443 codeHash=d45b32…(64 ký tự) usedAt=—
+    #444 codeHash=189198…(64 ký tự) usedAt=—
+    #445 codeHash=b48da0…(64 ký tự) usedAt=—
+    #446 codeHash=a72af5…(64 ký tự) usedAt=—
+    #447 codeHash=63254d…(64 ký tự) usedAt=—
+    #448 codeHash=b38f6a…(64 ký tự) usedAt=—
+    #449 codeHash=36c366…(64 ký tự) usedAt=—
+    #450 codeHash=c88edb…(64 ký tự) usedAt=—
+  mfa_challenges (bước password đã qua, chờ MFA): 1
+    vân tay 42f9cd17  hạn=2026-11-13 12:49:21Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+  refresh_tokens: 1
+    family 5c06dee7…  vân tay bb85c474  tv=0  hạn=2026-11-13 14:44:13Z  usedAt=—  revokedAt=2026-11-13 12:44:20Z
+
+## Sau khi nhập đúng mã  (lúc 2026-11-13 12:44:26Z)
+
+users #123  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59819128  tokenVersion=0
+  passwordHash: vân tay 623ac75d
+  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay c4613de1>
+  mfaPendingSecret = —
+  recovery_codes: 10 mã, 0 đã dùng
+    #441 codeHash=c99f06…(64 ký tự) usedAt=—
+    #442 codeHash=411fda…(64 ký tự) usedAt=—
+    #443 codeHash=d45b32…(64 ký tự) usedAt=—
+    #444 codeHash=189198…(64 ký tự) usedAt=—
+    #445 codeHash=b48da0…(64 ký tự) usedAt=—
+    #446 codeHash=a72af5…(64 ký tự) usedAt=—
+    #447 codeHash=63254d…(64 ký tự) usedAt=—
+    #448 codeHash=b38f6a…(64 ký tự) usedAt=—
+    #449 codeHash=36c366…(64 ký tự) usedAt=—
+    #450 codeHash=c88edb…(64 ký tự) usedAt=—
+  mfa_challenges (bước password đã qua, chờ MFA): 2
+    vân tay 42f9cd17  hạn=2026-11-13 12:49:21Z  usedAt=2026-11-13 12:44:25Z  → đã dùng để cấp token
+    vân tay a76ce297  hạn=2026-11-13 12:49:23Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+  refresh_tokens: 2
+    family 5c06dee7…  vân tay bb85c474  tv=0  hạn=2026-11-13 14:44:13Z  usedAt=—  revokedAt=2026-11-13 12:44:20Z
+    family f5b44ee5…  vân tay 2eaa2c00  tv=0  hạn=2026-11-13 14:44:25Z  usedAt=—  revokedAt=—
+

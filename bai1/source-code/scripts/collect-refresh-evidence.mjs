@@ -18,17 +18,19 @@ import { startServer, stopServer, serverLog } from "./lib/server.mjs";
 const OUT = new URL("../../evidence/", import.meta.url);
 const EMAIL = "refresh.demo@demo.example";
 const PW = "mat-khau-demo-refresh-1";
+const NEW_PW = "mat-khau-demo-refresh-2"; // ca E đổi mật khẩu
+const sleep = (ms) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 const print = (v) => createHash("sha256").update(String(v)).digest("hex").slice(0, 8);
 const time = (d) => (d ? new Date(d).toISOString().replace("T", " ").slice(0, 19) + "Z" : "—");
 const files = new Map();
 const shots = new Map();
-const known = new Set([PW, process.env.JWT_SECRET].filter(Boolean)); // mọi token gặp được thêm vào đây
+const known = new Set([PW, NEW_PW, process.env.JWT_SECRET].filter(Boolean)); // mọi token gặp được thêm vào đây
 const add = (path, line = "") => files.set(path, (files.get(path) ?? "") + line + "\n");
 const remember = (v) => { if (v && v.length >= 20) known.add(v); return v; };
 
 function mask(text) {
   let t = String(text);
-  for (const v of [...known].sort((a, b) => b.length - a.length)) t = t.split(v).join(v === PW || v === process.env.JWT_SECRET ? "<đã che>" : `<đã che · vân tay ${print(v)}>`);
+  for (const v of [...known].sort((a, b) => b.length - a.length)) t = t.split(v).join([PW, NEW_PW, process.env.JWT_SECRET].includes(v) ? "<đã che>" : `<đã che · vân tay ${print(v)}>`);
   return t;
 }
 
@@ -87,8 +89,11 @@ const loadImages = (page) => page.eval(`document.querySelectorAll("img").forEach
 async function shot(page, name, text) { await loadImages(page); await label(page, text); shots.set(`screens/${name}-1280.png`, await page.screenshot()); }
 
 const N = "network/refresh-token-dung-lai.md", DB = "db/13-refresh-token-dung-lai.txt", CURL = "curl/16-refresh-token-dung-lai.txt";
+// Vòng đời token khi dùng bình thường: tự refresh, đăng xuất, đổi mật khẩu, hết hạn (ca C, D, E, F).
+const N2 = "network/refresh-token-vong-doi.md", DB2 = "db/14-refresh-token-vong-doi.txt";
 
 await prisma.user.deleteMany({ where: { email: EMAIL } });
+await prisma.rateLimit.deleteMany({ where: { OR: [{ key: { contains: ":ip:" } }, { key: { contains: EMAIL } }] } });
 const user = await prisma.user.create({ data: { email: EMAIL, emailInput: EMAIL, username: "Demo refresh", passwordHash: await hashPassword(PW), status: "active", emailVerifiedAt: new Date() } });
 await startServer({ MAIL_TRANSPORT: "file" });
 const BASE = process.env.BASE_URL;
@@ -162,6 +167,46 @@ try {
   network(N, "A5. CHỦ đăng nhập lại bằng mật khẩu → family MỚI", owner.takeNetwork());
   await dbRows(DB, "Sau A5: family mới, family cũ vẫn bị thu hồi");
 
+  add(N2, "# Network — vòng đời access / refresh token khi dùng bình thường (thu ngày " + new Date().toISOString().slice(0, 10) + ")");
+  add(N2, "");
+  add(N2, "Cùng cách ghi với `refresh-token-dung-lai.md`: bản chữ tab Network → Cookies của Chrome headless, token thay bằng vân tay (trùng 8 ký tự đầu `tokenHash` ở `db/14`).");
+  add(N2, "");
+
+  // C. Access hết hạn đúng lúc đang gửi form → server tự refresh trong chính request đó, dữ liệu form được ghi.
+  add(N2, "## C — access hết hạn khi đang gửi form: server tự refresh, dữ liệu không mất; JavaScript không đọc được token");
+  add(N2, "");
+  await owner.goto(`${BASE}/admin/profile`);
+  add(N2, `Console trên trang /admin/profile: \`document.cookie\` = ${JSON.stringify(await owner.eval("return document.cookie;"))} — access, refresh, csrf đều HttpOnly nên script của trang (kể cả script lạ do lỗi XSS) không đọc được.`);
+  add(N2);
+  await dropAccess(owner); // như trình duyệt tự xoá cookie access sau Max-Age 90 giây trong lúc người dùng đang điền form
+  await owner.fill('form[action="/admin/profile?_method=PATCH"]', { username: "Demo refresh (đã sửa)" });
+  owner.takeNetwork();
+  await owner.submit('form[action="/admin/profile?_method=PATCH"]');
+  await cookie(owner, "refresh"); await cookie(owner, "access");
+  network(N2, "C1. Gửi form đổi tên khi KHÔNG còn access (chỉ có refresh) → server xoay vòng rồi xử lý form → 303 + cặp cookie mới", owner.takeNetwork());
+  const renamed = (await prisma.user.findUnique({ where: { email: EMAIL } })).username;
+  add(N2, `DB: users.username = "${renamed}" — dữ liệu form đã được ghi.`);
+  add(N2);
+  await shot(owner, "33-tu-refresh-khi-gui-form-van-luu", "Access đã hết khi gửi form: server tự refresh, form vẫn được lưu");
+  await dbRows(DB2, "Sau C1: dòng refresh cũ có usedAt, dòng mới cùng family (tự refresh khi gửi form)");
+
+  // D. Đăng xuất thu hồi family ở server: bản sao refresh token chép trước khi đăng xuất không dùng được.
+  add(N2, "## D — đăng xuất thu hồi refresh token ở server (không chỉ xoá cookie)");
+  add(N2, "");
+  const copied = await cookie(owner, "refresh");
+  add(N2, `Chép refresh token trước khi đăng xuất: <vân tay ${print(copied)}>`);
+  add(N2);
+  owner.takeNetwork();
+  await owner.submit('form[action="/logout"]');
+  network(N2, "D1. Bấm Đăng xuất → server thu hồi family, xoá cookie, 303 /login", owner.takeNetwork());
+  await thief.send("Network.clearBrowserCookies");
+  await thief.goto(`${BASE}/dishes`);
+  await thief.send("Network.setCookie", { name: "refresh", value: copied, url: `${BASE}/`, path: "/", httpOnly: true, sameSite: "Lax" });
+  thief.takeNetwork();
+  await thief.goto(`${BASE}/admin/dishes`);
+  network(N2, "D2. Trình duyệt khác dùng bản sao refresh token đã chép → 303 /login (family đã thu hồi)", thief.takeNetwork());
+  await dbRows(DB2, "Sau D: family của lần đăng nhập đó có revokedAt");
+
   // Kịch bản B, gửi trực tiếp như curl -i: chủ dùng trước, kẻ gian dùng token cũ sau.
   add(CURL, "# Kịch bản B — chủ tài khoản refresh trước, kẻ gian dùng token cũ sau (request trực tiếp như curl -i)");
   add(CURL, "# Token thay bằng vân tay (8 ký tự đầu SHA-256). Không có access token trong các request dưới → server phải dùng refresh.");
@@ -191,6 +236,77 @@ try {
   const famB = (await prisma.refreshToken.findUnique({ where: { tokenHash: createHash("sha256").update(b0).digest("hex") } })).familyId;
   const famRows = await prisma.refreshToken.findMany({ where: { familyId: famB }, orderBy: { id: "asc" } });
   add(CURL, `DB, family ${famB.slice(0, 8)}…: ${famRows.map((r) => `vân tay ${r.tokenHash.slice(0, 8)} usedAt=${r.usedAt ? "có" : "—"} revokedAt=${r.revokedAt ? "có" : "—"}`).join(" | ")}`);
+
+  // E. Đổi mật khẩu: tăng tokenVersion + thu hồi mọi family → thiết bị khác bị từ chối NGAY (kể cả access còn hạn).
+  add(N2, "## E — đổi mật khẩu: thiết bị khác bị đăng xuất ngay, thiết bị đang dùng nhận family mới");
+  add(N2, "");
+  await thief.send("Network.clearBrowserCookies");
+  await thief.goto(`${BASE}/login`);
+  await thief.fill('form[action="/login"]', { email: EMAIL, password: PW });
+  await thief.submit('form[action="/login"]');
+  await cookie(thief, "refresh"); await cookie(thief, "access");
+  add(N2, "Máy 2 (trình duyệt thứ hai) đăng nhập cùng tài khoản, access còn hạn.");
+  add(N2);
+  await owner.goto(`${BASE}/login`);
+  await owner.fill('form[action="/login"]', { email: EMAIL, password: PW });
+  await owner.submit('form[action="/login"]');
+  await cookie(owner, "refresh"); await cookie(owner, "access");
+  await dbRows(DB2, "Trước E: hai family (máy 1, máy 2), tokenVersion = 0");
+  await owner.goto(`${BASE}/admin/profile/password`);
+  await owner.fill('form[action="/admin/profile/password"]', { currentPassword: PW, password: NEW_PW, passwordConfirm: NEW_PW });
+  owner.takeNetwork();
+  await owner.submit('form[action="/admin/profile/password"]');
+  await cookie(owner, "refresh"); await cookie(owner, "access");
+  network(N2, "E1. Máy 1 đổi mật khẩu → 303 về hồ sơ, máy 1 nhận cặp token mới (family mới, tv mới)", owner.takeNetwork());
+  thief.takeNetwork();
+  await thief.goto(`${BASE}/admin/dishes`);
+  network(N2, "E2. Máy 2 mở trang quản trị NGAY (access chưa hết 90 giây) → 303 /login: tv trong access lệch tokenVersion, refresh đã thu hồi", thief.takeNetwork());
+  await shot(thief, "34-may-khac-bi-dang-xuat-sau-doi-mat-khau", "MÁY 2 — máy 1 vừa đổi mật khẩu: bị đăng xuất ngay");
+  await dbRows(DB2, "Sau E: tokenVersion = 1, mọi family cũ có revokedAt, máy 1 có family mới");
+
+  // F. Hạn refresh (plan 15.2 a) đo bằng thời gian thật: server chạy lại với số demo IDLE = 2, ABSOLUTE = 3 phút.
+  add(N2, "## F — hạn refresh đo bằng thời gian thật (REFRESH_IDLE_MINUTES=2, REFRESH_ABSOLUTE_MINUTES=3, access 90 giây)");
+  add(N2, "");
+  add(N2, "Không xoá cookie bằng tay ở ca này: Chrome tự bỏ cookie access sau Max-Age 90 giây. Máy 1 để yên (hạn không hoạt động); máy 2 thao tác đều (trần tuyệt đối).");
+  add(N2);
+  await stopServer();
+  await startServer({ MAIL_TRANSPORT: "file", REFRESH_IDLE_MINUTES: "2", REFRESH_ABSOLUTE_MINUTES: "3" });
+  const loginAs = async (page) => {
+    await page.send("Network.clearBrowserCookies");
+    await page.goto(`${BASE}/login`);
+    await page.fill('form[action="/login"]', { email: EMAIL, password: NEW_PW });
+    await page.submit('form[action="/login"]');
+    const refresh = await cookie(page, "refresh"); await cookie(page, "access");
+    page.takeNetwork();
+    return { at: Date.now(), refresh };
+  };
+  const m1 = await loginAs(owner), t1 = m1.at; // máy 1: để yên
+  const m2 = await loginAs(thief), t2 = m2.at; // máy 2: thao tác ở giây 95
+  await dbRows(DB2, "F, ngay sau đăng nhập: expiresAt = lúc cấp + 2 phút, trần (familyExpiresAt) = lúc đăng nhập + 3 phút (xem db/14 ở cột expiresAt)");
+  const fam = await prisma.refreshToken.findMany({ where: { user: { email: EMAIL }, revokedAt: null }, select: { familyExpiresAt: true, createdAt: true } });
+  add(DB2, `familyExpiresAt − createdAt của 2 family mới: ${fam.map((r) => Math.round((r.familyExpiresAt - r.createdAt) / 1000) + " giây").join(", ")}`);
+  add(DB2);
+  await sleep(t2 + 95_000 - Date.now());
+  await thief.goto(`${BASE}/admin/dishes`);
+  const m2last = await cookie(thief, "refresh"); await cookie(thief, "access");
+  network(N2, `F1. Máy 2 thao tác ở giây ${Math.round((Date.now() - t2) / 1000)} (access đã tự hết) → 200, xoay vòng; Max-Age của refresh mới bị cắt theo trần 3 phút`, thief.takeNetwork());
+  await sleep(t1 + 125_000 - Date.now());
+  await owner.goto(`${BASE}/admin/dishes`);
+  network(N2, `F2. Máy 1 để yên tới giây ${Math.round((Date.now() - t1) / 1000)} (quá 2 phút không hoạt động) → 303 /login`, owner.takeNetwork());
+  await shot(owner, "35-het-han-khong-hoat-dong", "MÁY 1 — để yên quá hạn không hoạt động: phải đăng nhập lại");
+  await sleep(t2 + 190_000 - Date.now());
+  await thief.goto(`${BASE}/admin/dishes`);
+  network(N2, `F3. Máy 2 thao tác tiếp ở giây ${Math.round((Date.now() - t2) / 1000)} (đã quá trần 3 phút từ lúc đăng nhập) → 303 /login dù vẫn đang dùng`, thief.takeNetwork());
+  add(N2, "Ở F2, F3 Chrome đã tự bỏ cookie refresh vì Max-Age của nó bằng đúng hạn trong DB. Bước F4 kiểm tra phía server: ai giữ bản sao token đã hết hạn (vd. kẻ gian chép từ trước) gửi thẳng lên vẫn bị từ chối theo cột expiresAt.");
+  add(N2);
+  add(N2, "### F4. Gửi thẳng bản sao refresh token đã hết hạn (như curl -i, không có access)");
+  for (const [who, token] of [["máy 1 (quá hạn không hoạt động)", m1.refresh], ["máy 2, token mới nhất (chạm trần 3 phút)", m2last]]) {
+    const res = await fetch(`${BASE}/admin/dishes`, { redirect: "manual", headers: { cookie: `refresh=${token}` } });
+    add(N2, `$ curl -i -b "refresh=<vân tay ${print(token)}>" ${BASE}/admin/dishes   # ${who}`);
+    add(N2, `HTTP/1.1 ${res.status}  Location: ${res.headers.get("location") ?? "—"}  Set-Cookie: ${res.headers.getSetCookie().map((l) => l.split(";")[0]).join(", ") || "(không có)"}`);
+  }
+  add(N2);
+  await dbRows(DB2, "Sau F: máy 2 có 2 dòng (expiresAt dòng thứ hai = trần của family), cả hai family đều đã quá hạn");
 
   const log = serverLog();
   const leaked = [...known].filter((v) => v.length >= 20 && log.includes(v));

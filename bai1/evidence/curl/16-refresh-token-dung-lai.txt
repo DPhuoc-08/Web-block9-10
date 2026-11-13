@@ -1,16 +1,16 @@
 # Kịch bản B — chủ tài khoản refresh trước, kẻ gian dùng token cũ sau (request trực tiếp như curl -i)
 # Token thay bằng vân tay (8 ký tự đầu SHA-256). Không có access token trong các request dưới → server phải dùng refresh.
 
-B1. Chủ đăng nhập: refresh B0 = <vân tay 310704a0>
+B1. Chủ đăng nhập: refresh B0 = <vân tay 83109233>
 B2. Chủ (access đã hết) gửi B0 → 200, nhận B1 mới
-$ curl -i -b "refresh=<vân tay 310704a0>" http://localhost:3100/admin/dishes
+$ curl -i -b "refresh=<vân tay 83109233>" http://localhost:3100/admin/dishes
 HTTP/1.1 200
-Set-Cookie: access=<vân tay 581352f6>; Max-Age=90; Path=/; Expires=Fri, 13 Nov 2026 12:39:21 GMT; HttpOnly; SameSite=Lax
-Set-Cookie: refresh=<vân tay d73ff066>; Max-Age=7199; Path=/; Expires=Fri, 13 Nov 2026 14:37:51 GMT; HttpOnly; SameSite=Lax
-Set-Cookie: csrf=<vân tay 8ca0154a>; Path=/; HttpOnly; SameSite=Lax
+Set-Cookie: access=<vân tay fafba9df>; Max-Age=90; Path=/; Expires=Fri, 13 Nov 2026 13:00:38 GMT; HttpOnly; SameSite=Lax
+Set-Cookie: refresh=<vân tay d5a5f931>; Max-Age=7199; Path=/; Expires=Fri, 13 Nov 2026 14:59:08 GMT; HttpOnly; SameSite=Lax
+Set-Cookie: csrf=<vân tay 647a053e>; Path=/; HttpOnly; SameSite=Lax
 
 B3. Kẻ gian gửi B0 (đã dùng) → 303 /login, cả family bị thu hồi
-$ curl -i -b "refresh=<vân tay 310704a0>" http://localhost:3100/admin/dishes
+$ curl -i -b "refresh=<vân tay 83109233>" http://localhost:3100/admin/dishes
 HTTP/1.1 303
 Location: /login?next=%2Fadmin%2Fdishes
 Set-Cookie: access=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
@@ -18,13 +18,13 @@ Set-Cookie: refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; S
 Set-Cookie: mfa_reauth=; Path=/admin/profile/mfa; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
 
 B4. Chủ gửi B1 (mới nhất) → 303 /login: family đã thu hồi, chủ đăng nhập lại bằng mật khẩu
-$ curl -i -b "refresh=<vân tay d73ff066>" http://localhost:3100/admin/dishes
+$ curl -i -b "refresh=<vân tay d5a5f931>" http://localhost:3100/admin/dishes
 HTTP/1.1 303
 Location: /login?next=%2Fadmin%2Fdishes
 Set-Cookie: access=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
 Set-Cookie: refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
 Set-Cookie: mfa_reauth=; Path=/admin/profile/mfa; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
 
-DB, family 292b6a43…: vân tay 310704a0 usedAt=có revokedAt=có | vân tay d73ff066 usedAt=— revokedAt=có
+DB, family d93c06ee…: vân tay 83109233 usedAt=có revokedAt=có | vân tay d5a5f931 usedAt=— revokedAt=có
 
 Log server có chứa access / refresh token hay mật khẩu không: không

@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db.js";
 import { generateToken, sha256 } from "./secrets.js";
+import { ACCESS_TOKEN_TTL } from "./jwt.js";
 
 const FORMAT = /^[A-Za-z0-9_-]{43}$/; // randomBytes(32) dạng base64url
 const minutesEnv = (key, fallback) => (process.env[key] === undefined || process.env[key] === "" ? fallback : Number(process.env[key]));
@@ -13,11 +14,13 @@ export const refreshIdleMs = () => minutesEnv("REFRESH_IDLE_MINUTES", 120) * 60_
 export const refreshAbsoluteMs = () => minutesEnv("REFRESH_ABSOLUTE_MINUTES", 720) * 60_000;
 
 // Gọi lúc khởi động: số sai thì không chạy, thay vì âm thầm cấp token không bao giờ hết hạn.
+// Hạn không hoạt động phải DÀI HƠN access token (90 giây): trong lúc access còn hạn, server không đụng tới refresh token nên không
+// gia hạn nó; nếu refresh hết trước access thì người dùng luôn bị đăng xuất sau ~90 giây dù đang thao tác (phát hiện ở bước 42).
 export function assertRefreshConfig() {
   const idle = minutesEnv("REFRESH_IDLE_MINUTES", 120);
   const absolute = minutesEnv("REFRESH_ABSOLUTE_MINUTES", 720);
-  if (!Number.isInteger(idle) || !Number.isInteger(absolute) || idle < 1 || absolute < idle) {
-    throw new Error("REFRESH_IDLE_MINUTES, REFRESH_ABSOLUTE_MINUTES phải là số nguyên ≥ 1 và IDLE ≤ ABSOLUTE (xem .env.example).");
+  if (!Number.isInteger(idle) || !Number.isInteger(absolute) || idle * 60 <= ACCESS_TOKEN_TTL || absolute < idle) {
+    throw new Error(`REFRESH_IDLE_MINUTES, REFRESH_ABSOLUTE_MINUTES phải là số nguyên, IDLE dài hơn access token (${ACCESS_TOKEN_TTL} giây, tức ≥ 2) và IDLE ≤ ABSOLUTE (xem .env.example).`);
   }
 }
 

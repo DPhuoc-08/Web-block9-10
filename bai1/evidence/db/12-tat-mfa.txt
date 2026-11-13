@@ -1,12 +1,18 @@
-## Sau khi tắt: secret xoá, recovery xoá  (lúc 2026-11-09 07:59:37Z)
+## Sau khi tắt: secret xoá, recovery xoá  (lúc 2026-11-13 12:44:56Z)
 
-users #5  role=viewer  status=active  mfaEnabled=false  mfaLastStep=—
-  passwordHash: vân tay b4298909
+users #123  role=viewer  status=active  mfaEnabled=false  mfaLastStep=—  tokenVersion=1
+  passwordHash: vân tay 93e9efc5
   mfaSecret = —
   mfaPendingSecret = —
   recovery_codes: 0 mã, 0 đã dùng
-  password_resets #1: tokenHash=265673…(64 ký tự) hạn=2026-11-09 08:14:20Z usedAt=2026-11-09 07:59:27Z
-  sessions gắn với user: 2
-    sid vân tay 4a53102d  cột userId=5  expiresAt=2026-11-09 09:59:32Z  data có khoá: cookie, mfaPending  → phiên CHỜ MFA (data không có userId)
-    sid vân tay a0785597  cột userId=5  expiresAt=2026-11-09 09:59:37Z  data có khoá: cookie, userId, loginAt, csrfToken  → phiên đầy đủ
+  password_resets #71: tokenHash=eb9f1f…(64 ký tự) hạn=2026-11-13 12:59:46Z usedAt=2026-11-13 12:44:47Z
+  mfa_challenges (bước password đã qua, chờ MFA): 2
+    vân tay b303200a  hạn=2026-11-13 12:49:49Z  usedAt=2026-11-13 12:44:52Z  → đã dùng để cấp token
+    vân tay 7d291fe8  hạn=2026-11-13 12:49:51Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+  refresh_tokens: 5
+    family 5c06dee7…  vân tay bb85c474  tv=0  hạn=2026-11-13 14:44:13Z  usedAt=—  revokedAt=2026-11-13 12:44:20Z
+    family f5b44ee5…  vân tay 2eaa2c00  tv=0  hạn=2026-11-13 14:44:25Z  usedAt=—  revokedAt=2026-11-13 12:44:27Z
+    family 6264f8f1…  vân tay 928d04f6  tv=0  hạn=2026-11-13 14:44:38Z  usedAt=—  revokedAt=2026-11-13 12:44:40Z
+    family a146e2e3…  vân tay 7729e028  tv=0  hạn=2026-11-13 14:44:44Z  usedAt=—  revokedAt=2026-11-13 12:44:48Z
+    family 25e71424…  vân tay ba0cd62c  tv=1  hạn=2026-11-13 14:44:52Z  usedAt=—  revokedAt=—
 

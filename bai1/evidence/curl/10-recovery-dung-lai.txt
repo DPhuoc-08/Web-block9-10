@@ -3,18 +3,20 @@
 ĐẠT: Chrome: dùng lần hai bị từ chối
 
 $ POST /login/mfa/recovery   # request trực tiếp, lần 1
-  Cookie: sid=<đã che · vân tay 0a43c0e9>
+  Cookie: mfa=<đã che · vân tay 8bdbe146>; csrf=<đã che · vân tay 3a1f8730>
   _csrf=<đã che>&code=<đã che>
 → 303  Location: /admin/profile?msg=mfa-recovery-used
-  Set-Cookie: sid=<đã che · vân tay 6d29fc58>; Path=/; Expires=Mon, 09 Nov 2026 09:59:18 GMT; HttpOnly; SameSite=Lax
+  Set-Cookie: mfa=; Path=/login/mfa; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
+  Set-Cookie: csrf=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
+  Set-Cookie: access=<đã che · vân tay 2113775d>; Max-Age=90; Path=/; Expires=Fri, 13 Nov 2026 12:46:14 GMT; HttpOnly; SameSite=Lax
+  Set-Cookie: refresh=<đã che · vân tay 7729e028>; Max-Age=7199; Path=/; Expires=Fri, 13 Nov 2026 14:44:44 GMT; HttpOnly; SameSite=Lax
 
 ĐẠT: Lần 1 → 303
 
 $ POST /login/mfa/recovery   # request trực tiếp, lần 2
-  Cookie: sid=<đã che · vân tay d282609c>
+  Cookie: mfa=<đã che · vân tay 038f250b>; csrf=<đã che · vân tay 1ccfe685>
   _csrf=<đã che>&code=<đã che>
 → 200
-  Set-Cookie: sid=<đã che · vân tay d282609c>; Path=/; Expires=Mon, 09 Nov 2026 09:59:19 GMT; HttpOnly; SameSite=Lax
   Trang: "Nhập mã khôi phục"  data-error-code="INVALID_OTP"
 
 ĐẠT: Lần 2 → 200

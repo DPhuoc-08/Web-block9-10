@@ -1,50 +1,58 @@
-## Sau lần dùng đầu: đúng một dòng có usedAt  (lúc 2026-11-09 07:59:15Z)
+## Sau lần dùng đầu: đúng một dòng có usedAt  (lúc 2026-11-13 12:44:39Z)
 
-users #5  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59807038
-  passwordHash: vân tay 47da775a
-  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay 3048f01b>
+users #123  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59819128  tokenVersion=0
+  passwordHash: vân tay 623ac75d
+  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay c4613de1>
   mfaPendingSecret = —
   recovery_codes: 10 mã, 1 đã dùng
-    #1 codeHash=5e49c2…(64 ký tự) usedAt=2026-11-09 07:59:14Z
-    #2 codeHash=98d898…(64 ký tự) usedAt=—
-    #3 codeHash=baed8f…(64 ký tự) usedAt=—
-    #4 codeHash=bc8e94…(64 ký tự) usedAt=—
-    #5 codeHash=9981c2…(64 ký tự) usedAt=—
-    #6 codeHash=07c322…(64 ký tự) usedAt=—
-    #7 codeHash=ea47e4…(64 ký tự) usedAt=—
-    #8 codeHash=950347…(64 ký tự) usedAt=—
-    #9 codeHash=c2b63e…(64 ký tự) usedAt=—
-    #10 codeHash=7d2ad9…(64 ký tự) usedAt=—
-  sessions gắn với user: 4
-    sid vân tay 2dda3002  cột userId=5  expiresAt=2026-11-09 09:59:14Z  data có khoá: cookie, userId, loginAt, csrfToken  → phiên đầy đủ
-    sid vân tay d3478198  cột userId=5  expiresAt=2026-11-09 09:59:00Z  data có khoá: cookie, mfaPending  → phiên CHỜ MFA (data không có userId)
-    sid vân tay 9beed1c1  cột userId=5  expiresAt=2026-11-09 09:59:08Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
-    sid vân tay de2b6aa6  cột userId=5  expiresAt=2026-11-09 09:59:10Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+    #441 codeHash=c99f06…(64 ký tự) usedAt=2026-11-13 12:44:38Z
+    #442 codeHash=411fda…(64 ký tự) usedAt=—
+    #443 codeHash=d45b32…(64 ký tự) usedAt=—
+    #444 codeHash=189198…(64 ký tự) usedAt=—
+    #445 codeHash=b48da0…(64 ký tự) usedAt=—
+    #446 codeHash=a72af5…(64 ký tự) usedAt=—
+    #447 codeHash=63254d…(64 ký tự) usedAt=—
+    #448 codeHash=b38f6a…(64 ký tự) usedAt=—
+    #449 codeHash=36c366…(64 ký tự) usedAt=—
+    #450 codeHash=c88edb…(64 ký tự) usedAt=—
+  mfa_challenges (bước password đã qua, chờ MFA): 4
+    vân tay a76ce297  hạn=2026-11-13 12:49:23Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+    vân tay e1226d54  hạn=2026-11-13 12:49:28Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+    vân tay faca6b46  hạn=2026-11-13 12:49:34Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+    vân tay fe0e262d  hạn=2026-11-13 12:49:35Z  usedAt=2026-11-13 12:44:38Z  → đã dùng để cấp token
+  refresh_tokens: 3
+    family 5c06dee7…  vân tay bb85c474  tv=0  hạn=2026-11-13 14:44:13Z  usedAt=—  revokedAt=2026-11-13 12:44:20Z
+    family f5b44ee5…  vân tay 2eaa2c00  tv=0  hạn=2026-11-13 14:44:25Z  usedAt=—  revokedAt=2026-11-13 12:44:27Z
+    family 6264f8f1…  vân tay 928d04f6  tv=0  hạn=2026-11-13 14:44:38Z  usedAt=—  revokedAt=—
 
 ĐẠT: Mã vừa dùng đã có usedAt
 
-## Sau lần dùng hai: usedAt giữ nguyên  (lúc 2026-11-09 07:59:19Z)
+## Sau lần dùng hai: usedAt giữ nguyên  (lúc 2026-11-13 12:44:45Z)
 
-users #5  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59807038
-  passwordHash: vân tay 47da775a
-  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay 3048f01b>
+users #123  role=viewer  status=active  mfaEnabled=true  mfaLastStep=59819128  tokenVersion=0
+  passwordHash: vân tay 623ac75d
+  mfaSecret = <bản mã AES-256-GCM, 86 ký tự, vân tay c4613de1>
   mfaPendingSecret = —
   recovery_codes: 10 mã, 2 đã dùng
-    #1 codeHash=5e49c2…(64 ký tự) usedAt=2026-11-09 07:59:14Z
-    #2 codeHash=98d898…(64 ký tự) usedAt=2026-11-09 07:59:18Z
-    #3 codeHash=baed8f…(64 ký tự) usedAt=—
-    #4 codeHash=bc8e94…(64 ký tự) usedAt=—
-    #5 codeHash=9981c2…(64 ký tự) usedAt=—
-    #6 codeHash=07c322…(64 ký tự) usedAt=—
-    #7 codeHash=ea47e4…(64 ký tự) usedAt=—
-    #8 codeHash=950347…(64 ký tự) usedAt=—
-    #9 codeHash=c2b63e…(64 ký tự) usedAt=—
-    #10 codeHash=7d2ad9…(64 ký tự) usedAt=—
-  sessions gắn với user: 6
-    sid vân tay f57168a6  cột userId=5  expiresAt=2026-11-09 09:59:17Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
-    sid vân tay 6d29fc58  cột userId=5  expiresAt=2026-11-09 09:59:18Z  data có khoá: cookie, userId, loginAt  → phiên đầy đủ
-    sid vân tay d282609c  cột userId=5  expiresAt=2026-11-09 09:59:19Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
-    sid vân tay d3478198  cột userId=5  expiresAt=2026-11-09 09:59:00Z  data có khoá: cookie, mfaPending  → phiên CHỜ MFA (data không có userId)
-    sid vân tay 9beed1c1  cột userId=5  expiresAt=2026-11-09 09:59:08Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
-    sid vân tay de2b6aa6  cột userId=5  expiresAt=2026-11-09 09:59:10Z  data có khoá: cookie, csrfToken, mfaPending  → phiên CHỜ MFA (data không có userId)
+    #441 codeHash=c99f06…(64 ký tự) usedAt=2026-11-13 12:44:38Z
+    #442 codeHash=411fda…(64 ký tự) usedAt=2026-11-13 12:44:44Z
+    #443 codeHash=d45b32…(64 ký tự) usedAt=—
+    #444 codeHash=189198…(64 ký tự) usedAt=—
+    #445 codeHash=b48da0…(64 ký tự) usedAt=—
+    #446 codeHash=a72af5…(64 ký tự) usedAt=—
+    #447 codeHash=63254d…(64 ký tự) usedAt=—
+    #448 codeHash=b38f6a…(64 ký tự) usedAt=—
+    #449 codeHash=36c366…(64 ký tự) usedAt=—
+    #450 codeHash=c88edb…(64 ký tự) usedAt=—
+  mfa_challenges (bước password đã qua, chờ MFA): 5
+    vân tay a76ce297  hạn=2026-11-13 12:49:23Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+    vân tay e1226d54  hạn=2026-11-13 12:49:28Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+    vân tay faca6b46  hạn=2026-11-13 12:49:34Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+    vân tay d6503027  hạn=2026-11-13 12:49:41Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+    vân tay 038f250b  hạn=2026-11-13 12:49:45Z  usedAt=—  → đang chờ MFA (chưa có access / refresh token)
+  refresh_tokens: 4
+    family 5c06dee7…  vân tay bb85c474  tv=0  hạn=2026-11-13 14:44:13Z  usedAt=—  revokedAt=2026-11-13 12:44:20Z
+    family f5b44ee5…  vân tay 2eaa2c00  tv=0  hạn=2026-11-13 14:44:25Z  usedAt=—  revokedAt=2026-11-13 12:44:27Z
+    family 6264f8f1…  vân tay 928d04f6  tv=0  hạn=2026-11-13 14:44:38Z  usedAt=—  revokedAt=2026-11-13 12:44:40Z
+    family a146e2e3…  vân tay 7729e028  tv=0  hạn=2026-11-13 14:44:44Z  usedAt=—  revokedAt=—
 
