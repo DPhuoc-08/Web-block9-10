@@ -32,7 +32,7 @@ const BAD_OTP = (real) => (real === "000000" ? "111111" : "000000");
 const print = (v) => createHash("sha256").update(String(v)).digest("hex").slice(0, 8);
 const sidPrint = (cookieValue) => { const v = decodeURIComponent(cookieValue); return print(v.match(/^s:([^.]+)\./)?.[1] ?? v); };
 const SECRET_FIELDS = ["_csrf", "password", "passwordConfirm", "otp", "code", "factor", "token", "g-recaptcha-response"];
-const secrets = [PW, DEMO_PW, NEW_PW, process.env.SESSION_SECRET, process.env.OTP_PEPPER, process.env.MFA_ENCRYPTION_KEY, process.env.RECAPTCHA_SECRET_KEY, process.env.SMTP_PASS].filter((s) => s && s.length >= 6);
+const secrets = [PW, DEMO_PW, NEW_PW, process.env.JWT_SECRET, process.env.OTP_PEPPER, process.env.MFA_ENCRYPTION_KEY, process.env.RECAPTCHA_SECRET_KEY, process.env.SMTP_PASS].filter((s) => s && s.length >= 6);
 const realEmails = [VIEWER, EDITOR_A, EDITOR_B, ADMIN, process.env.SMTP_USER, process.env.MAIL_FROM?.match(/[^\s<>"]+@[^\s<>"]+/)?.[0]].filter(Boolean).sort((a, b) => b.length - a.length);
 function mask(text) {
   let t = String(text);

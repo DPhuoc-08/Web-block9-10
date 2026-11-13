@@ -1,5 +1,5 @@
-// Bước MFA khi đăng nhập (slide 20, 53). Đây là nơi DUY NHẤT nhận phiên chờ MFA: phiên chờ không có userId, nên loadUser không
-// gắn currentUser và requireLogin từ chối ở mọi route quản trị.
+// Bước MFA khi đăng nhập (slide 20, 53). Đây là nơi DUY NHẤT nhận challenge MFA (cookie mfa, plan mục 15): challenge không phải
+// access token, nên loadUser không gắn currentUser và requireLogin từ chối ở mọi route quản trị.
 import { Router } from "express";
 import { prisma } from "../../db.js";
 import { safeNext } from "../../auth/require-login.js";
@@ -9,13 +9,16 @@ import { photoFor } from "../../auth/photos.js";
 import { minutesOf } from "../../auth/pages.js";
 import { limit } from "../../auth/rate-limit.js";
 import { one } from "../../forms.js";
+import { clearCookie } from "../../auth/cookies.js";
+import { resetCsrf } from "../../auth/csrf.js";
+import { setTokens } from "../../auth/load-user.js";
+import { startFamily } from "../../auth/refresh.js";
+import { consumeChallenge } from "../../auth/mfa-challenge.js";
 
 const router = Router();
 // Giới hạn theo IP cho bước nhập mã (plan mục 4, thêm 12/11, 14.3 b): lớp thứ hai bên cạnh bộ đếm theo user, để một nguồn
 // không dò được mã của nhiều tài khoản. Đếm mọi lần gửi, như giới hạn IP của POST /login.
 const MFA_IP = { windowMs: 15 * 60_000, max: 30 };
-const regenerate = (req) => new Promise((resolve, reject) => req.session.regenerate((err) => (err ? reject(err) : resolve())));
-const save = (req) => new Promise((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
 
 const VIEWS = {
   totp: { view: "auth/mfa", title: "Xác thực hai lớp" },
@@ -34,19 +37,16 @@ function refused(res, kind, result) {
   return render(res, kind, { code: "INVALID_OTP", banner: { kind: "error", text: "Mã không đúng hoặc đã được dùng." } });
 }
 
-// Chuyển từ phiên chờ sang phiên đầy đủ. Đọc lại user vì trạng thái có thể đã đổi trong lúc chờ. regenerate đổi sid, để một sid
-// có từ trước (session fixation) không trở thành phiên đã xác thực đầy đủ; userId chỉ được gán ở đây và ở nhánh không bật MFA.
+// Chuyển từ challenge sang đăng nhập đầy đủ. Tiêu thụ challenge bằng câu ghi có điều kiện (dùng một lần) rồi mới cấp token; đọc
+// lại user vì trạng thái có thể đã đổi trong lúc chờ. Đây là nơi duy nhất cấp access + refresh cho tài khoản bật MFA.
 async function finish(req, res, target) {
-  const { userId } = res.locals.mfaPending;
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true, mfaEnabled: true } });
-  if (!user || user.status !== "active" || !user.mfaEnabled) {
-    delete req.session.mfaPending;
-    return res.redirect(303, "/login");
-  }
-  await regenerate(req);
-  req.session.userId = userId;
-  req.session.loginAt = Date.now();
-  await save(req);
+  const { id, userId } = res.locals.mfaPending;
+  clearCookie(res, "mfa");
+  if (!(await consumeChallenge(id))) return res.redirect(303, "/login");
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, status: true, mfaEnabled: true, tokenVersion: true } });
+  if (!user || user.status !== "active" || !user.mfaEnabled) return res.redirect(303, "/login");
+  resetCsrf(req, res);
+  setTokens(res, user, await startFamily(user));
   res.redirect(303, target);
 }
 
@@ -77,11 +77,10 @@ router.post("/login/mfa/recovery", requireMfaPending, async (req, res) => {
   return finish(req, res, "/admin/profile?msg=mfa-recovery-used");
 });
 
-router.post("/login/mfa/cancel", requireMfaPending, (req, res, next) => {
-  req.session.destroy((err) => {
-    if (err) return next(err);
-    res.redirect(303, "/login");
-  });
+router.post("/login/mfa/cancel", requireMfaPending, async (req, res) => {
+  await consumeChallenge(res.locals.mfaPending.id);
+  clearCookie(res, "mfa");
+  res.redirect(303, "/login");
 });
 
 export default router;

@@ -173,10 +173,16 @@ model User {
   // BigInt sẽ làm res.json báo lỗi khi mô-đun này chuyển sang api ở Bài 2.
   mfaLastStep      Int?
 
+  // Số thế hệ token (plan mục 15): tăng khi đổi / đặt lại mật khẩu. Access token và refresh token mang số cũ bị từ chối.
+  tokenVersion Int @default(0)
+
   activation     ActivationChallenge?
   passwordResets PasswordReset[]
+  // Bảng sessions không còn dùng từ plan mục 15 (Bài 1 chuyển sang JWT); giữ model vì DB chỉ được thêm, không xoá bảng.
   sessions       Session[]
   recoveryCodes  RecoveryCode[]
+  refreshTokens  RefreshToken[]
+  mfaChallenges  MfaChallenge[]
 
   @@index([chefId])
   @@map("users")
@@ -251,4 +257,42 @@ model RecoveryCode {
 
   @@index([userId])
   @@map("recovery_codes")
+}
+
+// Refresh token (plan mục 15, phần B của giảng viên): chuỗi ngẫu nhiên, DB chỉ lưu SHA-256. Mỗi lần refresh: dòng cũ có usedAt,
+// dòng mới cùng familyId (rotation). Dòng đã dùng xuất hiện lại → có hai bên cùng giữ token → thu hồi cả family.
+// expiresAt: hạn của riêng token này (lúc cấp + thời gian không hoạt động). familyExpiresAt: trần tuyệt đối của cả lần đăng nhập,
+// chép sang mọi dòng của family; expiresAt không bao giờ vượt nó.
+model RefreshToken {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId        String
+  tokenHash       String    @unique
+  tokenVersion    Int
+  expiresAt       DateTime
+  familyExpiresAt DateTime
+  usedAt          DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// Bằng chứng đã qua bước password khi tài khoản bật MFA (thay mfaPending trong session cũ). Chuỗi ngẫu nhiên trong cookie "mfa",
+// DB chỉ lưu hash, hạn 5 phút, dùng một lần. Chỉ /login/mfa và /login/mfa/recovery đọc nó; nó không phải access token.
+model MfaChallenge {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  next      String    @default("")
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("mfa_challenges")
 }

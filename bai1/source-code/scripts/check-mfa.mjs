@@ -11,6 +11,9 @@ import { login } from "./lib/auth.mjs";
 import { startServer, stopServer, serverLog } from "./lib/server.mjs";
 import { generateToken, sha256 } from "../src/auth/secrets.js";
 import { acceptedStep } from "../src/auth/totp.js";
+import jwt from "jsonwebtoken";
+// Plan mục 15: không còn session. Payload của access token (để lấy fam), không verify — chỉ dùng trong script.
+const famOf = (c) => JSON.parse(Buffer.from(decodeURIComponent(c.jar.get("access") ?? "..").split(".")[1] ?? "", "base64url").toString() || "{}").fam;
 
 const only = process.argv.slice(2).map((s) => s.toUpperCase());
 const run = (part) => only.length === 0 || only.includes(part);
@@ -86,13 +89,14 @@ async function partA() {
   r.ok(u.mfaEnabled && u.mfaSecret && u.mfaPendingSecret === null && !u.mfaSecret.includes(secret) && Number.isInteger(u.mfaLastStep), "DB: đã bật, secret là bản mã, đã ghi bước đã dùng");
 
   const rows = await prisma.recoveryCode.findMany({ where: { userId: u.id } });
-  const sessions = await prisma.$queryRaw`SELECT data::text AS t FROM sessions WHERE "userId" = ${u.id}`;
   res = await c.get("/admin/profile/mfa/codes");
+  const stored = JSON.stringify([await prisma.refreshToken.findMany({ where: { userId: u.id } }), await prisma.mfaChallenge.findMany({ where: { userId: u.id } }), await prisma.user.findUnique({ where: { id: u.id } })]);
+  const setCookies = res.headers.getSetCookie().join(" ") + [...c.jar.values()].join(" ");
   const codes = codesOnPage(res.text);
   r.ok(res.status === 200 && codes.length === 10 && rows.length === 10, "Hiện 10 mã, DB có 10 bản ghi", codes.length);
   r.ok(res.headers.get("cache-control") === "no-store", "Trang mã không lưu cache");
   r.ok(rows.every((row) => /^[0-9a-f]{64}$/.test(row.codeHash) && !codes.includes(row.codeHash) && row.usedAt === null), "DB chỉ có HMAC, chưa dùng");
-  r.ok(!sessions.some((s) => codes.some((code) => s.t.includes(code))), "Bảng sessions không chứa mã gốc");
+  r.ok(!codes.some((code) => stored.includes(code) || setCookies.includes(code)), "Mã gốc không nằm trong DB (users, refresh_tokens, mfa_challenges) hay cookie");
 
   res = await c.get("/admin/profile/mfa/codes");
   r.ok(res.status === 303 && (res.location ?? "").includes("mfa-codes-gone"), "Mở lại trang mã: không hiện lại", res.location);
@@ -125,13 +129,13 @@ async function partB() {
   const setup = await signedIn();
   const { secret } = await enable(setup);
   const u = await userRow();
-  await prisma.session.deleteMany({ where: { userId: u.id } });
+  await prisma.mfaChallenge.deleteMany({ where: { userId: u.id } });
 
   const { c, res } = await pendingLogin();
   r.ok(res.status === 303 && res.location === "/login/mfa", "Password đúng, đã bật MFA → 303 /login/mfa", `${res.status} ${res.location}`);
-  const sidAfterPassword = c.jar.get("sid");
-  const [row] = await prisma.$queryRaw`SELECT data FROM sessions WHERE "userId" = ${u.id}`;
-  r.ok(row && row.data.mfaPending?.userId === u.id && row.data.userId === undefined, "Bản ghi phiên chỉ có mfaPending, không có userId");
+  const challengeCookie = c.jar.get("mfa");
+  const [pending] = await prisma.mfaChallenge.findMany({ where: { userId: u.id, usedAt: null } });
+  r.ok(Boolean(challengeCookie) && !c.jar.get("access") && !c.jar.get("refresh") && pending?.tokenHash === sha256(decodeURIComponent(challengeCookie)) && /Path=\/login\/mfa/.test(res.headers.getSetCookie().join("|")), "Bước password chỉ cấp challenge (cookie mfa, Path=/login/mfa, DB lưu hash), không có access / refresh token");
   for (const path of ["/admin", "/admin/dishes", "/admin/chefs/new", "/admin/profile", "/admin/profile/mfa/setup"]) {
     const a = await c.get(path);
     r.ok(a.status === 303 && (a.location ?? "").includes("/login"), `Phiên chờ MFA không vào được ${path}`, `${a.status} ${a.location}`);
@@ -147,7 +151,9 @@ async function partB() {
   const code = totpFor(secret, 1); // bước kế tiếp: mã lúc bật MFA đã bị đánh dấu dùng rồi
   a = await c.post("/login/mfa", [["otp", code]]);
   r.ok(a.status === 303 && a.location === "/admin/dishes", "Mã đúng → 303 vào quản trị", `${a.status} ${a.location}`);
-  r.ok(c.jar.get("sid") !== sidAfterPassword, "sid đổi khi qua bước MFA");
+  r.ok(Boolean(c.jar.get("access") && c.jar.get("refresh")) && !c.jar.get("mfa") && (await prisma.mfaChallenge.findUnique({ where: { id: pending.id } })).usedAt !== null, "Qua bước MFA: có access + refresh, challenge đã dùng, cookie mfa bị xoá");
+  const replay = client(); replay.jar.set("mfa", challengeCookie);
+  r.ok((await replay.get("/login/mfa")).status === 303, "Challenge đã dùng gửi lại → 303 /login (dùng một lần)");
   r.ok((await c.get("/admin/dishes")).status === 200, "Phiên đầy đủ vào được quản trị");
 
   // Dùng lại mã đã chấp nhận (cùng cửa sổ).
@@ -228,14 +234,13 @@ async function partB() {
   r.ok(a.status === 303 && a.location === "/login", "Huỷ → về đăng nhập", a.location);
   r.ok((await cancel.c.get("/login/mfa")).status === 303, "Huỷ xong không còn phiên chờ");
 
-  await prisma.session.deleteMany({ where: { userId: u.id } });
+  await prisma.mfaChallenge.deleteMany({ where: { userId: u.id } });
   const old = await pendingLogin();
-  await prisma.$executeRaw`UPDATE sessions SET data = jsonb_set(data, '{mfaPending,at}', to_jsonb((extract(epoch from now()) * 1000 - 360000)::bigint)) WHERE "userId" = ${u.id}`;
+  await prisma.mfaChallenge.updateMany({ where: { userId: u.id, usedAt: null }, data: { expiresAt: new Date(Date.now() - 60_000) } }); // như đã chờ 6 phút
   a = await old.c.get("/login/mfa");
   r.ok(a.status === 303 && a.location === "/login?msg=mfa-expired", "Phiên chờ quá 5 phút → đăng nhập lại", a.location);
 
-  // Reset password không tắt MFA, xoá cả phiên chờ, không tạo phiên.
-  await prisma.session.deleteMany({ where: { userId: u.id } });
+  // Reset password không tắt MFA, xoá cả challenge đang chờ, không cấp token.
   const waiting = await pendingLogin();
   const token = generateToken();
   await prisma.passwordReset.create({ data: { userId: u.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 15 * 60_000) } });
@@ -334,12 +339,16 @@ async function partD() {
   await stillOld.c.post("/admin/profile/mfa/setup/confirm", [["otp", totpFor(fresh)]]);
   row = await userRow();
   r.ok(row.mfaSecret === sealedOld && row.mfaPendingSecret !== null, "Phiên khác chưa xác thực lại: không xác nhận được secret chờ");
-  const [flagged] = await prisma.$queryRaw`SELECT sid FROM sessions WHERE "userId" = ${u.id} AND data ? 'mfaReplaceAt'`;
-  const setFlag = (at) => prisma.$executeRaw`UPDATE sessions SET data = jsonb_set(data, '{mfaReplaceAt}', to_jsonb(${at}::bigint)) WHERE sid = ${flagged?.sid ?? ""}`;
-  await setFlag(Date.now() - 11 * 60_000);
+  // Vé xác thực lại (cookie mfa_reauth, JWT 10 phút gắn sub + fam). Bản sao vé sang lần đăng nhập khác vẫn bị từ chối.
+  const ticket = c.jar.get("mfa_reauth");
+  stillOld.c.jar.set("mfa_reauth", ticket);
+  r.ok(Boolean(ticket) && (await stillOld.c.get("/admin/profile/mfa/setup")).status === 303, "Chép vé xác thực lại sang lần đăng nhập khác (fam khác) → vẫn bị từ chối");
+  stillOld.c.jar.delete("mfa_reauth");
+  const past = Math.floor(Date.now() / 1000) - 11 * 60;
+  c.jar.set("mfa_reauth", jwt.sign({ fam: famOf(c), iat: past }, process.env.JWT_SECRET, { algorithm: "HS256", subject: String(u.id), issuer: "nhahang-bai1", audience: "nhahang-bai1:mfa-replace", expiresIn: 600 }));
   const late = await c.get("/admin/profile/mfa/setup");
-  r.ok(Boolean(flagged) && late.status === 303, "Quá 10 phút sau xác thực lại: không mở được trang đổi thiết bị", late.status);
-  await setFlag(Date.now());
+  r.ok(late.status === 303, "Quá 10 phút sau xác thực lại: không mở được trang đổi thiết bị", late.status);
+  c.jar.set("mfa_reauth", ticket);
 
   await c.get("/admin/profile/mfa/setup");
   a = await c.post("/admin/profile/mfa/setup/confirm", [["otp", totpFor(fresh)]]);

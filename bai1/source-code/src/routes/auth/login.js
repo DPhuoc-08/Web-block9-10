@@ -1,6 +1,6 @@
-// Đăng nhập (form POST → session + cookie sid → 303) và đăng xuất (POST, huỷ session ở server).
+// Đăng nhập (form POST → cookie access + refresh → 303) và đăng xuất (POST, thu hồi refresh token ở server). Plan mục 15.
 // Thứ tự kiểm tra ở POST /login (plan mục 5.4): giới hạn IP + khoá theo email → CAPTCHA (khi bộ đếm yêu cầu)
-// → so mật khẩu → trạng thái tài khoản → tạo session.
+// → so mật khẩu → trạng thái tài khoản → (challenge MFA | cấp access + refresh).
 // Bộ đếm sai theo EMAIL chuẩn hoá nằm ở DB (không ở cookie): xoá cookie, mở tab ẩn danh không đặt lại được; email không
 // có tài khoản cũng có bộ đếm → việc đòi CAPTCHA không tiết lộ email nào tồn tại.
 import { Router } from "express";
@@ -13,6 +13,12 @@ import { one } from "../../forms.js";
 import { hit, peek, reset, limit, retryAfter } from "../../auth/rate-limit.js";
 import { verifyRecaptcha, recaptchaSiteKey } from "../../auth/recaptcha.js";
 import { tooMany, captchaUnavailable, minutesOf } from "../../auth/pages.js";
+import { getCookie, setCookie, clearCookie } from "../../auth/cookies.js";
+import { resetCsrf } from "../../auth/csrf.js";
+import { setTokens, clearTokens } from "../../auth/load-user.js";
+import { startFamily, revokeFamily } from "../../auth/refresh.js";
+import { issueChallenge } from "../../auth/mfa-challenge.js";
+import { readActivation, writeActivation } from "../../auth/activation-hint.js";
 
 // Chính sách công bố (plan mục 4).
 const MIN = 60_000;
@@ -50,14 +56,14 @@ const locked = (res, until) =>
     button: { href: "/forgot", label: "Đặt lại mật khẩu" },
   });
 
-const regenerate = (req) => new Promise((resolve, reject) => req.session.regenerate((err) => (err ? reject(err) : resolve())));
-const save = (req) => new Promise((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
+const HINT_MS = 15 * MIN; // cookie gợi ý giao diện (email vừa gõ): chỉ để hiện sẵn ô CAPTCHA, chặn thật nằm ở rate_limits
+const MFA_COOKIE_MS = 15 * MIN; // cookie sống lâu hơn hạn 5 phút ở DB, để quá hạn thì báo "đã hết hạn" thay vì im lặng về /login
 
 router.get("/login", async (req, res) => {
   if (res.locals.currentUser) return res.redirect(303, safeNext(one(req.query.next)));
   const msg = one(req.query.msg);
-  // Email đã gõ ở lần trước (nhớ trong phiên) đang bị đòi CAPTCHA → form hiện sẵn ô CAPTCHA.
-  const email = req.session?.loginEmail ?? "";
+  // Email đã gõ ở lần trước (cookie login_email) đang bị đòi CAPTCHA → form hiện sẵn ô CAPTCHA.
+  const email = normalizeEmail(getCookie(req, "loginEmail") ?? "");
   await renderLogin(res, { values: { email }, banner: Object.hasOwn(LOGIN_MSG, msg) ? LOGIN_MSG[msg] : null, next: one(req.query.next), captchaRequired: await needsCaptcha(email) });
 });
 
@@ -76,7 +82,7 @@ router.post("/login", async (req, res) => {
     return again({ kind: "error", text: "Nhập email và mật khẩu." }, "VALIDATION_FAILED", { ...(email ? {} : { email: "Nhập email." }), ...(password ? {} : { password: "Nhập mật khẩu." }) });
   }
 
-  if (req.session) req.session.loginEmail = email; // để GET /login sau đó biết có cần hiện CAPTCHA
+  setCookie(res, "loginEmail", email, HINT_MS); // để GET /login sau đó biết có cần hiện CAPTCHA
 
   // 2. Đang khoá (đủ 10 lần sai trong cửa sổ) → 429, KHÔNG xét CAPTCHA hay mật khẩu.
   const state = await peek(failKey(email), { windowMs: FAIL_WINDOW });
@@ -96,7 +102,7 @@ router.post("/login", async (req, res) => {
 
   // 4. So mật khẩu. Email không có tài khoản vẫn chạy verify với hash giả → cùng thời gian, cùng một câu thông báo:
   //    người ngoài không phân biệt được "sai email" với "sai mật khẩu" (không dò được email nào đã đăng ký).
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, status: true, mfaEnabled: true } });
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, status: true, mfaEnabled: true, tokenVersion: true } });
   const ok = await verifyPassword(user?.passwordHash ?? null, password);
   if (!ok) {
     // Sai → tăng bộ đếm theo email (giải đúng CAPTCHA KHÔNG xoá bộ đếm). Đủ 10 lần → khoá 5 phút.
@@ -109,39 +115,38 @@ router.post("/login", async (req, res) => {
     );
   }
 
-  // Đúng mật khẩu nhưng chưa kích hoạt: KHÔNG tạo session. Chỉ người đã biết mật khẩu mới thấy lý do (đề chấp nhận
-  // đánh đổi này). Kiểm tra nằm ở đây — hàm cấp session — không chỉ ở giao diện.
+  // Đúng mật khẩu nhưng chưa kích hoạt: KHÔNG cấp token. Chỉ người đã biết mật khẩu mới thấy lý do (đề chấp nhận
+  // đánh đổi này). Kiểm tra nằm ở đây — hàm cấp token — không chỉ ở giao diện.
   if (user.status !== "active") {
-    req.session.activationEmail = email; // điền sẵn ở trang nhập mã, không đưa email lên URL
+    writeActivation(req, res, { ...readActivation(req), email }); // điền sẵn ở trang nhập mã, không đưa email lên URL
     return again({ kind: "info", text: "Tài khoản chưa được kích hoạt. Nhập mã 6 số trong email để kích hoạt.", link: { href: "/activate", text: "Nhập mã kích hoạt →" } }, "ACCOUNT_NOT_ACTIVATED");
   }
 
-  // Đăng nhập thành công: phiên MỚI với sid MỚI (regenerate huỷ bản ghi phiên cũ) → một sid có từ trước (session
-  // fixation) không trở thành phiên đã đăng nhập. CSRF token cũ đi theo phiên cũ; trang sau tự tạo token mới.
   // 5. Chỉ đăng nhập THÀNH CÔNG mới xoá bộ đếm theo email (không xoá giới hạn IP).
   await reset(failKey(email));
-  await regenerate(req);
-  // Password đúng nhưng đã bật MFA: phiên chỉ có mfaPending, KHÔNG có userId, nên chưa phải phiên đầy đủ. Mọi đường cấp phiên
-  // phải đi qua nhánh này (slide 20); userId chỉ được gán sau khi qua bước MFA (routes/auth/mfa.js).
+  // Đang đăng nhập tài khoản khác trên trình duyệt này: thu hồi lần đăng nhập cũ trước. CSRF token cũ bỏ đi, trang sau tạo mới.
+  if (res.locals.auth) await revokeFamily(res.locals.auth.familyId);
+  clearTokens(res);
+  resetCsrf(req, res);
+  clearCookie(res, "loginEmail");
+  // Password đúng nhưng đã bật MFA: chỉ cấp challenge (cookie mfa), KHÔNG có access / refresh token. Mọi đường cấp token phải
+  // đi qua nhánh này (slide 20); token chỉ được cấp sau khi qua bước MFA (routes/auth/mfa.js).
   if (user.mfaEnabled) {
-    req.session.mfaPending = { userId: user.id, at: Date.now(), next };
-    await save(req);
+    setCookie(res, "mfa", await issueChallenge(user.id, next), MFA_COOKIE_MS);
     return res.redirect(303, "/login/mfa");
   }
-  req.session.userId = user.id;
-  req.session.loginAt = Date.now();
-  await save(req); // ghi xong bản ghi phiên rồi mới redirect: request kế tiếp chắc chắn tra ra phiên
+  setTokens(res, user, await startFamily(user));
   res.redirect(303, safeNext(next));
 });
 
 // Đăng xuất là POST (có _csrf): GET chỉ đọc, link / ảnh trên trang khác không kích hoạt được.
-// Huỷ bản ghi phiên ở server TRƯỚC (mọi bản sao của cookie sid cũ thành vô dụng), rồi mới bảo trình duyệt xoá cookie.
-router.post("/logout", (req, res, next) => {
-  req.session.destroy((err) => {
-    if (err) return next(err);
-    res.clearCookie("sid", { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
-    res.redirect(303, "/login?msg=logged-out");
-  });
+// Thu hồi family của refresh token ở server TRƯỚC (mọi bản sao refresh token cũ thành vô dụng), rồi mới xoá cookie.
+// Access token đã cấp vẫn dùng được tới exp, tối đa 90 giây (rủi ro còn lại, plan mục 15).
+router.post("/logout", async (req, res) => {
+  if (res.locals.auth) await revokeFamily(res.locals.auth.familyId);
+  clearTokens(res);
+  resetCsrf(req, res);
+  res.redirect(303, "/login?msg=logged-out");
 });
 
 export default router;

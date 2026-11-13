@@ -10,6 +10,8 @@ import { hit, peek, reset, retryAfter } from "../../auth/rate-limit.js";
 import { tooMany, minutesOf } from "../../auth/pages.js";
 import { one } from "../../forms.js";
 import { mfaSummary } from "../../auth/mfa.js";
+import { setTokens } from "../../auth/load-user.js";
+import { familyExpiry, revokeUserFamilies, startFamily } from "../../auth/refresh.js";
 
 const router = Router();
 const BASE = "/admin/profile";
@@ -65,8 +67,6 @@ const lockedPage = (res, until) =>
     button: { href: BASE, label: "Về hồ sơ" },
   });
 
-const regenerate = (req) => new Promise((resolve, reject) => req.session.regenerate((err) => (err ? reject(err) : resolve())));
-const save = (req) => new Promise((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
 
 router.get("/password", (req, res) => renderPassword(res));
 
@@ -95,23 +95,23 @@ router.post("/password", async (req, res) => {
 
   const passwordHash = await hashPassword(password);
   // MỘT transaction: đổi hash có điều kiện "hash vẫn là hash vừa so" → hai request cùng lúc chỉ một request đổi được; vô hiệu
-  // link đặt lại chưa dùng (link cũ không được đè mật khẩu mới); xoá các phiên KHÁC (người đang giữ sid cũ bị đăng xuất).
+  // link đặt lại chưa dùng (link cũ không được đè mật khẩu mới); tăng tokenVersion (mọi access token đã cấp, kể cả của thiết bị
+  // khác, hết hiệu lực) và thu hồi MỌI family refresh token (thiết bị khác bị đăng xuất). Plan mục 15.
   const changed = await prisma.$transaction(async (tx) => {
-    const { count } = await tx.user.updateMany({ where: { id: userId, passwordHash: user.passwordHash }, data: { passwordHash } });
+    const { count } = await tx.user.updateMany({ where: { id: userId, passwordHash: user.passwordHash }, data: { passwordHash, tokenVersion: { increment: 1 } } });
     if (count !== 1) return false;
     await tx.passwordReset.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } });
-    await tx.session.deleteMany({ where: { userId, NOT: { sid: req.sessionID } } });
+    await revokeUserFamilies(tx, userId);
     return true;
   });
   if (!changed) return renderPassword(res, { status: 400, errors: { currentPassword: "Mật khẩu vừa được đổi ở nơi khác. Hãy nhập lại mật khẩu hiện tại." } });
 
   await reset(key);
-  // Đổi sid sau thao tác nhạy cảm. Giữ loginAt cũ: đổi mật khẩu không được kéo dài hạn tối đa 12 giờ của phiên.
-  const { loginAt } = req.session;
-  await regenerate(req);
-  req.session.userId = userId;
-  req.session.loginAt = loginAt;
-  await save(req);
+  // Trình duyệt đang dùng nhận family MỚI với tokenVersion mới. Giữ trần tuyệt đối của lần đăng nhập cũ: đổi mật khẩu không được
+  // kéo dài hạn tối đa (12 giờ mặc định).
+  const fresh = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, tokenVersion: true } });
+  const familyExpiresAt = (await familyExpiry(res.locals.auth.familyId)) ?? undefined;
+  setTokens(res, fresh, await startFamily(fresh, { familyExpiresAt }));
   sendLater(passwordChangedMail(email)); // báo chủ tài khoản, không chứa mật khẩu
   res.redirect(303, `${BASE}?msg=password-changed`);
 });

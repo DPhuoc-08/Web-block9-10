@@ -4,7 +4,7 @@
 //   node scripts/check-auth.mjs D        → chỉ phần D
 // A: đăng ký + mã kích hoạt + gửi lại. B: CAPTCHA ở đăng ký + giới hạn IP. C: chống brute force ở đăng nhập.
 // D: session + đăng nhập + đăng xuất + chặn CRUD + CSRF. E: quên / đặt lại mật khẩu. F: hồi quy nhanh (thực đơn, CRUD sau đăng nhập).
-// G: hồ sơ, tên hiển thị, đổi mật khẩu (plan 12.4).
+// G: hồ sơ, tên hiển thị, đổi mật khẩu (plan 12.4). H: access token 90 giây + refresh token (plan mục 15).
 // Bản ghi thử (tài khoản *@check.example, "[TEST B8]") được xoá ở cuối; bộ đếm giới hạn của tài khoản thử cũng xoá.
 import "./lib/test-env.mjs"; // .env + key thử reCAPTCHA từ .env.test
 import { prisma } from "../src/db.js";
@@ -14,6 +14,7 @@ import { login } from "./lib/auth.mjs";
 import { startServer, stopServer, serverLog } from "./lib/server.mjs";
 import { waitMail, otpIn, resetLinkIn, clearOutbox } from "./lib/outbox.mjs";
 import { sha256 } from "../src/auth/secrets.js";
+import jwt from "jsonwebtoken";
 
 const only = process.argv.slice(2).map((s) => s.toUpperCase());
 const run = (part) => only.length === 0 || only.includes(part);
@@ -21,7 +22,10 @@ const A = process.env.SEED_ADMIN_EMAIL;
 const PW = process.env.SEED_USER_PASSWORD;
 const T = "check.example"; // tên miền của tài khoản thử
 const results = [];
-const sidOf = (c) => decodeURIComponent(c.jar.get("sid") ?? "").slice(2).split(".")[0];
+// Plan mục 15: đăng nhập = cookie access (JWT 90 giây) + refresh (chuỗi ngẫu nhiên, DB lưu SHA-256). Không còn sid / bảng sessions.
+const signedIn = (c) => Boolean(c.jar.get("access") || c.jar.get("refresh"));
+const refreshRow = (c) => (c.jar.get("refresh") ? prisma.refreshToken.findUnique({ where: { tokenHash: sha256(decodeURIComponent(c.jar.get("refresh"))) } }) : null);
+const jwtPayload = (c) => JSON.parse(Buffer.from(decodeURIComponent(c.jar.get("access") ?? "..").split(".")[1] ?? "", "base64url").toString() || "{}");
 // So hai trang: bỏ phần khác nhau theo phiên / thời điểm (CSRF token, email đã gõ, số giây đếm ngược của "Gửi lại mã").
 const strip = (t) => t.replace(/name="_csrf" value="[^"]+"/g, "").replace(/value="[^"]*@[^"]*"/g, "").replace(/data-cooldown="\d+"/g, "data-cooldown");
 
@@ -47,6 +51,7 @@ const challengeOf = async (email) => (await prisma.user.findUnique({ where: { em
 const code = (res) => res.text.match(/data-error-code="([A-Z_]+)"/)?.[1] ?? null;
 
 
+const STARTED = new Date();
 const cleanLimits = () => prisma.rateLimit.deleteMany({ where: { OR: [{ key: { contains: `@${T}` } }, { key: { contains: ":ip:" } }] } });
 await cleanLimits(); // bộ đếm theo IP của lần chạy trước (cùng máy) không làm lệch kết quả lần này
 await clearOutbox();
@@ -59,11 +64,13 @@ try {
   if (run("E")) await partE();
   if (run("F")) await partF();
   if (run("G")) await partG();
+  if (run("H")) await partH();
 } finally {
   await stopServer();
   await prisma.user.deleteMany({ where: { email: { endsWith: `@${T}` } } });
   await cleanLimits();
   await prisma.ingredient.deleteMany({ where: { name: { startsWith: "[TEST B8]" } } });
+  await prisma.refreshToken.deleteMany({ where: { createdAt: { gte: STARTED } } }); // token script cấp cho tài khoản seed
 }
 const pass = results.reduce((s, x) => s + x.pass, 0);
 const fail = results.reduce((s, x) => s + x.fail, 0);
@@ -103,8 +110,9 @@ async function partD() {
   }
   r.ok(bare.length === 0 && (await counts()) === before, `${writes.length} request ghi KHÔNG cookie, KHÔNG _csrf (curl trần) → cũng 303 /login, dữ liệu không đổi`, bare.join(", "));
   const forged = client();
-  forged.jar.set("sid", "s%3Abia-dat.chu-ky-gia");
-  r.ok((await forged.get("/admin/dishes")).status === 303, "Cookie sid bịa → 303 /login (không lỗi 500)");
+  forged.jar.set("access", "bia.dat.chu-ky-gia");
+  forged.jar.set("refresh", "khong-co-trong-db");
+  r.ok((await forged.get("/admin/dishes")).status === 303, "Cookie access / refresh bịa → 303 /login (không lỗi 500)");
 
   // Sai mật khẩu và email không có → cùng một thông báo, cùng status; form giữ email, không giữ mật khẩu.
   const c1 = client(); await c1.get("/login");
@@ -113,18 +121,21 @@ async function partD() {
   const noUser = await c2.post("/login", [["email", `khong-co@${T}`], ["password", "sai-mat-khau-123"]]);
   r.ok(wrongPw.status === 200 && noUser.status === 200 && wrongPw.text.includes('data-error-code="INVALID_CREDENTIALS"') && strip(wrongPw.text) === strip(noUser.text), "Sai mật khẩu / email không có → cùng 200, cùng nội dung");
   r.ok(wrongPw.text.includes(`value="${A}"`) && !wrongPw.text.includes("sai-mat-khau-123"), "Form giữ email, không điền lại mật khẩu");
-  r.ok((await prisma.session.findUnique({ where: { sid: sidOf(c1) } }))?.userId == null, "Sai mật khẩu → không có phiên đăng nhập");
+  r.ok(!signedIn(c1), "Sai mật khẩu → không có access / refresh token");
 
-  // Đăng nhập đúng: 303 + Set-Cookie, sid MỚI (phiên ẩn danh cũ bị xoá), bản ghi phiên có userId.
+  // Đăng nhập đúng: 303 + hai cookie HttpOnly SameSite=Lax; access là JWT 90 giây không chứa role; DB chỉ lưu hash của refresh.
   const c = client(); await c.get("/login");
-  const sidBefore = sidOf(c);
+  const csrfBefore = c.jar.get("csrf");
   const ok = await c.post("/login", [["email", `  ${A.toUpperCase()}`], ["password", PW]]);
-  const sidAfter = sidOf(c);
-  const setCookie = ok.headers.get("set-cookie") ?? "";
-  r.ok(ok.status === 303 && ok.location === "/admin/dishes" && /HttpOnly/i.test(setCookie) && /SameSite=Lax/i.test(setCookie), "Đăng nhập đúng (email viết hoa + khoảng trắng) → 303, Set-Cookie sid HttpOnly SameSite=Lax", setCookie.replace(/sid=[^;]+/, "sid=…"));
-  r.ok(Boolean(sidBefore) && sidBefore !== sidAfter && !(await prisma.session.findUnique({ where: { sid: sidBefore } })), "sid trước ≠ sid sau đăng nhập; phiên cũ bị xoá (chống session fixation)");
+  const cookies = ok.headers.getSetCookie();
+  const flags = (name) => cookies.find((l) => l.startsWith(`${name}=`) && !/=;/.test(l)) ?? "";
+  r.ok(ok.status === 303 && ok.location === "/admin/dishes" && ["access", "refresh"].every((n) => /HttpOnly/i.test(flags(n)) && /SameSite=Lax/i.test(flags(n)) && /Path=\//.test(flags(n))), "Đăng nhập đúng (email viết hoa + khoảng trắng) → 303, Set-Cookie access + refresh HttpOnly SameSite=Lax", cookies.map((l) => l.split("=")[0]).join(","));
   const admin = await prisma.user.findUnique({ where: { email: A } });
-  r.ok((await prisma.session.findUnique({ where: { sid: sidAfter } }))?.userId === admin.id, "Bản ghi phiên mới có userId của tài khoản");
+  const claims = jwtPayload(c);
+  r.ok(claims.exp - claims.iat === 90 && claims.sub === String(admin.id) && claims.iss === "nhahang-bai1" && !("role" in claims) && !("email" in claims) && /Max-Age=90\b/.test(flags("access")), "Access token: JWT 90 giây, sub là id, không có role / email", `${claims.exp - claims.iat}`);
+  const row0 = await refreshRow(c);
+  r.ok(row0?.userId === admin.id && row0.familyId === claims.fam && !JSON.stringify(row0).includes(decodeURIComponent(c.jar.get("refresh"))), "Refresh token: DB có dòng của user, cùng family với access, chỉ lưu hash");
+  r.ok(Boolean(csrfBefore) && c.jar.get("csrf") !== csrfBefore, "CSRF token trước khi đăng nhập bị bỏ (trang sau tạo token mới)");
   const page = await c.get("/admin/dishes");
   r.ok(page.status === 200 && page.headers.get("cache-control") === "no-store" && page.text.includes(A) && page.text.includes('action="/logout"'), "Vào /admin/dishes: 200, Cache-Control no-store, header có email + Đăng xuất (form POST)");
   r.ok((await c.get("/login")).status === 303, "Đã đăng nhập mà mở /login → 303");
@@ -144,7 +155,7 @@ async function partD() {
   await prisma.user.create({ data: { email: `pending@${T}`, emailInput: `pending@${T}`, passwordHash: await hashPassword("mat-khau-pending-1") } });
   const p = client(); await p.get("/login");
   const pend = await p.post("/login", [["email", `pending@${T}`], ["password", "mat-khau-pending-1"]]);
-  r.ok(pend.status === 200 && pend.text.includes('data-error-code="ACCOUNT_NOT_ACTIVATED"') && (await prisma.session.findUnique({ where: { sid: sidOf(p) } }))?.userId == null, "Pending đúng mật khẩu → 200, báo chưa kích hoạt, không có phiên đăng nhập");
+  r.ok(pend.status === 200 && pend.text.includes('data-error-code="ACCOUNT_NOT_ACTIVATED"') && !signedIn(p), "Pending đúng mật khẩu → 200, báo chưa kích hoạt, không có token");
   r.ok((await p.get("/admin/dishes")).status === 303, "Pending vẫn bị chặn ở /admin");
 
   // CSRF (biện pháp nhóm công bố: SameSite=Lax + token đồng bộ + Origin).
@@ -161,25 +172,27 @@ async function partD() {
   res = await c.post("/admin/dishes/1?_method=DELETE", [], { csrf: false });
   r.ok(res.status === 403 && Boolean(await prisma.dish.findUnique({ where: { id: 1 } })), "?_method=DELETE thiếu _csrf → 403 (kiểm tra trước method-override)");
 
-  // Khởi động lại server: cùng cookie vẫn đăng nhập (phiên nằm trong DB, không trong bộ nhớ tiến trình).
+  // Khởi động lại server: cùng cookie vẫn đăng nhập (access là JWT tự kiểm được; refresh nằm trong DB, không trong bộ nhớ).
   await stopServer();
   await startServer({ MAIL_TRANSPORT: "file" });
   const afterRestart = await c.get("/admin/dishes");
-  r.ok(afterRestart.status === 200 && afterRestart.text.includes(A) && Boolean(await prisma.session.findUnique({ where: { sid: sidAfter } })), "Dừng + chạy lại server, dùng lại cookie → vẫn đăng nhập, bản ghi phiên còn trong DB");
+  r.ok(afterRestart.status === 200 && afterRestart.text.includes(A), "Dừng + chạy lại server, dùng lại cookie → vẫn đăng nhập");
 
-  // Đăng xuất: huỷ phiên ở server rồi xoá cookie; bản sao sid cũ bị từ chối; GET /logout không đăng xuất được.
-  const copy = c.jar.get("sid");
+  // Đăng xuất: thu hồi family ở server rồi xoá cookie; bản sao refresh token cũ bị từ chối; GET /logout không đăng xuất được.
+  const copy = c.jar.get("refresh");
+  const famBefore = (await refreshRow(c)).familyId;
   res = await c.post("/logout", [], { csrf: false });
-  r.ok(res.status === 403 && Boolean(await prisma.session.findUnique({ where: { sid: sidAfter } })), "Còn đăng nhập, POST /logout thiếu _csrf → 403, phiên còn nguyên");
+  r.ok(res.status === 403 && (await prisma.refreshToken.count({ where: { familyId: famBefore, revokedAt: null } })) === 1, "Còn đăng nhập, POST /logout thiếu _csrf → 403, refresh token còn nguyên");
   const secondTab = client();
-  secondTab.jar.set("sid", copy);
-  await secondTab.get("/admin/dishes"); // tab thứ hai mở trước, giữ _csrf của phiên
+  for (const [k, v] of c.jar) secondTab.jar.set(k, v); // tab thứ hai: cùng trình duyệt, cùng cookie
+  await secondTab.get("/admin/dishes"); // mở trước, giữ _csrf
   const out = await c.post("/logout");
-  r.ok(out.status === 303 && out.location === "/login?msg=logged-out" && /sid=;/.test(out.headers.get("set-cookie") ?? ""), "Đăng xuất → 303 /login, Set-Cookie xoá sid");
-  r.ok(!(await prisma.session.findUnique({ where: { sid: sidAfter } })), "Bản ghi phiên đã bị xoá ở server");
+  const outCookies = out.headers.getSetCookie().join("\n");
+  r.ok(out.status === 303 && out.location === "/login?msg=logged-out" && /^access=;/m.test(outCookies) && /^refresh=;/m.test(outCookies), "Đăng xuất → 303 /login, Set-Cookie xoá access + refresh");
+  r.ok((await prisma.refreshToken.count({ where: { familyId: famBefore, revokedAt: null } })) === 0, "Cả family refresh token đã bị thu hồi ở server");
   const thief = client();
-  thief.jar.set("sid", copy);
-  r.ok((await thief.get("/admin/dishes")).status === 303, "Dùng lại bản sao sid cũ sau khi đăng xuất → 303 /login");
+  thief.jar.set("refresh", copy);
+  r.ok((await thief.get("/admin/dishes")).status === 303, "Dùng lại bản sao refresh token sau khi đăng xuất → 303 /login");
   r.ok((await client().get("/logout")).status === 404, "GET /logout → 404 (đăng xuất chỉ bằng POST)");
   const tab2Out = await secondTab.post("/logout");
   r.ok(tab2Out.status === 303 && tab2Out.location === "/login?msg=logged-out", "Đã đăng xuất ở tab khác, bấm Đăng xuất ở tab này → 303 /login, không phải 403", `${tab2Out.status}`);
@@ -202,7 +215,7 @@ async function partA() {
   r.ok(Boolean(otp1) && !res.text.includes(otp1) && !page1.text.includes(otp1), "Mã 6 số có trong email, KHÔNG có trong response / trang");
   const p1 = client(); await p1.get("/login");
   res = await p1.post("/login", [["email", e1], ["password", "mat-khau-thu-123"]]);
-  r.ok(code(res) === "ACCOUNT_NOT_ACTIVATED" && (await prisma.session.findUnique({ where: { sid: sidOf(p1) } }))?.userId == null, "Tài khoản pending đăng nhập đúng mật khẩu → không cấp session");
+  r.ok(code(res) === "ACCOUNT_NOT_ACTIVATED" && !signedIn(p1), "Tài khoản pending đăng nhập đúng mật khẩu → không cấp token");
   res = await p1.post("/login", [["email", e1], ["password", otp1]]);
   r.ok(code(res) === "INVALID_CREDENTIALS", "Dùng mã kích hoạt làm mật khẩu ở /login → bị từ chối");
 
@@ -249,7 +262,7 @@ async function partA() {
   res = await activate(ca, e1, otp2);
   const done = await prisma.user.findUnique({ where: { email: e1 }, include: { activation: true } });
   r.ok(res.status === 303 && res.location === "/login?msg=activated" && done.status === "active" && done.emailVerifiedAt && done.activation.usedAt, "Hết khoá, mã mới đúng → 303 /login, active, có emailVerifiedAt, usedAt");
-  r.ok((await prisma.session.findUnique({ where: { sid: sidOf(ca) } }))?.userId == null && (await ca.get("/admin/dishes")).status === 303, "Kích hoạt xong KHÔNG tự đăng nhập (phiên không có userId, /admin → 303)");
+  r.ok(!signedIn(ca) && (await ca.get("/admin/dishes")).status === 303, "Kích hoạt xong KHÔNG tự đăng nhập (không có token, /admin → 303)");
   res = await activate(ca, e1, otp2);
   r.ok(code(res) === "INVALID_OTP" && (await challengeOf(e1)).usedAt.getTime() === done.activation.usedAt.getTime(), "Dùng lại mã đã dùng → INVALID_OTP, bản ghi không đổi");
   const li = client(); await li.get("/login");
@@ -345,7 +358,7 @@ async function partC() {
   r.ok(code(res) === "INVALID_CREDENTIALS" && res.text.includes('class="g-recaptcha"') && (await fails()) === 3, "Lần sai thứ 3: form sau có CAPTCHA, bộ đếm 3");
   r.ok((await c.get("/login")).text.includes('class="g-recaptcha"'), "Mở lại /login: vẫn hiện CAPTCHA (server nhớ email vừa gõ)");
   res = await attempt(pw);
-  r.ok(code(res) === "CAPTCHA_REQUIRED" && (await fails()) === 3 && (await prisma.session.findUnique({ where: { sid: sidOf(c) } }))?.userId == null, "Đủ ngưỡng, bỏ trường CAPTCHA, mật khẩu ĐÚNG → chặn trước bước so mật khẩu, không đăng nhập, bộ đếm không đổi");
+  r.ok(code(res) === "CAPTCHA_REQUIRED" && (await fails()) === 3 && !signedIn(c), "Đủ ngưỡng, bỏ trường CAPTCHA, mật khẩu ĐÚNG → chặn trước bước so mật khẩu, không đăng nhập, bộ đếm không đổi");
   res = await attempt("sai-4", { token: true });
   r.ok(code(res) === "INVALID_CREDENTIALS" && (await fails()) === 4, "Giải đúng CAPTCHA nhưng sai mật khẩu → bộ đếm tiếp tục tăng (4)");
   const fresh = client();
@@ -355,7 +368,7 @@ async function partC() {
   res = await attempt("sai-10", { token: true });
   r.ok(res.status === 429 && res.headers.get("retry-after") && (await prisma.rateLimit.findUnique({ where: { key } })).lockedUntil > new Date(), "Lần sai thứ 10 → 429 Tạm khoá (Retry-After), khoá 5 phút");
   res = await attempt(pw, { token: true });
-  r.ok(res.status === 429 && (await prisma.session.findUnique({ where: { sid: sidOf(c) } }))?.userId == null, "Đang khoá, gửi mật khẩu ĐÚNG + CAPTCHA đúng → vẫn 429, không có phiên");
+  r.ok(res.status === 429 && !signedIn(c), "Đang khoá, gửi mật khẩu ĐÚNG + CAPTCHA đúng → vẫn 429, không có token");
   // Hết khoá nhưng cửa sổ 15 phút còn: vẫn phải CAPTCHA; đăng nhập đúng → xoá bộ đếm theo email.
   await prisma.rateLimit.update({ where: { key }, data: { lockedUntil: new Date(Date.now() - 1000) } });
   res = await attempt(pw);
@@ -414,7 +427,7 @@ async function partE() {
   let res = await c2.post("/reset", [["token", tok1], ["password", "mat-khau-moi-123"], ["passwordConfirm", "khac-hoan-toan"]]);
   r.ok(code(res) === "VALIDATION_FAILED" && (await prisma.passwordReset.findUnique({ where: { id: row1.id } })).usedAt === null, "Mật khẩu mới không khớp → VALIDATION_FAILED, token chưa bị dùng");
 
-  // Đăng nhập ở "tab 1", đặt lại ở "tab 2" → sid của tab 1 bị từ chối; không tự đăng nhập.
+  // Đăng nhập ở "tab 1", đặt lại ở "tab 2" → token của tab 1 bị từ chối (tokenVersion tăng, family bị thu hồi); không tự đăng nhập.
   const tab1 = client(); await tab1.get("/login");
   await tab1.post("/login", [["email", u], ["password", "mat-khau-cu-123"]]);
   r.ok((await tab1.get("/admin/dishes")).status === 200, "Tab 1 đã đăng nhập bằng mật khẩu cũ");
@@ -424,7 +437,8 @@ async function partE() {
   res = await c2.post("/reset", [["token", tok1], ["password", "mat-khau-moi-123"], ["passwordConfirm", "mat-khau-moi-123"]], { headers: { origin: "null" } });
   const after = await prisma.user.findUnique({ where: { email: u } });
   r.ok(res.status === 303 && res.location === "/login?msg=password-reset" && after.passwordHash !== before.passwordHash && (await c2.get("/admin/dishes")).status === 303, "Đặt lại thành công → 303 /login, đổi passwordHash, KHÔNG tự đăng nhập");
-  r.ok((await tab1.get("/admin/dishes")).status === 303 && (await prisma.session.count({ where: { userId: after.id } })) === 0, "Sid cũ của tab 1 bị từ chối; mọi phiên của user đã bị xoá");
+  r.ok(after.tokenVersion === before.tokenVersion + 1 && (await prisma.refreshToken.count({ where: { userId: after.id, revokedAt: null } })) === 0, "tokenVersion tăng, mọi family refresh token của user bị thu hồi");
+  r.ok((await tab1.get("/admin/dishes")).status === 303, "Tab 1 (access token còn hạn nhưng tv cũ, refresh đã thu hồi) → 303 /login");
   r.ok(Boolean(await waitMail(u, "password-changed", { after: t1 })), "Có thư báo “Mật khẩu đã được đổi” (không chứa mật khẩu)");
   const l1 = client(); await l1.get("/login");
   const oldPw = await l1.post("/login", [["email", u], ["password", "mat-khau-cu-123"]]);
@@ -471,8 +485,8 @@ async function partE() {
   const asOtp = await activate(client(), z, tokZ);
   const asPw = client(); await asPw.get("/login");
   const asPwRes = await asPw.post("/login", [["email", z], ["password", tokZ]]);
-  const asSid = client(); asSid.jar.set("sid", tokZ);
-  r.ok(code(asOtp) === "INVALID_OTP" && code(asPwRes) === "INVALID_CREDENTIALS" && (await asSid.get("/admin/dishes")).status === 303, "Reset token dùng làm mã kích hoạt / mật khẩu / cookie sid → đều bị từ chối");
+  const asCookie = client(); asCookie.jar.set("refresh", tokZ); asCookie.jar.set("access", tokZ);
+  r.ok(code(asOtp) === "INVALID_OTP" && code(asPwRes) === "INVALID_CREDENTIALS" && (await asCookie.get("/admin/dishes")).status === 303, "Reset token dùng làm mã kích hoạt / mật khẩu / cookie access, refresh → đều bị từ chối");
 
   // Đặt lại mật khẩu không kích hoạt tài khoản pending.
   const pnd = await mkUser("pending", "pending"), t6 = Date.now();
@@ -588,31 +602,29 @@ async function partG() {
   r.ok(res.status === 429 && (await row(u.id)).passwordHash === original, "Phiên mới (cookie khác) vẫn bị khoá: bộ đếm ở DB theo user");
   await prisma.rateLimit.deleteMany({ where: { key: `password-change-fail:user:${u.id}` } });
 
-  // Đổi thành công: phiên này còn với sid mới, phiên khác bị từ chối, link đặt lại cũ hết dùng được, có thư báo.
+  // Đổi thành công: thiết bị này còn đăng nhập với family mới, thiết bị khác bị từ chối, link đặt lại cũ hết dùng được, có thư báo.
   const otherDevice = await loggedIn(u.email);
   const stale = client();
   await otherDevice.get("/admin/dishes");
   const token = "token-dat-lai-chua-dung-cua-tai-khoan-thu";
   await prisma.passwordReset.create({ data: { userId: u.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 600_000) } });
   await c.get("/admin/profile/password");
-  const sidBefore = sidOf(c), copy = c.jar.get("sid");
-  stale.jar.set("sid", copy);
-  const loginAtBefore = (await prisma.session.findUnique({ where: { sid: sidBefore } })).data.loginAt;
+  for (const [k, v] of c.jar) stale.jar.set(k, v); // bản sao cookie của thiết bị này trước khi đổi
+  const rowBefore = await refreshRow(c);
   const t0 = Date.now();
   await prisma.rateLimit.create({ data: { key: `password-change-fail:user:${u.id}`, count: 2, windowStart: new Date() } });
   res = await c.post("/admin/profile/password", [["currentPassword", OLD], ["password", NEW], ["passwordConfirm", NEW]]);
   r.ok(res.status === 303 && res.location === "/admin/profile?msg=password-changed", "Đổi đúng → 303 về hồ sơ", res.location);
   r.ok((await row(u.id)).passwordHash.startsWith("$argon2id$") && (await row(u.id)).passwordHash !== original, "Hash mới dạng Argon2id");
   r.ok((await failCount()) === 0, "Đổi thành công xoá bộ đếm sai");
-  const sidNew = sidOf(c);
-  const newRow = await prisma.session.findUnique({ where: { sid: sidNew } });
-  r.ok(sidNew !== sidBefore && !(await prisma.session.findUnique({ where: { sid: sidBefore } })) && newRow?.userId === u.id, "sid đổi, phiên cũ của thiết bị này đã xoá");
-  r.ok(newRow.data.loginAt === loginAtBefore, "loginAt giữ nguyên: không kéo dài hạn tối đa 12 giờ");
+  const newRow = await refreshRow(c);
+  r.ok(newRow?.userId === u.id && newRow.familyId !== rowBefore.familyId && jwtPayload(c).tv === (await row(u.id)).tokenVersion && (await row(u.id)).tokenVersion === rowBefore.tokenVersion + 1, "Thiết bị này nhận family mới, access token mang tokenVersion mới");
+  r.ok(newRow.familyExpiresAt.getTime() === rowBefore.familyExpiresAt.getTime(), "Trần tuyệt đối giữ nguyên: đổi mật khẩu không kéo dài hạn tối đa 12 giờ");
   page = await c.get(res.location);
   r.ok(page.status === 200 && page.text.includes("Đã đổi mật khẩu."), "Thiết bị này vẫn đăng nhập, có thông báo");
   r.ok((await otherDevice.get("/admin/dishes")).status === 303, "Thiết bị khác → 303 /login");
-  r.ok((await stale.get("/admin/dishes")).status === 303, "Bản sao sid cũ → 303 /login");
-  r.ok((await prisma.session.count({ where: { userId: u.id } })) === 1, "Chỉ còn đúng một phiên của tài khoản");
+  r.ok((await stale.get("/admin/dishes")).status === 303, "Bản sao cookie cũ của thiết bị này → 303 /login");
+  r.ok((await prisma.refreshToken.count({ where: { userId: u.id, revokedAt: null } })) === 1, "Chỉ còn đúng một refresh token hiệu lực của tài khoản");
   r.ok((await prisma.passwordReset.findUnique({ where: { tokenHash: sha256(token) } })).usedAt !== null, "Link đặt lại chưa dùng bị vô hiệu");
   const mail = await waitMail(u.email, "password-changed", { after: t0 });
   r.ok(Boolean(mail) && !mail.includes(NEW) && !mail.includes(OLD), "Có thư báo đã đổi, không chứa mật khẩu");
@@ -639,6 +651,106 @@ async function partG() {
   const log = serverLog();
   r.ok(![OLD, NEW, "song-song-mot-111", "song-song-hai-222", "sai-mat-khau-1"].some((s) => log.includes(s)), "Log server không chứa mật khẩu");
   await prisma.rateLimit.deleteMany({ where: { key: { in: [u.id, v.id, act.id, other.id].map((id) => `password-change-fail:user:${id}`) } } });
+  results.push(r.counts);
+}
+
+async function partH() {
+  const r = reporter("H. Access token 90 giây + refresh token (plan mục 15)");
+  await prisma.rateLimit.deleteMany({ where: { key: { startsWith: "login:ip:" } } });
+  const email = newEmail("refresh"), pw = "mat-khau-refresh-1";
+  // Admin: để ca gửi form (thêm nguyên liệu) qua được RBAC; phần này chỉ kiểm cơ chế token.
+  const u = await prisma.user.create({ data: { email, emailInput: email, passwordHash: await hashPassword(pw), status: "active", emailVerifiedAt: new Date(), role: "admin" } });
+  const fresh = async () => { const c = client(); await login(c, email, pw); return c; };
+  const rowOf = (token) => prisma.refreshToken.findUnique({ where: { tokenHash: sha256(decodeURIComponent(token)) } });
+  const KEY = process.env.JWT_SECRET, CL = { issuer: "nhahang-bai1", audience: "nhahang-bai1" };
+
+  // 1. Access hết hạn (trình duyệt đã xoá cookie sau Max-Age 90 giây) → server tự refresh trong chính request đó.
+  const c = await fresh();
+  const rt0 = c.jar.get("refresh"), fam = jwtPayload(c).fam;
+  c.jar.delete("access");
+  let res = await c.get("/admin/dishes");
+  const set = res.headers.getSetCookie().join("\n");
+  const rt1 = c.jar.get("refresh");
+  r.ok(res.status === 200 && /^access=[^;]+/m.test(set) && /^refresh=[^;]+/m.test(set) && rt1 !== rt0, "Không còn access, còn refresh → 200, server cấp cặp mới ngay trong request (refresh token đổi)");
+  const old0 = await rowOf(rt0), new1 = await rowOf(rt1);
+  r.ok(old0.usedAt !== null && new1.familyId === fam && new1.usedAt === null && jwtPayload(c).fam === fam, "Rotation: dòng cũ có usedAt, dòng mới cùng family");
+
+  // 2. Access hết hạn thật (JWT exp đã qua, chữ ký đúng) cũng đi đường refresh; form POST không bị mất.
+  c.jar.set("access", jwt.sign({ tv: 0, fam }, KEY, { algorithm: "HS256", subject: String(u.id), ...CL, expiresIn: -5 }));
+  await c.get("/admin/ingredients/new");
+  c.jar.set("access", jwt.sign({ tv: 0, fam }, KEY, { algorithm: "HS256", subject: String(u.id), ...CL, expiresIn: -5 }));
+  res = await c.post("/admin/ingredients", [["name", "[TEST B8] refresh giua form"], ["unit", "kg"]]);
+  r.ok(res.status === 303 && Boolean(await prisma.ingredient.findFirst({ where: { name: "[TEST B8] refresh giua form" } })), "Access hết hạn đúng lúc gửi form → server refresh rồi xử lý tiếp, dữ liệu form được ghi", res.status);
+  const rt2 = c.jar.get("refresh");
+
+  // 3. Dùng lại refresh token đã dùng → thu hồi cả family (plan 15.2 b: nghiêm ngặt).
+  const thief = client(); thief.jar.set("refresh", rt0);
+  r.ok((await thief.get("/admin/dishes")).status === 303, "Refresh token đã dùng gửi lại → 303 /login");
+  r.ok((await prisma.refreshToken.count({ where: { familyId: fam, revokedAt: null } })) === 0, "Phát hiện dùng lại → cả family bị thu hồi");
+  c.jar.delete("access");
+  r.ok((await c.get("/admin/dishes")).status === 303 && (await rowOf(rt2)).revokedAt !== null, "Token mới nhất của chủ thật cũng hết dùng được → phải đăng nhập lại");
+
+  // 4. Hai request cùng lúc mang cùng refresh token (không có access) → tối đa một request được cặp mới, family bị thu hồi.
+  const d = await fresh(); d.jar.delete("access");
+  const dFam = (await rowOf(d.jar.get("refresh"))).familyId;
+  const twin = client(); twin.jar.set("refresh", d.jar.get("refresh"));
+  const both = await Promise.all([d.get("/admin/dishes"), twin.get("/admin/dishes")]);
+  r.ok(both.filter((x) => x.status === 200).length <= 1 && (await prisma.refreshToken.count({ where: { familyId: dFam, revokedAt: null } })) === 0, "Hai request đồng thời cùng refresh token → tối đa một 200, family bị thu hồi", both.map((x) => x.status).join(","));
+
+  // 5. Hạn không hoạt động và trần tuyệt đối (phương án 3, plan 15.2 a).
+  const e = await fresh();
+  const eRow = await rowOf(e.jar.get("refresh"));
+  const mins = (a, b) => Math.round((a - b) / 60_000);
+  r.ok(mins(eRow.expiresAt, eRow.createdAt) === 120 && mins(eRow.familyExpiresAt, eRow.createdAt) === 720, "Mặc định: token sống 120 phút không hoạt động, cả lần đăng nhập tối đa 720 phút", `${mins(eRow.expiresAt, eRow.createdAt)}/${mins(eRow.familyExpiresAt, eRow.createdAt)}`);
+  await prisma.refreshToken.update({ where: { id: eRow.id }, data: { familyExpiresAt: new Date(Date.now() + 30_000) } });
+  e.jar.delete("access");
+  await e.get("/admin/dishes");
+  const eNext = await rowOf(e.jar.get("refresh"));
+  r.ok(eNext.expiresAt <= eNext.familyExpiresAt && eNext.familyExpiresAt.getTime() === eNext.familyExpiresAt.getTime() && eNext.expiresAt.getTime() - Date.now() <= 31_000, "Xoay vòng không kéo dài quá trần tuyệt đối của family");
+  await prisma.refreshToken.update({ where: { id: eNext.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  e.jar.delete("access");
+  r.ok((await e.get("/admin/dishes")).status === 303, "Refresh token quá hạn (không hoạt động / chạm trần) → 303 /login");
+
+  // 6. Số demo qua .env: cùng đường code, chỉ khác con số. Số sai → server không khởi động.
+  await stopServer();
+  await startServer({ MAIL_TRANSPORT: "file", REFRESH_IDLE_MINUTES: "2", REFRESH_ABSOLUTE_MINUTES: "5" });
+  const g = await fresh();
+  const gRow = await rowOf(g.jar.get("refresh"));
+  r.ok(mins(gRow.expiresAt, gRow.createdAt) === 2 && mins(gRow.familyExpiresAt, gRow.createdAt) === 5 && jwtPayload(g).exp - jwtPayload(g).iat === 90, "REFRESH_IDLE_MINUTES=2, REFRESH_ABSOLUTE_MINUTES=5 → refresh 2 / 5 phút, access vẫn 90 giây");
+  await stopServer();
+  let refused = "";
+  try { await startServer({ MAIL_TRANSPORT: "file", REFRESH_IDLE_MINUTES: "10", REFRESH_ABSOLUTE_MINUTES: "5" }); } catch (err) { refused = err.message; }
+  r.ok(refused.includes("REFRESH_IDLE_MINUTES"), "IDLE > ABSOLUTE → server không khởi động");
+  await stopServer();
+  await startServer({ MAIL_TRANSPORT: "file" });
+
+  // 7. Access token giả / sửa payload / alg none, tv lệch, tài khoản không active → không được nhận.
+  const h = await fresh();
+  const hClaims = jwtPayload(h);
+  const forgeries = {
+    "chữ ký sai": jwt.sign({ tv: 0, fam: hClaims.fam }, "khoa-gia-dai-hon-32-byte-cho-du-dieu-kien", { algorithm: "HS256", subject: String(u.id), ...CL, expiresIn: 60 }),
+    "alg none": `${Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify({ ...hClaims, sub: String(u.id) })).toString("base64url")}.`,
+    "sai audience": jwt.sign({ tv: 0, fam: hClaims.fam }, KEY, { algorithm: "HS256", subject: String(u.id), issuer: "nhahang-bai1", audience: "nhahang-bai1:mfa-replace", expiresIn: 60 }),
+    "tv lệch": jwt.sign({ tv: 9, fam: hClaims.fam }, KEY, { algorithm: "HS256", subject: String(u.id), ...CL, expiresIn: 60 }),
+  };
+  const accepted = [];
+  for (const [label, token] of Object.entries(forgeries)) {
+    const f = client(); f.jar.set("access", token);
+    if ((await f.get("/admin/dishes")).status !== 303) accepted.push(label);
+  }
+  r.ok(accepted.length === 0, "Access token chữ ký sai / alg none / sai audience / tv lệch → 303 /login", accepted.join(", "));
+  await prisma.user.update({ where: { id: u.id }, data: { status: "pending" } });
+  r.ok((await h.get("/admin/dishes")).status === 303, "Tài khoản không còn active → access token còn hạn cũng bị từ chối");
+  await prisma.user.update({ where: { id: u.id }, data: { status: "active" } });
+
+  // 8. Trình duyệt tự xin /favicon.ico: không đi qua refresh (nếu không sẽ thành hai request cùng refresh token).
+  const k = await fresh(); k.jar.delete("access");
+  const kToken = k.jar.get("refresh");
+  res = await k.get("/favicon.ico");
+  r.ok(res.status === 204 && res.headers.getSetCookie().length === 0 && (await rowOf(kToken)).usedAt === null, "GET /favicon.ico → 204, không xoay vòng refresh token");
+
+  const log = serverLog();
+  r.ok(![rt0, rt1, rt2, kToken, c.jar.get("access") ?? "~"].some((t) => t && log.includes(decodeURIComponent(t))), "Log server không chứa access / refresh token");
   results.push(r.counts);
 }
 

@@ -5,16 +5,18 @@ import { confirmEnrollment, disableMfa, mfaSummary, readEnrollment, reauthentica
 import { holdCodes, takeCodes } from "../../auth/recovery-display.js";
 import { minutesOf } from "../../auth/pages.js";
 import { one, withFlash } from "../../forms.js";
+import { getCookie, setCookie, clearCookie } from "../../auth/cookies.js";
+import { REAUTH_TTL, reauthValid, signReauth } from "../../auth/jwt.js";
 
 const router = Router();
 const PROFILE = "/admin/profile";
 const BASE = `${PROFILE}/mfa`;
 
-// Đổi thiết bị: secret chờ chỉ dùng được trong phiên vừa xác thực lại và trong 10 phút (plan mục 4, 14 L2). Không có cờ này thì
+// Đổi thiết bị: secret chờ chỉ dùng được trong lần đăng nhập vừa xác thực lại và trong 10 phút (plan mục 4, 14 L2). Từ plan mục
+// 15, "lần đăng nhập" là family refresh token: vé xác thực lại là JWT 10 phút (cookie mfa_reauth) mang sub + fam. Không có cờ này thì
 // một phiên đầy đủ khác (hoặc chính phiên này về sau) đọc được secret chờ còn sót của lần đổi bỏ dở rồi xác nhận nó, tức đổi
 // thiết bị mà không cần password, trái slide 23. Lần bật đầu tiên không cần xác thực lại nên không bị ràng buộc này.
-const REPLACE_WINDOW_MS = 10 * 60_000;
-const replaceFresh = (req) => req.session.mfaReplaceAt > Date.now() - REPLACE_WINDOW_MS;
+const replaceFresh = (req, res) => reauthValid(getCookie(req, "reauth"), res.locals.currentUser.id, res.locals.auth.familyId);
 const replaceExpired = (res) => res.redirect(303, withFlash(PROFILE, { msg: "mfa-replace-expired" }));
 
 // Nhóm 4 ký tự cho dễ chép tay; ứng dụng authenticator bỏ qua khoảng trắng.
@@ -23,7 +25,7 @@ const grouped = (secret) => secret.match(/.{1,4}/g).join(" ");
 async function renderSetup(req, res, { status = 200, banner = null, code = null } = {}) {
   const enrollment = await readEnrollment(res.locals.currentUser.id);
   if (!enrollment) return res.redirect(303, PROFILE);
-  if (enrollment.replacing && !replaceFresh(req)) return replaceExpired(res);
+  if (enrollment.replacing && !replaceFresh(req, res)) return replaceExpired(res);
   res.status(status).render("admin/mfa/setup", {
     title: enrollment.replacing ? "Đổi thiết bị xác thực" : "Bật xác thực hai lớp",
     secret: grouped(enrollment.secret),
@@ -44,7 +46,7 @@ router.get("/setup", (req, res) => renderSetup(req, res));
 
 router.post("/setup/confirm", async (req, res) => {
   // Kiểm tra trước khi xét mã: đang bật MFA (tức là đổi thiết bị) mà không có lần xác thực lại còn hạn thì từ chối, không tốn lượt.
-  if ((await mfaSummary(res.locals.currentUser.id)).enabled && !replaceFresh(req)) return replaceExpired(res);
+  if ((await mfaSummary(res.locals.currentUser.id)).enabled && !replaceFresh(req, res)) return replaceExpired(res);
   const result = await confirmEnrollment(res.locals.currentUser.id, one(req.body.otp).trim());
   if (!result.ok) {
     if (result.reason === "locked") {
@@ -54,16 +56,16 @@ router.post("/setup/confirm", async (req, res) => {
     return renderSetup(req, res, { code: "INVALID_OTP", banner: { kind: "error", text: "Mã không đúng. Kiểm tra lại ứng dụng rồi nhập mã mới nhất." } });
   }
   if (result.replaced) {
-    delete req.session.mfaReplaceAt; // đổi xong: lần đổi sau phải xác thực lại từ đầu
+    clearCookie(res, "reauth"); // đổi xong: lần đổi sau phải xác thực lại từ đầu
     return res.redirect(303, withFlash(PROFILE, { msg: "mfa-replaced" }));
   }
-  holdCodes(req.sessionID, { codes: result.codes, kind: "enabled" });
+  holdCodes(res.locals.auth.familyId, { codes: result.codes, kind: "enabled" });
   res.redirect(303, `${BASE}/codes`);
 });
 
 // Trang hiện mã một lần: đọc là xoá, nên Reload không hiện lại.
 router.get("/codes", (req, res) => {
-  const held = takeCodes(req.sessionID);
+  const held = takeCodes(res.locals.auth.familyId);
   if (!held) return res.redirect(303, withFlash(PROFILE, { msg: "mfa-codes-gone" }));
   res.render("admin/mfa/codes", { title: "Lưu mã khôi phục", codes: held.codes, kind: held.kind });
 });
@@ -101,14 +103,14 @@ router.post("/reauth/:action", guardReauth, async (req, res) => {
   }
   if (action === "replace") {
     await startReplacement(userId);
-    req.session.mfaReplaceAt = Date.now();
+    setCookie(res, "reauth", signReauth(userId, res.locals.auth.familyId), REAUTH_TTL * 1000);
     return res.redirect(303, `${BASE}/setup`);
   }
   if (action === "disable") {
     await disableMfa(userId);
     return res.redirect(303, withFlash(PROFILE, { msg: "mfa-disabled" }));
   }
-  holdCodes(req.sessionID, { codes: await regenerateCodes(userId), kind: "regenerated" });
+  holdCodes(res.locals.auth.familyId, { codes: await regenerateCodes(userId), kind: "regenerated" });
   res.redirect(303, `${BASE}/codes`);
 });
 

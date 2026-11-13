@@ -13,6 +13,7 @@ import { hit, peek, limit, retryAfter } from "../../auth/rate-limit.js";
 import { tooMany, captchaUnavailable, minutesOf } from "../../auth/pages.js";
 import { photoFor } from "../../auth/photos.js";
 import { one } from "../../forms.js";
+import { readActivation, writeActivation, clearActivation } from "../../auth/activation-hint.js";
 
 const router = Router();
 
@@ -26,7 +27,6 @@ const RESEND_PER_HOUR = 5; // tối đa 5 lần gửi / giờ theo email
 const REGISTER_PER_HOUR = 10; // tối đa 10 lần đăng ký / giờ theo IP
 const ACTIVATE_IP = { windowMs: 15 * MIN, max: 30 }; // chống dò mã từ một nguồn qua nhiều email
 
-const save = (req) => new Promise((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
 const expiresIn = (ms) => new Date(Date.now() + ms);
 
 // Hai giới hạn gửi mã theo email (dùng ở đăng ký lại khi đang pending và ở "Gửi lại mã"):
@@ -114,10 +114,9 @@ router.post("/register", async (req, res) => {
   }
   // Đã active: không ghi gì, không gửi thư (plan 12.1). Cả ba nhánh → cùng một trang.
 
-  req.session.activationEmail = email; // điền sẵn ở trang nhập mã; không đưa email lên URL
-  // Đặt ở MỌI nhánh (kể cả khi không gửi thư): trang nhập mã có đếm ngược giống hệt nhau → không lộ email nào đã có.
-  req.session.otpSentAt = Date.now();
-  await save(req);
+  // Cookie activation (plan mục 15): điền sẵn email ở trang nhập mã, không đưa email lên URL. Đặt ở MỌI nhánh (kể cả khi không
+  // gửi thư): trang nhập mã có đếm ngược giống hệt nhau → không lộ email nào đã có.
+  writeActivation(req, res, { email, sentAt: Date.now() });
   res.redirect(303, "/activate?msg=registered");
 });
 
@@ -133,9 +132,10 @@ async function renderActivate(res, { values, errors = {}, banner = null, code = 
 
 router.get("/activate", async (req, res) => {
   const msg = one(req.query.msg);
-  const sentAt = req.session?.otpSentAt ?? 0;
+  const hint = readActivation(req);
+  const sentAt = hint.sentAt;
   await renderActivate(res, {
-    values: { email: req.session?.activationEmail ?? "" },
+    values: { email: hint.email },
     banner: Object.hasOwn(ACTIVATE_MSG, msg) ? ACTIVATE_MSG[msg] : null,
     // Đếm ngược "Gửi lại mã sau …" (JS, chỉ để dễ hiểu): server vẫn tự chặn 60 giây.
     cooldown: Math.max(0, Math.ceil((sentAt + RESEND_COOLDOWN - Date.now()) / 1000)),
@@ -196,8 +196,7 @@ router.post("/activate", async (req, res) => {
   }
 
   // Kích hoạt chỉ đổi trạng thái tài khoản, KHÔNG tự đăng nhập: người dùng đăng nhập ở bước riêng.
-  delete req.session.activationEmail;
-  delete req.session.otpSentAt;
+  clearActivation(res);
   res.redirect(303, "/login?msg=activated");
 });
 
@@ -214,9 +213,7 @@ router.post("/activate/resend", async (req, res) => {
 
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, status: true, activation: { select: { userId: true } } } });
   if (user?.status === "pending" && user.activation) await issueOtp(user.id, email);
-  req.session.activationEmail = email;
-  req.session.otpSentAt = Date.now();
-  await save(req);
+  writeActivation(req, res, { email, sentAt: Date.now() });
   res.redirect(303, "/activate?msg=otp-sent");
 });
 

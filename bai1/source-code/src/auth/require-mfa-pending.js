@@ -1,14 +1,16 @@
-// Chỉ gắn cho các route của bước MFA khi đăng nhập. Phiên chờ quá 5 phút thì phải nhập lại password: bước password không
-// được trở thành quyền vào lâu dài (plan mục 4).
-export const MFA_PENDING_MS = 5 * 60_000;
+// Chỉ gắn cho các route của bước MFA khi đăng nhập. Đọc challenge từ cookie "mfa"; quá 5 phút thì phải nhập lại password.
+import { readChallenge } from "./mfa-challenge.js";
+import { getCookie, clearCookie } from "./cookies.js";
 
-export function requireMfaPending(req, res, next) {
-  const pending = req.session?.mfaPending;
-  if (!pending) return res.redirect(303, "/login");
-  if (!(pending.at > Date.now() - MFA_PENDING_MS)) {
-    delete req.session.mfaPending;
+export { MFA_PENDING_MS } from "./mfa-challenge.js";
+
+export async function requireMfaPending(req, res, next) {
+  const result = await readChallenge(getCookie(req, "mfa"));
+  if (!result) return res.redirect(303, "/login");
+  if (result.expired) {
+    clearCookie(res, "mfa");
     return res.redirect(303, "/login?msg=mfa-expired");
   }
-  res.locals.mfaPending = pending;
+  res.locals.mfaPending = result.pending;
   next();
 }

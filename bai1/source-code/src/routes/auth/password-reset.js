@@ -8,7 +8,7 @@ import { checkEmail } from "../../auth/email.js";
 import { hashPassword, checkNewPassword } from "../../auth/password.js";
 import { generateToken, sha256 } from "../../auth/secrets.js";
 import { sendLater, resetMail, passwordChangedMail } from "../../auth/mailer.js";
-import { destroyUserSessions } from "../../auth/session-store.js";
+import { revokeUserFamilies } from "../../auth/refresh.js";
 import { limit } from "../../auth/rate-limit.js";
 import { tooMany } from "../../auth/pages.js";
 import { photoFor } from "../../auth/photos.js";
@@ -123,15 +123,16 @@ router.post("/reset", async (req, res) => {
 
   const passwordHash = await hashPassword(password);
   // MỘT transaction: tiêu thụ token bằng updateMany có điều kiện (chưa dùng, chưa hết hạn) → hai request cùng token gửi
-  // cùng lúc chỉ một request đổi được mật khẩu; rồi đổi passwordHash, vô hiệu token khác, xoá MỌI phiên của user
-  // (người đang giữ sid cũ — kể cả kẻ đã chiếm phiên — bị đăng xuất). KHÔNG đổi status: pending vẫn pending.
+  // cùng lúc chỉ một request đổi được mật khẩu; rồi đổi passwordHash, tăng tokenVersion (mọi access token đã cấp hết hiệu lực),
+  // vô hiệu token khác, thu hồi MỌI family refresh token (người đang đăng nhập — kể cả kẻ đã chiếm token — bị đăng xuất).
+  // KHÔNG đổi status: pending vẫn pending. KHÔNG tắt MFA, KHÔNG cấp token (plan mục 15).
   const changed = await prisma.$transaction(async (tx) => {
     const now = new Date();
     const { count } = await tx.passwordReset.updateMany({ where: { id: row.id, usedAt: null, expiresAt: { gt: now } }, data: { usedAt: now } });
     if (count !== 1) return null;
-    const user = await tx.user.update({ where: { id: row.userId }, data: { passwordHash }, select: { email: true } });
+    const user = await tx.user.update({ where: { id: row.userId }, data: { passwordHash, tokenVersion: { increment: 1 } }, select: { email: true } });
     await tx.passwordReset.updateMany({ where: { userId: row.userId, usedAt: null }, data: { usedAt: now } });
-    await destroyUserSessions(tx, row.userId);
+    await revokeUserFamilies(tx, row.userId);
     return user;
   });
   if (!changed) return linkUnusable(res);

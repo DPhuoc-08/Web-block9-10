@@ -273,3 +273,37 @@ Rà soát ngày 12/11/2026 (đọc mã, chạy lại mọi `check-*`, thêm phé
 **Đã kiểm tra:** `ve-so-do.mjs` chạy được với mốc mới (mốc cũ `state.lockedUntil`, `const after = await hit` không còn trong mã). Đo bằng Chrome headless: `kichban.html`, `hotrotrinhbay.html` ở 1280 và 375px `scrollWidth = clientWidth`, bảng cuộn trong khung, không ảnh hỏng. File bằng chứng mới không chứa mã, secret, token.
 
 **Chưa chắc:** sơ đồ vẽ lại vẫn là bản nháp của agent, nhóm cần duyệt (H2). Chưa có ảnh DevTools thật (H1).
+
+## Bước 40 — Bỏ session, chuyển sang JWT access token 90 giây + refresh token (yêu cầu của giảng viên, plan mục 15)
+**Bối cảnh:** yêu cầu lúc đầu áp nhầm vào Bài 2 (commit `5f6512d`), đã revert ở `36c59e0`, và đã xoá bảng `refresh_tokens` khỏi DB Bài 2 (người dùng đồng ý; trước khi xoá đã in SQL diff: chỉ `DROP TABLE refresh_tokens`, 9 dòng do `check-api` tạo). Giảng viên yêu cầu Bài 1 không dùng session nữa mà xoay quanh JWT access + refresh.
+
+**Đã làm:**
+- DB Bài 1, chỉ thêm (đã in host và SQL bằng `prisma migrate diff` trước `db push`, không có `DROP`): cột `users.tokenVersion`, bảng `refresh_tokens` (`familyId`, `tokenHash`, `tokenVersion`, `expiresAt`, `familyExpiresAt`, `usedAt`, `revokedAt`), bảng `mfa_challenges`. Bảng `sessions` giữ nguyên, không dùng nữa (quy tắc "chỉ thêm").
+- Gói: gỡ `express-session` 1.19.0; thêm `jsonwebtoken` **9.0.3** (ghim chính xác, cùng bản Bài 2). `.env`: `JWT_SECRET` thay `SESSION_SECRET`; tuỳ chọn `REFRESH_IDLE_MINUTES`, `REFRESH_ABSOLUTE_MINUTES`.
+- Mô-đun mới, thuần (không đụng `req`/`res`): `auth/jwt.js` (access 90 giây, vé xác thực lại 10 phút khác audience), `auth/refresh.js` (family, rotation, phát hiện dùng lại, thu hồi), `auth/mfa-challenge.js`. Mô-đun nối với HTTP: `auth/cookies.js` (đọc / ghi cookie, một chỗ giữ tên và thuộc tính), `auth/activation-hint.js`.
+- `auth/load-user.js`: access hợp lệ → dùng; không có / hết hạn mà còn refresh → **server tự xoay vòng ngay trong request đó**, đặt lại hai cookie, xử lý tiếp. `auth/csrf.js`: double-submit cookie `csrf` + ô `_csrf` + kiểm `Origin` như cũ. `require-mfa-pending.js`: đọc challenge từ cookie `mfa` (Path=/login/mfa).
+- Route: `POST /login` cấp challenge (bật MFA) hoặc cặp token; `/login/mfa*` tiêu thụ challenge một lần rồi cấp token; `POST /logout` thu hồi family; đổi / đặt lại mật khẩu tăng `tokenVersion` + thu hồi mọi family (+ xoá challenge đang chờ); đổi mật khẩu cấp family mới cho thiết bị đang dùng, giữ trần tuyệt đối cũ; quản lý MFA dùng vé `mfa_reauth` (JWT 10 phút gắn `sub` + `fam`), giữ mã khôi phục theo `fam`. `app.js`: `GET /favicon.ico` trả 204 trước `loadUser`.
+
+**Quyết định, lý do:** xem plan mục 15. Tóm tắt: refresh token là chuỗi ngẫu nhiên (không phải JWT) để thu hồi được; hạn theo phương án 3 (trượt X phút + trần Y phút, mặc định 120 / 720 như chính sách đã công bố, demo đặt 2 / 5 qua `.env`, plan 15.2 a); dùng lại → thu hồi cả family, không ân hạn (15.2 b); cookie `refresh` Path=/ vì SSR phải refresh ở request bất kỳ (khác "chỉ đi tới Auth" ở slide — vì access chỉ 90 giây, chuyển hướng sang trang refresh sẽ làm mất dữ liệu form); favicon trả 204 vì trình duyệt tự xin song song với trang, đi qua `loadUser` sẽ thành hai request cùng refresh token.
+
+**Phương án đã bỏ:** giữ session phụ cho CSRF / chờ MFA (giảng viên yêu cầu bỏ hẳn session); sid 90 giây + refresh không JWT (không đúng phần B); chuyển hướng sang `/refresh` rồi quay lại (mất body của form POST); lưu `mfaReplaceAt` trong DB (vé JWT gắn `fam` đủ và không cần thêm cột).
+
+**Đã kiểm tra:** `check-auth` thêm phần H (16 ca): không còn access → server cấp cặp mới trong chính request, refresh token đổi, dòng cũ có `usedAt`, cùng family; access hết hạn đúng lúc gửi form → dữ liệu vẫn được ghi; dùng lại refresh token cũ → 303 và cả family bị thu hồi, token mới nhất của chủ thật cũng chết; hai request đồng thời cùng refresh token → đo được `200,303`, family bị thu hồi; mặc định 120 / 720 phút; xoay vòng không vượt trần; quá hạn → 303; `REFRESH_*=2/5` → 2 / 5 phút, access vẫn 90 giây; IDLE > ABSOLUTE → server không khởi động; access chữ ký sai / alg none / sai audience / tv lệch → 303; tài khoản không active → 303; favicon 204 không xoay vòng; log không có token. Phần D, E, G viết lại theo cookie và `refresh_tokens` (thay các ca `sid`, bảng `sessions`). `check-mfa` viết lại 5 ca dựa vào session: bước password chỉ có cookie `mfa` (DB lưu hash), qua MFA mới có access + refresh, challenge dùng một lần, quá 5 phút → `mfa-expired`, vé xác thực lại chép sang family khác bị từ chối, vé quá 10 phút bị từ chối.
+Kết quả cuối: `check-auth` **153 ĐẠT**, `check-mfa` **86 ĐẠT**, `check-rbac` **159 ĐẠT**, `check-ssr` **124 ĐẠT**, `check-policy` **32 ĐẠT**, 0 CHƯA ĐẠT.
+
+### Lỗi phát hiện trong bước này (do agent viết)
+**L5. Đặt lại mật khẩu không huỷ bước MFA đang chờ.**
+- Tái hiện: tài khoản bật MFA; tab A nhập password đúng (đang ở `/login/mfa`); chủ tài khoản đặt lại mật khẩu ở tab B; tab A mở lại `/login/mfa` → vẫn 200, tức người dùng password cũ đi tiếp bước MFA được. `check-mfa` B: "Reset xoá cả phiên đang chờ MFA" **CHƯA ĐẠT — 200**.
+- Nguyên nhân: bản cũ xoá mọi dòng `sessions` của user (gồm cả phiên chờ); khi chuyển sang token, agent chỉ thay bằng "thu hồi refresh token", quên `mfa_challenges`.
+- Sửa: `revokeUserFamilies` (`src/auth/refresh.js`) xoá luôn challenge đang chờ của user; dùng ở đặt lại và đổi mật khẩu.
+- Bằng chứng: chạy lại `check-mfa` → ca đó ĐẠT, 86/86.
+
+**L6. Đọc cookie sai tên.** `readCookies` trả theo tên thật (`login_email`), route đọc theo khoá nội bộ (`loginEmail`) → mở lại `/login` không còn hiện CAPTCHA. `check-auth` C: "Mở lại /login: vẫn hiện CAPTCHA" CHƯA ĐẠT. Sửa: thêm `getCookie(req, key)` trong `cookies.js`, mọi chỗ đọc dùng nó. Sau sửa: ĐẠT.
+
+**Lỗi của script kiểm thử:** `stopServer()` chờ sự kiện `exit` của tiến trình đã tự thoát (ca cố ý khởi động với cấu hình sai) → script treo. Sửa ở `scripts/lib/server.mjs`: tiến trình đã thoát thì không chờ.
+
+**Chưa rõ:** một lần chạy riêng phần H, ca "gửi form khi access hết hạn" trả 400 ngay sau lần chạy bị treo ở trên; chạy lại toàn bộ và chạy riêng H thêm 2 lần đều ĐẠT, không tái hiện được, không còn tiến trình server nào sót. Ghi lại, chưa kết luận nguyên nhân.
+
+**Rủi ro còn lại:** access token đã cấp vẫn dùng được tới 90 giây sau đăng xuất / thu hồi (JWT không tra DB); hai tab tải lại cùng lúc khi access đã hết hạn có thể làm người dùng bị đăng xuất (15.2 b nghiêm ngặt); cookie `csrf` không gắn với lần đăng nhập (double-submit thuần), dựa thêm vào SameSite và kiểm `Origin`.
+
+**Chưa làm:** `hotrotrinhbay.html`, `kichban.html`, sơ đồ luồng, `README`, `evidence/` vẫn mô tả session / `sid`; CLAUDE.md còn dòng "Không thêm JWT vào Bài 1", "phiên chỉ có `mfaPending`", "`regenerate` sid" (đề xuất cập nhật, chưa sửa vì là file hướng dẫn của người dùng). DB còn 71 dòng `refresh_tokens` của tài khoản seed do các script tạo (tự hết hạn sau 2 giờ).

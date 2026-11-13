@@ -1,11 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import methodOverride from "method-override";
-import session from "express-session";
 import { fileURLToPath } from "node:url";
 import { prisma } from "./db.js";
-import { PrismaSessionStore } from "./auth/session-store.js";
-import { loadUser, SESSION_IDLE_MS } from "./auth/load-user.js";
+import { loadUser } from "./auth/load-user.js";
+import { assertJwtSecret } from "./auth/jwt.js";
+import { assertRefreshConfig } from "./auth/refresh.js";
 import { csrf } from "./auth/csrf.js";
 import { can, canEditDish } from "./policy/permissions.js";
 import { startCleanup } from "./auth/cleanup.js";
@@ -25,17 +25,19 @@ import { assertMfaKey } from "./auth/secret-box.js";
 import { formatPrice, formatMenuPrice, tagNames } from "./format.js";
 import { artFor, artShape } from "./dish-art.js";
 
-// Thiếu bí mật → không khởi động (ký cookie sid bằng chuỗi rỗng / mặc định là lỗ hổng âm thầm).
-for (const key of ["SESSION_SECRET", "OTP_PEPPER", "APP_ORIGIN"]) {
+// Thiếu bí mật → không khởi động (ký JWT bằng chuỗi rỗng / mặc định là lỗ hổng âm thầm).
+for (const key of ["JWT_SECRET", "OTP_PEPPER", "APP_ORIGIN"]) {
   if (!process.env[key]) throw new Error(`Thiếu ${key} trong .env (xem .env.example).`);
 }
 assertMfaKey(); // thiếu hoặc sai độ dài thì không khởi động, thay vì lỗi lúc người dùng bật MFA
+assertJwtSecret();
+assertRefreshConfig();
 
 const app = express();
 // Không bật "trust proxy": req.ip là địa chỉ kết nối thật, không tin header X-Forwarded-For do client tự gửi
 // (bộ đếm theo IP ở các bước sau dựa vào đây).
 
-// SSR: server đọc database, dựng HTML bằng EJS rồi trả cả trang. Không có API JSON ở block8 (block9 thêm lại kèm JWT).
+// SSR: server đọc database, dựng HTML bằng EJS rồi trả cả trang. Không có API JSON. Đăng nhập bằng JWT trong cookie (plan mục 15).
 app.set("view engine", "ejs");
 app.set("views", fileURLToPath(new URL("./views", import.meta.url)));
 // Hàm định dạng dùng trong mọi template (chỉ là hàm thuần, không có dữ liệu hay bí mật nào).
@@ -53,22 +55,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Phiên ở server (plan mục 6): cookie "sid" chỉ mang mã phiên ngẫu nhiên có chữ ký, dữ liệu nằm trong bảng sessions.
-// - HttpOnly: JavaScript của trang không đọc được cookie. SameSite=Lax: không gửi kèm POST từ site khác.
-// - Secure chỉ bật khi production (HTTPS): express-session KHÔNG đặt cookie Secure qua http://localhost.
-// - saveUninitialized: false → khách chỉ xem thực đơn thì không tạo phiên; rolling → gia hạn 2 giờ mỗi request.
-app.use(
-  session({
-    name: "sid",
-    secret: process.env.SESSION_SECRET,
-    store: new PrismaSessionStore(prisma),
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    cookie: { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: SESSION_IDLE_MS },
-  }),
-);
-// Từ cookie sid → user đang đăng nhập (res.locals.currentUser) cho mọi route và template.
+// Không còn express-session (plan mục 15). Trình duyệt tự xin /favicon.ico song song với trang; trả ngay ở đây để request đó không
+// đi qua loadUser: hai request cùng gửi một refresh token sẽ bị coi là dùng lại và thu hồi cả family.
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+// Từ cookie access / refresh → user đang đăng nhập (res.locals.currentUser) cho mọi route và template.
 app.use(loadUser);
 
 // Template ẩn nút bằng đúng hai hàm mà server dùng để chặn. Ẩn nút chỉ để tiện dùng; quyền được kiểm tra ở từng route.

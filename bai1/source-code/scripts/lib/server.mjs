@@ -28,6 +28,7 @@ export async function stopServer() {
   if (!proc) return;
   const p = proc;
   proc = null;
+  if (p.exitCode !== null || p.signalCode !== null) return; // đã tự thoát (vd. cố ý khởi động với cấu hình sai): không chờ "exit" nữa
   await new Promise((resolve) => {
     p.once("exit", resolve);
     p.kill("SIGTERM");
