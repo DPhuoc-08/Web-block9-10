@@ -7,10 +7,9 @@ Database là **project Supabase riêng** của Bài 2, không dùng chung với 
 | Tài liệu | Nội dung |
 | :--- | :--- |
 | `hotrotrinhbay.html` | Mục tiêu, nghiệm thu, chỗ đề chưa khớp, nơi lưu token và rủi ro, xử lý JWT khi đổi mật khẩu, chính sách, công nghệ |
-| `kichban.html` | Dữ liệu mới, luồng thao tác, kịch bản demo, lỗi đã phát hiện |
 | `MODULES.md` | Mô-đun chuyển từ Bài 1 và phần đã đổi |
 | `evidence/README.md` | Bảng đối chiếu từng kịch bản với bằng chứng |
-| `BUILD_LOG.md` | Từng bước, quyết định, lỗi phát hiện, mục "Kiểm tra mã nguồn" |
+| `evidence/loi-va-kiem-tra-ma-nguon.md` | Kiểm tra mã nguồn (slide 66), lỗi do agent tạo ra (slide 69) |
 
 ## Chạy ứng dụng
 

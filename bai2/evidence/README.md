@@ -46,4 +46,4 @@ Thu ngày 09/11/2026, thu lại 20/11/2026 theo nhóm đầu bếp của Editor 
 
 Sơ đồ do nhóm vẽ (bản nháp từ code thật, nhóm duyệt): `diagrams/1-dang-nhap-jwt-va-noi-luu-token.svg` (kèm nơi lưu token và lý do), `diagrams/2-request-co-bearer.svg`. Vẽ lại: `node evidence/diagrams/ve-so-do.mjs` từ thư mục `bai2/`.
 
-Lỗi do agent tạo ra (slide 69): giới hạn sai mã MFA bị vượt khi gửi đồng thời, `BUILD_LOG.md` bước 37 (kèm cách truy nguyên ca kiểm thử chập chờn); lỗi khác ở bước 18. Danh sách mô-đun chuyển từ Bài 1: `MODULES.md`.
+Lỗi do agent tạo ra (slide 69): giới hạn sai mã MFA bị vượt khi gửi đồng thời, `loi-va-kiem-tra-ma-nguon.md` mục 2 (kèm cách truy nguyên ca kiểm thử chập chờn); lỗi khác ở mục 3. Kiểm tra mã nguồn (slide 66): cùng tệp, mục 1. Danh sách mô-đun chuyển từ Bài 1: `MODULES.md`.
