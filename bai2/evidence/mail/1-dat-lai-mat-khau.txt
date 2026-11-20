@@ -1,20 +1,20 @@
 X-Mail-Kind: reset
 From: =?UTF-8?Q?Nhà_hàng?= <<email nhóm đã che>>
 To: mfa.demo@demo.example
-Subject: =?UTF-8?Q?Đặt_lại_mật? =?UTF-8?Q?_khẩu?Message-ID: <3f6ea536-4fd8-7d57-0c71-27e9ebb4b1ed@gmail.com>
-Date: Mon, 09 Nov 2026 09:15:56 +0000
+Subject: =?UTF-8?Q?Đặt_lại_mật? =?UTF-8?Q?_khẩu?Message-ID: <2580bfa2-d661-096d-7784-c0a45da88bc5@gmail.com>
+Date: Fri, 20 Nov 2026 09:03:52 +0000
 MIME-Version: 1.0
 Content-Type: multipart/alternative;
- boundary="--_NmP-e4130e201716c266-Part_1"
+ boundary="--_NmP-ef9ad78720d3390e-Part_1"
 
-----_NmP-e4130e201716c266-Part_1
+----_NmP-ef9ad78720d3390e-Part_1
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
 Mở link sau để đặt mật khẩu mới (hạn 15 phút, dùng một lần):
 http://localhost:5173/reset?token=<đã che>
 Nếu bạn không yêu cầu, hãy bỏ qua thư này — mật khẩu hiện tại vẫn giữ nguyên.
-----_NmP-e4130e201716c266-Part_1
+----_NmP-ef9ad78720d3390e-Part_1
 Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
@@ -25,5 +25,5 @@ Content-Transfer-Encoding: quoted-printable
 <p style="margin:0 0 16px"><a href="http://localhost:5173/reset?token=<đã che>" style="display:inline-block;background:#1f5b43;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:8px">Đặt mật khẩu mới</a></p>
 <p style="margin:0;color:#5f5b55">Nếu bạn không yêu cầu, hãy bỏ qua thư này — mật khẩu hiện tại vẫn giữ nguyên.</p>
 <p style="margin:24px 0 0;font-size:12px;color:#5f5b55">Thư tự động, vui lòng không trả lời.</p></div></body></html>
-----_NmP-e4130e201716c266-Part_1--
+----_NmP-ef9ad78720d3390e-Part_1--
 

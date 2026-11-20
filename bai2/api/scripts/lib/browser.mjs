@@ -11,9 +11,11 @@ const CHROME = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Conte
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function openBrowser() {
-  const profile = mkdtempSync(join(tmpdir(), "b8-chrome-"));
-  const port = 9300 + Math.floor(Math.random() * 500);
-  const proc = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run", "--window-size=1280,900", "about:blank"], { stdio: "ignore" });
+  // CHROME_PORT: dùng một Chrome đã bật sẵn với --remote-debugging-port (khi Chrome do Node tự bật không mở được cổng điều khiển).
+  const attached = Boolean(process.env.CHROME_PORT);
+  const profile = attached ? null : mkdtempSync(join(tmpdir(), "b8-chrome-"));
+  const port = attached ? Number(process.env.CHROME_PORT) : 9300 + Math.floor(Math.random() * 500);
+  const proc = attached ? { kill() {} } : spawn(CHROME, ["--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run", "--window-size=1280,900", "about:blank"], { stdio: "ignore" });
   let target;
   for (let i = 0; i < 150 && !target; i++) {
     await sleep(200);
@@ -147,7 +149,7 @@ export async function openBrowser() {
       await fetch(`http://127.0.0.1:${port}/json/close/${t.id}`).catch(() => {});
       return JSON.parse(value);
     },
-    close() { ws.close(); proc.kill(); setTimeout(() => rmSync(profile, { recursive: true, force: true }), 500); },
+    close() { ws.close(); proc.kill(); if (profile) setTimeout(() => rmSync(profile, { recursive: true, force: true }), 500); },
   };
   return page;
 }

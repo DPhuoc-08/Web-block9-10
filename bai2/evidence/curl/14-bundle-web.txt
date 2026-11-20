@@ -1,4 +1,4 @@
-Đã quét 2 tệp trong web/dist/assets, tổng 468224 ký tự.
+Đã quét 2 tệp trong web/dist/assets, tổng 468510 ký tự.
 
 ĐẠT: Bundle không chứa JWT_SECRET
 

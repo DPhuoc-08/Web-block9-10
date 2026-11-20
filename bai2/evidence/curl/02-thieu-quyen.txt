@@ -28,21 +28,53 @@ $ DELETE /api/dishes/1207   # Editor
 
 ĐẠT: Editor DELETE /api/dishes/1207 → 403
 
-$ PATCH /api/dishes/1207   # Editor B, món của A
+$ PATCH /api/dishes/1207   # Editor B, món nháp nhóm A
   Authorization: Bearer <JWT đã che>
   {"name":"[TEST B9] sửa"}
 → 403
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 
-ĐẠT: Editor B, món của A PATCH /api/dishes/1207 → 403
+ĐẠT: Editor B, món nháp nhóm A PATCH /api/dishes/1207 → 403
 
-$ PATCH /api/dishes/1   # Editor A, món published
+$ PATCH /api/dishes/1   # Editor A, món published trong nhóm mình
   Authorization: Bearer <JWT đã che>
   {"name":"[TEST B9] sửa"}
 → 403
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 
-ĐẠT: Editor A, món published PATCH /api/dishes/1 → 403
+ĐẠT: Editor A, món published trong nhóm mình PATCH /api/dishes/1 → 403
+
+$ POST /api/dishes   # Editor A, đầu bếp nhóm B
+  Authorization: Bearer <JWT đã che>
+  {"name":"[TEST B9] ngoài nhóm","price":50000,"description":"mô tả","tagIds":[2],"ingredientIds":[1],"chefId":31,"available":true}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Editor A, đầu bếp nhóm B: POST /api/dishes → 403
+
+$ PATCH /api/dishes/1207   # Editor A, đổi sang đầu bếp nhóm B
+  Authorization: Bearer <JWT đã che>
+  {"chefId":31}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Editor A, đổi sang đầu bếp nhóm B: PATCH /api/dishes/1207 → 403
+
+$ POST /api/chefs   # Editor A thêm đầu bếp
+  Authorization: Bearer <JWT đã che>
+  {"name":"[TEST B9] Đầu bếp","tagIds":[2]}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Editor A thêm đầu bếp: POST /api/chefs → 403
+
+$ PATCH /api/chefs/1   # Editor A sửa đầu bếp trong nhóm
+  Authorization: Bearer <JWT đã che>
+  {"name":"[TEST B9] Đổi tên"}
+→ 403
+  {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
+
+ĐẠT: Editor A sửa đầu bếp trong nhóm: PATCH /api/chefs/1 → 403
 
 ĐẠT: Dữ liệu không đổi
 
@@ -50,13 +82,21 @@ $ PATCH /api/dishes/1   # Editor A, món published
 
 ĐẠT: 403: vẫn giữ token
 
-ĐẠT: Editor A lọc Nháp: thấy món của mình, không thấy của B
+ĐẠT: Editor A lọc Nháp: thấy món nháp nhóm mình, không thấy nhóm B
 
-ĐẠT: Form của Editor: không có ô Trạng thái, Đầu bếp
+ĐẠT: Form của Editor: không có ô Trạng thái; có ô Đầu bếp (chỉ nhóm mình)
 
 ĐẠT: Dữ liệu không đổi, vẫn giữ token
 
-ĐẠT: Editor tạo món: server gán đầu bếp và Nháp, về danh sách lọc Nháp
+ĐẠT: Ô đầu bếp của Editor A: gõ tên đầu bếp nhóm B (Mai Hoài Hà) không có gợi ý, không có "thêm đầu bếp mới"
+
+ĐẠT: Gõ tên đầu bếp trong nhóm: có gợi ý
+
+ĐẠT: Editor tạo món: đầu bếp đã chọn trong nhóm, server đặt Nháp, về danh sách lọc Nháp
+
+ĐẠT: Editor ở trang Đầu bếp: không có Thêm, Sửa, có câu giải thích
+
+ĐẠT: Editor mở thẳng /admin/chefs/:id/edit: báo không đủ quyền
 
 ĐẠT: Admin ở 1280px: bảng không tràn, nút Xoá trong khung
 

@@ -1,7 +1,7 @@
-## Sau khi đăng ký  (lúc 2026-11-09 09:14:24Z)
+## Sau khi đăng ký  (lúc 2026-11-20 09:02:32Z)
 
-users #5  role=viewer  chefId=—  status=pending  mfaEnabled=false  tokenVersion=0  mfaLastStep=—
-  passwordHash: vân tay 4719f4d5
+users #5  role=viewer  nhóm đầu bếp=—  status=pending  mfaEnabled=false  tokenVersion=0  mfaLastStep=—
+  passwordHash: vân tay 85cafe97
   mfaSecret: —
   recovery_codes: 0 mã, 0 đã dùng
 

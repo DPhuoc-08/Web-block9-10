@@ -4,15 +4,15 @@ $ PATCH /api/dishes/1207   # cùng thao tác, gọi trực tiếp
   Authorization: Bearer <JWT đã che>
   {"name":"[TEST B9] Nháp của A"}
 → 200
-  {"ok":true,"data":{"id":1207,"name":"[TEST B9] Nháp của A","description":"mô tả","price":50000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-09T09:12:13.300Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[…
+  {"ok":true,"data":{"id":1207,"name":"[TEST B9] Nháp của A","description":"mô tả","price":50000,"available":true,"status":"draft","imageUrl":null,"imageCredit":null,"createdAt":"2026-11-20T09:01:06.975Z","chefId":1,"chef":{"id":1,"name":"Nguyễn Văn An","tags":[…
 
 ĐẠT: Qua giao diện và gọi trực tiếp: cùng 200, ok true
 
-$ PATCH /api/dishes/1204   # món của B
+$ PATCH /api/dishes/1204   # món nháp nhóm B
   Authorization: Bearer <JWT đã che>
   {"name":"[TEST B9] x"}
 → 403
   {"ok":false,"error":{"code":"<đã che>","message":"Tài khoản của bạn không đủ quyền thực hiện thao tác này."}}
 
-ĐẠT: Trực tiếp sửa món của B → 403 như trang báo thiếu quyền
+ĐẠT: Trực tiếp sửa món nháp nhóm B → 403 như trang báo thiếu quyền
 

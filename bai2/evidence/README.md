@@ -1,6 +1,6 @@
 # Bằng chứng nộp — Block 9, Bài 2 (CSR: JWT, phân quyền ở `api`, đăng nhập ở `web`)
 
-Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `api/`): script chạy `api` thật ở `:3000`, bản build của `web` ở `:5173`, điều khiển **Chrome thật** (headless, DevTools Protocol), gửi thêm request trực tiếp, rồi đọc database. MFA dùng tài khoản thử `@demo.example`, xoá ở cuối; sau đó seed lại.
+Thu ngày 09/11/2026, thu lại 20/11/2026 theo nhóm đầu bếp của Editor (plan 16), bằng `node scripts/collect-evidence.mjs` (trong `api/`): script chạy `api` thật ở `:3000`, bản build của `web` ở `:5173`, điều khiển **Chrome thật** (headless, DevTools Protocol), gửi thêm request trực tiếp, rồi đọc database. MFA dùng tài khoản thử `@demo.example`, xoá ở cuối; sau đó seed lại.
 
 **Đã che:** email thật của nhóm; `Authorization`, JWT, challenge, secret, QR, recovery code, mật khẩu, mã, reset token. Trong `storage/`, JWT chỉ còn độ dài và payload đã giải mã (payload ai cũng đọc được, chỉ có `sub`, `tv`, `iat`, `exp`, `iss`, `aud`). Hash chỉ để 6 ký tự đầu. Trong ảnh, QR, secret và recovery code được thay ngay trong trang trước khi chụp. Script từ chối ghi nếu còn sót giá trị bí mật nó biết.
 

@@ -1,25 +1,25 @@
-## Trước khi reset  (lúc 2026-11-09 09:15:53Z)
+## Trước khi reset  (lúc 2026-11-20 09:03:49Z)
 
-users #7  role=viewer  chefId=—  status=active  mfaEnabled=true  tokenVersion=0  mfaLastStep=59807190
-  passwordHash: vân tay ee59fc53
-  mfaSecret: <bản mã, 86 ký tự, vân tay b1764880>
+users #7  role=viewer  nhóm đầu bếp=—  status=active  mfaEnabled=true  tokenVersion=0  mfaLastStep=59838846
+  passwordHash: vân tay bb00ec78
+  mfaSecret: <bản mã, 86 ký tự, vân tay bb586bc4>
   recovery_codes: 10 mã, 2 đã dùng
-    #1 codeHash=8f8c27…(64 ký tự) usedAt=2026-11-09 09:15:44Z
-    #2 codeHash=cc97d1…(64 ký tự) usedAt=2026-11-09 09:15:52Z
-    #3 codeHash=fe4d46…(64 ký tự) usedAt=—
-  mfa_challenges #2: tokenHash=f7db40…(64 ký tự) hạn=2026-11-09 09:20:24Z usedAt=—
-  mfa_challenges #3: tokenHash=d3df49…(64 ký tự) hạn=2026-11-09 09:20:28Z usedAt=—
-  mfa_challenges #5: tokenHash=ae6ebf…(64 ký tự) hạn=2026-11-09 09:20:50Z usedAt=—
-  mfa_challenges #6: tokenHash=69faef…(64 ký tự) hạn=2026-11-09 09:20:52Z usedAt=2026-11-09 09:15:52Z
+    #1 codeHash=2941f7…(64 ký tự) usedAt=2026-11-20 09:03:43Z
+    #2 codeHash=daf8d0…(64 ký tự) usedAt=2026-11-20 09:03:49Z
+    #3 codeHash=8a4e40…(64 ký tự) usedAt=—
+  mfa_challenges #2: tokenHash=acfaa3…(64 ký tự) hạn=2026-11-20 09:08:18Z usedAt=—
+  mfa_challenges #3: tokenHash=53958a…(64 ký tự) hạn=2026-11-20 09:08:24Z usedAt=—
+  mfa_challenges #5: tokenHash=7974d0…(64 ký tự) hạn=2026-11-20 09:08:46Z usedAt=—
+  mfa_challenges #6: tokenHash=bc4526…(64 ký tự) hạn=2026-11-20 09:08:49Z usedAt=2026-11-20 09:03:49Z
 
-## Sau khi reset  (lúc 2026-11-09 09:15:58Z)
+## Sau khi reset  (lúc 2026-11-20 09:03:54Z)
 
-users #7  role=viewer  chefId=—  status=active  mfaEnabled=true  tokenVersion=1  mfaLastStep=59807190
-  passwordHash: vân tay 98da0991
-  mfaSecret: <bản mã, 86 ký tự, vân tay b1764880>
+users #7  role=viewer  nhóm đầu bếp=—  status=active  mfaEnabled=true  tokenVersion=1  mfaLastStep=59838846
+  passwordHash: vân tay 7cb819d7
+  mfaSecret: <bản mã, 86 ký tự, vân tay bb586bc4>
   recovery_codes: 10 mã, 2 đã dùng
-    #1 codeHash=8f8c27…(64 ký tự) usedAt=2026-11-09 09:15:44Z
-    #2 codeHash=cc97d1…(64 ký tự) usedAt=2026-11-09 09:15:52Z
-    #3 codeHash=fe4d46…(64 ký tự) usedAt=—
-  password_resets #1: tokenHash=1c0a67…(64 ký tự) hạn=2026-11-09 09:30:56Z usedAt=2026-11-09 09:15:58Z
+    #1 codeHash=2941f7…(64 ký tự) usedAt=2026-11-20 09:03:43Z
+    #2 codeHash=daf8d0…(64 ký tự) usedAt=2026-11-20 09:03:49Z
+    #3 codeHash=8a4e40…(64 ký tự) usedAt=—
+  password_resets #1: tokenHash=853f23…(64 ký tự) hạn=2026-11-20 09:18:52Z usedAt=2026-11-20 09:03:53Z
 
