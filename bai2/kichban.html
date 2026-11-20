@@ -149,7 +149,8 @@
     <thead><tr><th>Bảng</th><th>Cột</th><th>Dùng để</th></tr></thead>
     <tbody>
       <tr><td><code>dishes</code></td><td><code>status</code></td><td>ABAC, ẩn món nháp</td></tr>
-      <tr><td><code>users</code></td><td>Như Bài 1, thêm <code>tokenVersion</code></td><td>Thu hồi JWT khi reset mật khẩu, tắt MFA</td></tr>
+      <tr><td><code>users</code></td><td>Như Bài 1, thêm <code>tokenVersion</code>; <strong>không có</strong> <code>chefId</code> (bỏ 20/11)</td><td>Thu hồi JWT khi reset mật khẩu, tắt MFA</td></tr>
+      <tr><td><code>chefs</code></td><td><code>managerId</code> → <code>users</code> (mới 20/11)</td><td>Nhóm đầu bếp của Editor: seed #1–30 cho Editor A, #31–60 cho Editor B</td></tr>
       <tr><td><code>mfa_challenges</code></td><td><code>userId</code>, <code>tokenHash</code>, <code>expiresAt</code>, <code>usedAt</code></td><td>Thay cho phiên chờ MFA, dùng một lần</td></tr>
       <tr><td><code>recovery_codes</code>, <code>activation_challenges</code>, <code>password_resets</code>, <code>rate_limits</code></td><td>Như Bài 1</td><td>Chuyển nguyên logic</td></tr>
     </tbody>
@@ -163,7 +164,8 @@
     <tbody>
       <tr><td>Đăng nhập, chưa bật MFA</td><td><code>POST /api/auth/login</code></td><td>IP → khoá → CAPTCHA → password → active</td><td><code>accessToken</code>; <code>web</code> lưu <code>sessionStorage</code></td></tr>
       <tr><td>Đăng nhập, đã bật MFA</td><td><code>POST /api/auth/login</code> rồi <code>POST /api/auth/mfa</code></td><td>Như trên, rồi challenge + mã</td><td>Bước 1 chỉ có challenge; bước 2 có <code>accessToken</code></td></tr>
-      <tr><td>Editor sửa món nháp của mình</td><td><code>PATCH /api/dishes/:id</code>, Bearer</td><td>JWT → role → đọc món → <code>canEditDish</code> → câu ghi có điều kiện</td><td><code>200</code></td></tr>
+      <tr><td>Editor thêm món</td><td><code>POST /api/dishes</code>, Bearer, có <code>chefId</code></td><td>JWT (tải role, nhóm từ DB) → role → validate → đầu bếp thuộc nhóm (<code>canAssignChef</code>)</td><td><code>200</code>, món Nháp; đầu bếp ngoài nhóm <code>403</code></td></tr>
+      <tr><td>Editor sửa món nháp trong nhóm</td><td><code>PATCH /api/dishes/:id</code>, Bearer</td><td>JWT → role → đọc món → <code>canEditDish</code> → đầu bếp mới (nếu đổi) thuộc nhóm → câu ghi có điều kiện <code>chefId IN nhóm, status = draft</code></td><td><code>200</code></td></tr>
       <tr><td>Thiếu quyền</td><td>Như trên</td><td>Dừng ở role hoặc thuộc tính</td><td><code>403</code>, giữ token, báo ngay trong trang</td></tr>
       <tr><td>Token bị sửa, hết hạn</td><td>Bất kỳ</td><td>Dừng ở verify</td><td><code>401</code>; <code>web</code> xoá token, nhớ trang, về đăng nhập</td></tr>
       <tr><td>Reset mật khẩu</td><td><code>POST /api/auth/reset</code></td><td>Token một lần</td><td><code>tokenVersion</code> tăng, MFA giữ nguyên</td></tr>
@@ -190,7 +192,9 @@
       <tr><td>Chưa đăng nhập, mở <code>/admin/dishes</code>; curl <code>POST /api/dishes</code></td><td>Về đăng nhập, nhớ trang; <code>401</code></td><td>ảnh 01, <code>curl/01</code></td></tr>
       <tr><td>Đăng nhập Viewer, xem Application</td><td>Chỉ có <code>accessToken</code>, payload không có role; không có nút ghi</td><td>ảnh 02, <code>storage/01</code></td></tr>
       <tr><td>Viewer mở <code>/admin/dishes/new</code>; thêm <code>role=admin</code> vào storage</td><td>Báo thiếu quyền, giữ token; quyền không tăng</td><td>ảnh 03, 12, <code>storage/02</code></td></tr>
-      <tr><td>Editor A mở món của B; mở món đã xuất bản</td><td>Báo thiếu quyền</td><td>ảnh 04, 05, <code>curl/02</code></td></tr>
+      <tr><td>Editor A mở món nháp của nhóm B; mở món đã xuất bản</td><td>Báo thiếu quyền</td><td>ảnh 04, 05, <code>curl/02</code></td></tr>
+      <tr><td>Editor A thêm món: ô Đầu bếp chỉ gợi ý đầu bếp nhóm A (gõ tên đầu bếp nhóm B không ra gì); curl gửi <code>chefId</code> nhóm B</td><td>Món mới Nháp, đúng đầu bếp đã chọn; curl → <code>403</code></td><td>ảnh 07, 09, Network 2c, <code>curl/02</code></td></tr>
+      <tr><td>Editor A mở trang Đầu bếp; gõ thẳng <code>/admin/chefs/1/edit</code></td><td>Không có Thêm, Sửa; báo thiếu quyền</td><td>ảnh 09b, <code>curl/02</code></td></tr>
       <tr><td>Sửa một ký tự payload trong storage rồi Reload</td><td><code>401</code>, xoá token, về đăng nhập, đăng nhập lại đúng trang cũ</td><td>ảnh 13, <code>curl/04</code></td></tr>
       <tr><td>Network: thao tác ghi; mở thực đơn khi đang đăng nhập</td><td>Có preflight <code>OPTIONS</code>; <code>GET /api/dishes</code> không có <code>Authorization</code></td><td>Network mục 6, <code>curl/05</code>, <code>curl/06</code></td></tr>
       <tr><td>Tắt <code>api</code>, tải lại trang quản trị</td><td>Báo lỗi kỹ thuật, không đăng xuất</td><td>ảnh 14</td></tr>
@@ -220,7 +224,7 @@
     <div class="box"><span class="label">Tái hiện</span><p>Đăng nhập password của tài khoản đã bật MFA để lấy <code>challenge</code>, gửi <strong>cùng lúc</strong> 29 mã sai và 1 mã đúng. Trước khi sửa, 3/3 lần mã đúng nhận <code>200</code> kèm <code>accessToken</code>; <code>rate_limits</code> ghi <code>count = 30</code>.</p></div>
     <div class="box"><span class="label">Nguyên nhân</span><p><code>attempt()</code> đọc bộ đếm, kiểm mã, rồi mới tăng: mọi request đến cùng lúc đều đọc thấy chưa đủ ngưỡng. Không có giới hạn theo IP ở bước này.</p></div>
     <div class="box"><span class="label">Sửa</span><p>Giữ lượt trước khi kiểm mã (chép bản sửa của Bài 1), thêm 30 lần / 15 phút / IP. Ca mới trong <code>check-api</code>: mã đúng gửi sau khi 5 mã sai đã có phản hồi; đọc <code>rate_limits</code> thấy đủ 30 lượt và đang khoá.</p></div>
-    <div class="box"><span class="label">Sau khi sửa</span><p><code>check-api</code> 218/218; phép thử độc lập 6/6 lần mã đúng <code>429</code>; log tạm phía server trong 46 loạt tái hiện: luôn chỉ 5 lượt được kiểm mã (<code>curl/16</code>).</p></div>
+    <div class="box"><span class="label">Sau khi sửa</span><p><code>check-api</code> 218/218 lúc sửa (nay 226/226 sau khi thêm ca nhóm đầu bếp); phép thử độc lập 6/6 lần mã đúng <code>429</code>; log tạm phía server trong 46 loạt tái hiện: luôn chỉ 5 lượt được kiểm mã (<code>curl/16</code>).</p></div>
   </div>
   <h3>Lỗi khác</h3>
   <ul>

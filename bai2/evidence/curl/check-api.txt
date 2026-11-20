@@ -170,24 +170,32 @@
 ĐẠT      Editor DELETE /api/chefs/1 → 403 — 403
 ĐẠT      Editor DELETE /api/ingredients/1 → 403 — 403
 ĐẠT      Dữ liệu không đổi sau mọi request bị chặn
-ĐẠT      Editor tạo món: bỏ qua chefId, status trong body — 1 draft
-ĐẠT      Editor sửa nháp của mình; chefId, status trong body bị bỏ qua
+ĐẠT      Seed: Editor A quản đầu bếp #1–30, Editor B #31–60 — 30 30
+ĐẠT      /me trả chefIds của nhóm, đọc từ DB
+ĐẠT      Editor A tạo món cho đầu bếp ngoài nhóm → 403, không ghi — 403
+ĐẠT      Editor tạo món: chọn đầu bếp trong nhóm; status trong body bị bỏ qua — 2 draft
+ĐẠT      Editor sửa nháp: đổi sang đầu bếp khác trong nhóm; status bị bỏ qua
+ĐẠT      Editor sửa nháp, đổi sang đầu bếp ngoài nhóm → 403, không ghi — 403
 ĐẠT      role trong body không nâng quyền
 ĐẠT      PATCH chỉ có tagIds vẫn chạy được
+ĐẠT      Đầu bếp chuyển sang nhóm khác: Editor cũ → 403 ngay, không cần token mới — 403
+ĐẠT      Editor nhóm mới thấy và sửa được món nháp đó
 ĐẠT      Editor B sửa món của A → 403 — 403
-ĐẠT      Editor A sửa món published của mình → 403 — 403
+ĐẠT      Editor A sửa món published trong nhóm mình → 403 — 403
 ĐẠT      Editor A đổi Tạm hết món published → 403 (12.4) — 403
 ĐẠT      Dữ liệu không đổi
 ĐẠT      Admin xuất bản
 ĐẠT      Đổi status xong, Editor gửi PATCH → 403, tên không đổi — 403
 ĐẠT      Hạ role, dùng token cũ → 403 vì role đọc từ DB — 403
 ĐẠT      Status lạ: VALIDATION_FAILED
-ĐẠT      Admin đổi chefId
+ĐẠT      Admin đổi chefId sang bất kỳ đầu bếp nào
 ĐẠT      Admin tạo món, không chọn status: published
-ĐẠT      Editor chưa gắn đầu bếp không tạo được món
-ĐẠT      Editor chưa gắn đầu bếp không khớp món nào
+ĐẠT      Editor chưa có nhóm không tạo được món
+ĐẠT      Editor chưa có nhóm không khớp món nào
 ĐẠT      Món không có: NOT_FOUND
-ĐẠT      Editor thêm đầu bếp được (12.3)
+ĐẠT      Editor thêm đầu bếp → 403 (plan 16 b) — 403
+ĐẠT      Editor sửa đầu bếp, kể cả trong nhóm mình → 403, không ghi — 403
+ĐẠT      Admin thêm đầu bếp được
 ĐẠT      Editor thêm tag được (12.3)
 ĐẠT      Admin xoá món
 
@@ -213,7 +221,7 @@
 ĐẠT      include lạ: VALIDATION_FAILED
 ĐẠT      Viewer ở quản trị: 1.200 món
 ĐẠT      Viewer lọc Nháp: 0 món
-ĐẠT      Editor A lọc Nháp: 3 món của mình, canEdit — 3
+ĐẠT      Editor A lọc Nháp: 3 món của nhóm mình, canEdit — 3
 ĐẠT      Editor A: 1.200 + 3 nháp
 ĐẠT      Admin lọc Nháp: 6 món — 6
 ĐẠT      Admin: 1.206 món
@@ -222,11 +230,11 @@
 ĐẠT      Editor A tìm toàn văn không ra nháp của B
 ĐẠT      Admin tìm gần đúng ra món nháp
 ĐẠT      Viewer mở nháp ở quản trị → 403
-ĐẠT      Editor A mở nháp của B → 403
-ĐẠT      Editor A mở nháp của mình, canEdit true
+ĐẠT      Editor A mở nháp của nhóm B → 403
+ĐẠT      Editor A mở nháp của nhóm mình, canEdit true
 ĐẠT      Admin: canEdit true
 ĐẠT      Chi tiết đầu bếp không lộ tên món nháp cho Viewer
 ĐẠT      Editor của món thấy món nháp ở chi tiết đầu bếp
 ĐẠT      Chi tiết nguyên liệu không lộ tên món nháp cho Viewer
 
-TỔNG: 218 ĐẠT, 0 CHƯA ĐẠT
+TỔNG: 226 ĐẠT, 0 CHƯA ĐẠT

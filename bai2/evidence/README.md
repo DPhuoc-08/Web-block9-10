@@ -34,11 +34,11 @@ Thu ngày 09/11/2026 bằng `node scripts/collect-evidence.mjs` (trong `api/`): 
 
 | Nội dung | Bằng chứng |
 | :--- | :--- |
-| Toàn bộ request trực tiếp | `curl/check-api.txt`: **218 ĐẠT, 0 CHƯA ĐẠT** |
+| Toàn bộ request trực tiếp | `curl/check-api.txt`: **226 ĐẠT, 0 CHƯA ĐẠT** (20/11, sau khi đổi sang nhóm đầu bếp) |
 | Challenge chỉ dùng được ở `/api/auth/mfa` | `curl/08`, `curl/check-api.txt` phần B |
 | Gửi 29 mã sai cùng lúc: chỉ 5 lượt được kiểm, mã đúng `429`, giới hạn IP; trước và sau khi sửa, log tái hiện | `curl/16`, `curl/check-api.txt` phần B |
 | `401` nhớ trang đang mở, `403` giữ token, API tắt không đăng xuất | ảnh `13`, `14`; `curl/02`, `curl/04` |
-| Giao diện theo role, Editor thêm món không gửi `chefId` | ảnh `06-*`, `07-*`, `09`, `10-*`, `11`; Network mục 2c |
+| Giao diện theo role; Editor thêm món chọn đầu bếp trong nhóm, không gửi `status`; Editor ở trang Đầu bếp chỉ xem (plan 16) | ảnh `06-*`, `07-*`, `09`, `09b`, `10-*`, `11`; Network mục 2c; `curl/02` (đầu bếp ngoài nhóm, sửa đầu bếp → `403`) |
 | Quản lý MFA | ảnh `23-*`–`26`, `36-*`, `37`; Network mục 8a, 8b, 11a, 11b; `db/05`, `db/08` |
 | Nơi lưu token: đăng nhập, đăng xuất, Reload, tab mới | `storage/01`, `07`, `09`; `curl/12` |
 | Log server, bundle không chứa bí mật | `curl/13`, `curl/14` |

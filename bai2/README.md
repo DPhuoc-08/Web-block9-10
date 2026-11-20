@@ -42,10 +42,18 @@ npm run dev               # http://localhost:5173
 
 ```bash
 cd api
-node scripts/check-api.mjs            # 218 kiểm tra; tự chạy server ở :3100; cần .env.test (key thử của Google)
+node scripts/check-api.mjs            # 226 kiểm tra; tự chạy server ở :3100; cần .env.test (xem dưới)
 npm --prefix ../web run build
 node scripts/collect-evidence.mjs     # Chrome thật; tắt api và web trước; ghi vào evidence/
 npx prisma db seed                    # seed lại sau khi test
+```
+
+`api/.env.test` (không có trong repo, tự tạo) chỉ chứa **key thử công khai** của Google reCAPTCHA v2, để script vượt CAPTCHA mà không cần người tick. Không dùng khi demo:
+
+```
+RECAPTCHA_SITE_KEY=6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI
+RECAPTCHA_SECRET_KEY=6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe
+RECAPTCHA_HOSTNAMES=testkey.google.com
 ```
 
 | Phần `check-api` | Nội dung |
@@ -64,7 +72,7 @@ npx prisma db seed                    # seed lại sau khi test
 | `POST /api/auth/login` | Không | `{ accessToken, expiresIn }` hoặc `{ next: "mfa", challenge, expiresIn }`. CAPTCHA gửi ở `captchaToken` |
 | `POST /api/auth/mfa` | Không | `challenge` + `code` hoặc `recoveryCode` |
 | `POST /api/auth/register`, `/activate`, `/activate/resend`, `/forgot`, `/reset` | Không | Trả JSON, cùng logic Bài 1 |
-| `GET /api/auth/me` | Có | `id`, `email`, `username`, `role`, `chefId` |
+| `GET /api/auth/me` | Có | `id`, `email`, `username`, `role`, `chefIds` (nhóm đầu bếp của Editor, rỗng với role khác) |
 | `GET /api/auth/mfa/status`; `POST /api/auth/mfa/setup`, `/confirm` | Có | Thiết lập |
 | `POST /api/auth/mfa/replace`, `/recovery-codes`, `/disable` | Có | Bắt buộc `password` và `factor` |
 | `GET /api/dishes`, `/api/dishes/:id` | Không | Chỉ món `published`. `?include=tags` kèm tag cho thanh danh mục |

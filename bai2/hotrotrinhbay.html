@@ -136,12 +136,12 @@
   <ul>
     <li><code>api</code>: đăng nhập trả JWT, verify ở backend, role luôn đọc từ database</li>
     <li>Tài khoản có MFA nhận challenge ngắn hạn, không nhận token cho tới khi qua mã</li>
-    <li>RBAC, ABAC đúng bảng quy tắc của Bài 1, chép nguyên <code>policy/permissions.js</code></li>
+    <li>RBAC, ABAC cùng cách viết với Bài 1 (<code>policy/permissions.js</code>, một luật dùng cho cả cổng lẫn câu ghi); riêng Editor quản lý một <strong>nhóm đầu bếp</strong> thay vì một đầu bếp (đổi 20/11, xem <a href="#de-chua-khop">Đề chưa khớp</a>)</li>
     <li><code>web</code>: trang tài khoản, MFA, quản trị theo role; route guard và ẩn nút chỉ là giao diện</li>
     <li>Giữ tìm kiếm, phân trang, hợp đồng lỗi của block 6, 7</li>
   </ul>
   <div class="stats">
-    <div class="stat"><strong>218/218</strong><a href="evidence/curl/check-api.txt">check-api</a>: request trực tiếp</div>
+    <div class="stat"><strong>226/226</strong><a href="evidence/curl/check-api.txt">check-api</a>: request trực tiếp</div>
     <div class="stat"><strong>1.200 món</strong><a href="evidence/curl/06-cong-khai.txt">route công khai</a>: như block 7, không token</div>
   </div>
   <p class="muted">Toàn bộ bằng chứng: <a href="evidence/README.md">evidence/README.md</a> · kịch bản demo: <a href="kichban.html">kichban.html</a> · mô-đun chuyển: <a href="MODULES.md">MODULES.md</a></p>
@@ -177,6 +177,7 @@
       <tr><td>Slide 61: thêm <code>Dish.chefId</code></td><td>Cột này bắt buộc từ block 7</td><td>Chỉ thêm <code>status</code></td></tr>
       <tr><td>Sơ đồ JWT (slide 31, 35) có <code>role</code> trong payload</td><td>Ghi chú 33 chọn đọc role từ database</td><td>Token không chứa role; <code>web</code> lấy role từ <code>GET /api/auth/me</code></td></tr>
       <tr><td>Slide 63: chỉ hai route món công khai</td><td>Trang <code>/dishes</code> của block 7 gọi <code>GET /api/tags</code></td><td>Theo đề: <code>GET /api/tags</code> cần token; thanh danh mục lấy tag qua <code>GET /api/dishes?include=tags</code></td></tr>
+      <tr><td>Slide 52: món của Editor nhận <code>chefId</code> từ tài khoản; chỉ Admin đổi <code>chefId</code></td><td>Nhóm thấy vô lý khi Editor sửa được hồ sơ mọi đầu bếp, và một Editor chỉ ứng với đúng một đầu bếp</td><td><strong>Cố ý lệch, chỉ ở Bài 2</strong> (Bài 1 giữ đúng slide 52). Editor là "đầu bếp trưởng" của một nhóm (<code>chefs.managerId</code>): thêm món chọn đầu bếp <strong>trong nhóm</strong>, sửa món nháp được đổi sang đầu bếp khác trong nhóm; đầu bếp ngoài nhóm → <code>403</code>. Phần còn lại giữ nguyên: món của Editor luôn Nháp, chỉ Admin xuất bản, chỉ Admin thêm, sửa, xoá hồ sơ đầu bếp. Nhóm hiện gán bằng seed (#1–30 cho Editor A, #31–60 cho Editor B), quyền gán thuộc Admin nhưng chưa có màn hình</td></tr>
       <tr><td>Slide 67: kết quả như trước khi gắn xác thực</td><td>Nhóm ẩn món nháp với khách</td><td>Món nháp seed thêm sau 1.200 món, nên lọc <code>published</code> vẫn đúng 1.200 món, cùng id, cùng <code>total</code></td></tr>
     </tbody>
   </table></div>
@@ -211,7 +212,9 @@
       <tr><td>Đọc món cho trang quản trị</td><td>Route riêng <code>/api/admin/dishes</code>, trả <code>canEdit</code></td><td>Route công khai giữ nguyên kết quả cho mọi người gọi và không đọc token; <code>web</code> không phải chép luật ABAC</td></tr>
       <tr><td>Trang quản lý MFA trên <code>web</code></td><td>Có làm, ở <code>/admin/security</code></td><td>Slide 60 ghi MFA; không có trang này thì chỉ bật được bằng curl</td></tr>
       <tr><td>Secret, recovery code ở <code>web</code></td><td>Chỉ ở state của trang</td><td>Không vào URL, lịch sử trình duyệt, storage</td></tr>
-      <tr><td>Món nháp, Editor với đầu bếp, Tạm hết</td><td>Như Bài 1</td><td>Cùng bảng quy tắc (slide 63)</td></tr>
+      <tr><td>Món nháp, Tạm hết</td><td>Như Bài 1, đổi "đầu bếp của Editor" thành "nhóm của Editor"</td><td>Cùng bảng quy tắc (slide 63)</td></tr>
+      <tr><td>Editor với hồ sơ đầu bếp</td><td><strong>Chỉ đọc</strong>; Admin thêm, sửa, xoá (Bài 1: Editor thêm, sửa được)</td><td>Editor chọn đầu bếp cho món trong nhóm mình; sửa hồ sơ đầu bếp của người khác không thuộc việc của Editor</td></tr>
+      <tr><td>Nhóm đầu bếp của Editor</td><td>Đọc từ database ở mọi request, cùng chỗ đọc role</td><td>Admin chuyển đầu bếp sang nhóm khác thì Editor cũ mất quyền ngay, không cần token mới (có ca trong <code>check-api</code>)</td></tr>
     </tbody>
   </table></div>
 </section>

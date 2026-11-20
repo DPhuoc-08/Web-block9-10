@@ -96,9 +96,9 @@ async function snapshot() {
 }
 async function dbUser(file, heading, email) {
   add(file, `## ${heading}  (lúc ${time(new Date())})\n`);
-  const u = await prisma.user.findUnique({ where: { email }, include: { recoveryCodes: { orderBy: { id: "asc" } }, passwordResets: { orderBy: { id: "asc" } }, mfaChallenges: { orderBy: { id: "asc" } } } });
+  const u = await prisma.user.findUnique({ where: { email }, include: { recoveryCodes: { orderBy: { id: "asc" } }, passwordResets: { orderBy: { id: "asc" } }, mfaChallenges: { orderBy: { id: "asc" } }, managedChefs: { select: { id: true }, orderBy: { id: "asc" } } } });
   for (const v of [u.mfaSecret, u.mfaPendingSecret, u.passwordHash]) if (v) known.add(v);
-  add(file, `users #${u.id}  role=${u.role}  chefId=${u.chefId ?? "—"}  status=${u.status}  mfaEnabled=${u.mfaEnabled}  tokenVersion=${u.tokenVersion}  mfaLastStep=${u.mfaLastStep ?? "—"}`);
+  add(file, `users #${u.id}  role=${u.role}  nhóm đầu bếp=${u.managedChefs.length ? `${u.managedChefs.length} (#${u.managedChefs[0].id}–#${u.managedChefs.at(-1).id})` : "—"}  status=${u.status}  mfaEnabled=${u.mfaEnabled}  tokenVersion=${u.tokenVersion}  mfaLastStep=${u.mfaLastStep ?? "—"}`);
   add(file, `  passwordHash: vân tay ${print(u.passwordHash)}`);
   add(file, `  mfaSecret: ${u.mfaSecret ? `<bản mã, ${u.mfaSecret.length} ký tự, vân tay ${print(u.mfaSecret)}>` : "—"}`);
   add(file, `  recovery_codes: ${u.recoveryCodes.length} mã, ${u.recoveryCodes.filter((c) => c.usedAt).length} đã dùng`);
@@ -190,14 +190,18 @@ async function run() {
     await clearIp();
     const A = await prisma.user.findUnique({ where: { email: EDITOR_A } });
     const B = await prisma.user.findUnique({ where: { email: EDITOR_B } });
+    // Nhóm đầu bếp của từng Editor (plan 16), đọc từ chefs.managerId.
+    const group = async (u) => (await prisma.chef.findMany({ where: { managerId: u.id }, select: { id: true, name: true }, orderBy: { id: "asc" } }));
+    const [groupA, groupB] = [await group(A), await group(B)];
+    const aIds = groupA.map((c) => c.id), bIds = groupB.map((c) => c.id);
     const [tViewer, tA, tB, tAdmin] = [await login(VIEWER), await login(EDITOR_A), await login(EDITOR_B), await login(ADMIN)];
     const tagId = (await prisma.tag.findFirst({ where: { name: "Món nước" } })).id;
     const ingredientId = (await prisma.ingredient.findFirst({ orderBy: { id: "asc" } })).id;
     const form = (name, chefId, extra = {}) => ({ name, price: 50000, description: "mô tả", tagIds: [tagId], ingredientIds: [ingredientId], chefId, available: true, ...extra });
-    const draft = (await raw("POST", "/api/dishes", { token: tA, body: form(`${T} Nháp của A`, A.chefId) })).data;
+    const draft = (await raw("POST", "/api/dishes", { token: tA, body: form(`${T} Nháp của A`, aIds[0]) })).data;
     const dishRow = () => prisma.dish.findUnique({ where: { id: draft.id } });
-    const publishedA = await prisma.dish.findFirst({ where: { chefId: A.chefId, status: "published" }, orderBy: { id: "asc" } });
-    const draftB = await prisma.dish.findFirst({ where: { chefId: B.chefId, status: "draft" }, orderBy: { id: "asc" } });
+    const publishedA = await prisma.dish.findFirst({ where: { chefId: { in: aIds }, status: "published" }, orderBy: { id: "asc" } });
+    const draftB = await prisma.dish.findFirst({ where: { chefId: { in: bIds }, status: "draft" }, orderBy: { id: "asc" } });
 
     // ===== Slide 67, ca 1: chưa đăng nhập =====
     {
@@ -219,9 +223,14 @@ async function run() {
     {
       const F = "curl/02-thieu-quyen.txt";
       const before = await snapshot();
-      for (const [token, who, m, p] of [[tViewer, "Viewer", "POST", "/api/dishes"], [tViewer, "Viewer", "PATCH", `/api/dishes/${draft.id}`], [tViewer, "Viewer", "DELETE", `/api/dishes/${draft.id}`], [tA, "Editor", "DELETE", `/api/dishes/${draft.id}`], [tB, "Editor B, món của A", "PATCH", `/api/dishes/${draft.id}`], [tA, "Editor A, món published", "PATCH", `/api/dishes/${publishedA.id}`]]) {
+      for (const [token, who, m, p] of [[tViewer, "Viewer", "POST", "/api/dishes"], [tViewer, "Viewer", "PATCH", `/api/dishes/${draft.id}`], [tViewer, "Viewer", "DELETE", `/api/dishes/${draft.id}`], [tA, "Editor", "DELETE", `/api/dishes/${draft.id}`], [tB, "Editor B, món nháp nhóm A", "PATCH", `/api/dishes/${draft.id}`], [tA, "Editor A, món published trong nhóm mình", "PATCH", `/api/dishes/${publishedA.id}`]]) {
         const res = await call(F, m, p, { token, note: who, ...(m === "DELETE" ? {} : { body: { name: `${T} sửa` } }) });
         check(F, res.status === 403 && res.code === "FORBIDDEN", `${who} ${m} ${p} → 403`);
+      }
+      // Plan 16: Editor chỉ gán đầu bếp trong nhóm; hồ sơ đầu bếp chỉ Admin thêm, sửa.
+      for (const [who, m, p, body] of [["Editor A, đầu bếp nhóm B", "POST", "/api/dishes", form(`${T} ngoài nhóm`, bIds[0])], ["Editor A, đổi sang đầu bếp nhóm B", "PATCH", `/api/dishes/${draft.id}`, { chefId: bIds[0] }], ["Editor A thêm đầu bếp", "POST", "/api/chefs", { name: `${T} Đầu bếp`, tagIds: [tagId] }], ["Editor A sửa đầu bếp trong nhóm", "PATCH", `/api/chefs/${aIds[0]}`, { name: `${T} Đổi tên` }]]) {
+        const res = await call(F, m, p, { token: tA, note: who, body });
+        check(F, res.status === 403 && res.code === "FORBIDDEN", `${who}: ${m} ${p} → 403`);
       }
       check(F, (await snapshot()) === before, "Dữ liệu không đổi");
       await dbDishes("db/02-thieu-quyen.txt", "Món liên quan", [draft.id, publishedA.id, draftB.id]);
@@ -249,14 +258,14 @@ async function run() {
       await shot("05-editor-mon-published-375");
       await open("/admin/dishes?status=draft");
       await until(`document.querySelector("table")`);
-      check(F, (await text()).includes(draft.name) && !(await text()).includes(draftB.name), "Editor A lọc Nháp: thấy món của mình, không thấy của B");
+      check(F, (await text()).includes(draft.name) && !(await text()).includes(draftB.name), "Editor A lọc Nháp: thấy món nháp nhóm mình, không thấy nhóm B");
       await shot3("06-editor-loc-nhap");
       await noOverflow("curl/15-giao-dien.txt", "Danh sách món của Editor");
 
       // Mở form, Admin xuất bản, Editor mới bấm Lưu.
       await open(`/admin/dishes/${draft.id}/edit`);
       await until(`document.querySelector("form.form")`);
-      check(F, !(await b.eval(`return Boolean(document.querySelector('select[name="status"]'));`)) && (await text()).includes("Lưu nháp") && !(await text()).includes("Đầu bếp phụ trách"), "Form của Editor: không có ô Trạng thái, Đầu bếp");
+      check(F, !(await b.eval(`return Boolean(document.querySelector('select[name="status"]'));`)) && (await text()).includes("Lưu nháp") && (await text()).includes("Đầu bếp phụ trách"), "Form của Editor: không có ô Trạng thái; có ô Đầu bếp (chỉ nhóm mình)");
       await shot3("07-form-editor");
       await noOverflow("curl/15-giao-dien.txt", "Form của Editor");
       await raw("PATCH", `/api/dishes/${draft.id}`, { token: tAdmin, body: { status: "published" } });
@@ -269,7 +278,7 @@ async function run() {
       await shot("08-gui-form-sau-khi-xuat-ban-1280");
       await raw("PATCH", `/api/dishes/${draft.id}`, { token: tAdmin, body: { status: "draft" } });
 
-      // Editor tạo món qua giao diện: không gửi chefId, status.
+      // Editor tạo món qua giao diện: chọn đầu bếp trong nhóm (gửi chefId), không gửi status (plan 16 d).
       await open("/admin/dishes/new");
       await until(`document.querySelector("form.form")`);
       await fill("form.form", { name: `${T} Editor tạo qua web`, price: "45000" });
@@ -278,14 +287,33 @@ async function run() {
       await sleep(300);
       await b.eval(`const o = document.querySelector('[role="option"]'); o.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); o.click(); return 1;`);
       await sleep(200);
+      const typeChef = (name) => b.eval(`const i = [...document.querySelectorAll('fieldset input')].find((x) => (x.placeholder ?? "").includes("tên đầu bếp")); i.focus(); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, ${JSON.stringify(name)}); i.dispatchEvent(new Event("input", { bubbles: true })); return 1;`);
+      const optionTexts = async () => JSON.parse(await b.eval(`return JSON.stringify([...document.querySelectorAll('[role="option"]')].map((o) => o.textContent));`));
+      await typeChef(groupB[0].name);
+      await sleep(300);
+      check(F, (await optionTexts()).length === 0, `Ô đầu bếp của Editor A: gõ tên đầu bếp nhóm B (${groupB[0].name}) không có gợi ý, không có "thêm đầu bếp mới"`);
+      await typeChef(groupA[0].name);
+      await sleep(300);
+      check(F, (await optionTexts()).some((t) => t.includes(groupA[0].name)), "Gõ tên đầu bếp trong nhóm: có gợi ý");
+      await b.eval(`const o = document.querySelector('[role="option"]'); o.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); o.click(); return 1;`);
+      await sleep(200);
       await b.takeCalls();
       await submit("form.form");
       await until(`location.search.includes("msg=dish-created")`);
       const posted = (await b.takeCalls()).filter((c) => c.method === "POST");
-      network("2c. Editor thêm món qua web: body không có chefId, status", posted);
+      network("2c. Editor thêm món qua web: body có chefId của đầu bếp trong nhóm, không có status", posted);
       const made = await prisma.dish.findFirst({ where: { name: `${T} Editor tạo qua web` } });
-      check(F, made?.chefId === A.chefId && made?.status === "draft" && !posted[0].postData.includes("chefId") && (await path()).includes("status=draft"), "Editor tạo món: server gán đầu bếp và Nháp, về danh sách lọc Nháp");
+      check(F, made?.chefId === aIds[0] && made?.status === "draft" && posted[0].postData.includes(`"chefId":${aIds[0]}`) && !posted[0].postData.includes('"status"') && (await path()).includes("status=draft"), "Editor tạo món: đầu bếp đã chọn trong nhóm, server đặt Nháp, về danh sách lọc Nháp");
       await shot("09-editor-tao-mon-xong-1280");
+
+      // Trang Đầu bếp của Editor: chỉ xem (plan 16 b).
+      await open("/admin/chefs");
+      await until(`document.querySelector("table")`);
+      check(F, !(await text()).includes("+ Thêm đầu bếp") && !(await b.eval(`return Boolean(document.querySelector("td.actions"));`)) && (await text()).includes("Chỉ quản trị viên thêm, sửa"), "Editor ở trang Đầu bếp: không có Thêm, Sửa, có câu giải thích");
+      await shot("09b-editor-dau-bep-chi-xem-1280");
+      await open(`/admin/chefs/${aIds[0]}/edit`);
+      await hasText("Không đủ quyền");
+      check(F, true, "Editor mở thẳng /admin/chefs/:id/edit: báo không đủ quyền");
 
       await uiLogin(ADMIN, PW);
       await until(`document.querySelector("table")`);
@@ -312,13 +340,13 @@ async function run() {
       const sent = await b.takeCalls();
       const ui = sent.find((c) => c.method === "PATCH");
       const pre = sent.find((c) => c.method === "OPTIONS");
-      network("3. Editor sửa món nháp của mình qua giao diện: Chrome gửi preflight OPTIONS trước PATCH có Authorization", [pre, ui].filter(Boolean));
+      network("3. Editor sửa món nháp trong nhóm mình qua giao diện: Chrome gửi preflight OPTIONS trước PATCH có Authorization", [pre, ui].filter(Boolean));
       const allow = Object.fromEntries(Object.entries(pre?.resHeaders ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
       check(F, pre?.status === 204 && allow["access-control-allow-origin"] === WEB && allow["access-control-allow-headers"]?.toLowerCase().includes("authorization"), "Chrome thật: preflight 204, origin cụ thể, cho phép Authorization");
       const direct = await call(F, "PATCH", `/api/dishes/${draft.id}`, { token: tA, body: { name: draft.name }, note: "cùng thao tác, gọi trực tiếp" });
       check(F, ui.status === 200 && direct.status === 200 && direct.json.ok === true, "Qua giao diện và gọi trực tiếp: cùng 200, ok true");
-      const denied = await call(F, "PATCH", `/api/dishes/${draftB.id}`, { token: tA, body: { name: `${T} x` }, note: "món của B" });
-      check(F, denied.status === 403, "Trực tiếp sửa món của B → 403 như trang báo thiếu quyền");
+      const denied = await call(F, "PATCH", `/api/dishes/${draftB.id}`, { token: tA, body: { name: `${T} x` }, note: "món nháp nhóm B" });
+      check(F, denied.status === 403, "Trực tiếp sửa món nháp nhóm B → 403 như trang báo thiếu quyền");
     }
 
     // ===== Slide 67, ca 4, 5: JWT bị sửa, hết hạn, sửa role ở trình duyệt =====
