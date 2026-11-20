@@ -3,7 +3,7 @@
 // Dữ liệu tất định (không random): chạy lại luôn ra đúng dữ liệu cũ, id bắt đầu lại từ 1.
 import { prisma } from "../src/db.js";
 import { buildSeed } from "./seed-data/generate.js";
-import { CHEF_A, CHEF_B, DRAFT_DISHES } from "./seed-data/block9.js";
+import { DRAFT_DISHES, GROUP_A, GROUP_B } from "./seed-data/block9.js";
 import { hashPassword, checkNewPassword } from "../src/auth/password.js";
 import { checkEmail } from "../src/auth/email.js";
 
@@ -15,11 +15,11 @@ const { tags: TAGS, chefs: CHEFS, ingredients: INGREDIENTS, dishes: DISHES } = b
 function seedAccounts() {
   const errors = {};
   checkNewPassword(process.env.SEED_USER_PASSWORD ?? "", undefined, errors, { password: "SEED_USER_PASSWORD" });
-  // Bốn tài khoản theo ghi chú slide 50. chefName chỉ có ở Editor: viewer, admin có chefId rỗng.
+  // Bốn tài khoản theo ghi chú slide 50. group chỉ có ở Editor: khoảng vị trí đầu bếp trong CHEFS mà Editor quản lý (plan 16 g).
   const accounts = [
     { key: "SEED_VIEWER_EMAIL", username: "Tài khoản xem thử", role: "viewer" },
-    { key: "SEED_EDITOR_A_EMAIL", username: "Editor A", role: "editor", chefName: CHEF_A },
-    { key: "SEED_EDITOR_B_EMAIL", username: "Editor B", role: "editor", chefName: CHEF_B },
+    { key: "SEED_EDITOR_A_EMAIL", username: "Editor A", role: "editor", group: GROUP_A },
+    { key: "SEED_EDITOR_B_EMAIL", username: "Editor B", role: "editor", group: GROUP_B },
     { key: "SEED_ADMIN_EMAIL", username: "Quản trị viên", role: "admin" },
   ].map(({ key, ...a }) => ({ ...a, key, email: checkEmail(process.env[key], errors, key) }));
   const seen = new Set();
@@ -100,7 +100,14 @@ async function main() {
       // Tài khoản seed đã kích hoạt sẵn (status active, có emailVerifiedAt) để thử đăng nhập, quên mật khẩu, CRUD.
       // Tài khoản tạo qua form đăng ký thì phải qua kích hoạt bằng OTP.
       const verifiedAt = new Date("2026-11-01T00:00:00Z");
-      await tx.user.createMany({ data: users.map(({ chefName, ...u }) => ({ ...u, chefId: chefName ? chefId[chefName] : null, status: "active", emailVerifiedAt: verifiedAt })) });
+      const created = await tx.user.createManyAndReturn({ data: users.map(({ group, ...u }) => ({ ...u, status: "active", emailVerifiedAt: verifiedAt })), select: { id: true, email: true } });
+      // Gán nhóm đầu bếp cho Editor (quyền gán là của Admin; hiện chỉ gán bằng seed, plan 16 c).
+      for (const { email, group } of users) {
+        if (!group) continue;
+        const managerId = created.find((u) => u.email === email).id;
+        const ids = CHEFS.slice(...group).map((c) => chefId[c.name]);
+        await tx.chef.updateMany({ where: { id: { in: ids } }, data: { managerId } });
+      }
     },
     // maxWait mặc định 2s không đủ để mở kết nối tới pooler ở Sydney (ap-southeast-2) → P2028.
     { maxWait: 30_000, timeout: 120_000 },
@@ -137,6 +144,18 @@ async function printStats() {
       WHERE dt."dishId" = d.id AND ct."chefId" = d."chefId"
     )`;
   console.log(`Món có đầu bếp không đúng chuyên môn: ${mismatched}`);
+
+  // Nhóm đầu bếp của từng Editor (plan 16 g): số đầu bếp, khoảng id, số món nháp trong nhóm.
+  const groups = await prisma.user.findMany({
+    where: { role: "editor" },
+    orderBy: { id: "asc" },
+    select: { username: true, managedChefs: { select: { id: true, _count: { select: { dishes: { where: { status: "draft" } } } } } } },
+  });
+  for (const g of groups) {
+    const ids = g.managedChefs.map((c) => c.id);
+    const drafts = g.managedChefs.reduce((n, c) => n + c._count.dishes, 0);
+    console.log(`${g.username}: ${ids.length} đầu bếp (#${Math.min(...ids)}–#${Math.max(...ids)}), ${drafts} món nháp.`);
+  }
 
   const [load] = await prisma.$queryRaw`
     SELECT min(n)::int AS min, max(n)::int AS max, count(*) FILTER (WHERE n = 0)::int AS idle

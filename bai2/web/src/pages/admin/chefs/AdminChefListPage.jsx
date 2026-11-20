@@ -1,5 +1,5 @@
 import { Link, useLocation, useOutletContext, useSearchParams } from "react-router";
-import { canWrite, isAdmin } from "../../../auth/can.js";
+import { canManageChefs, isAdmin } from "../../../auth/can.js";
 import AdminSearch, { adminModeParam } from "../../../components/AdminSearch.jsx";
 import { listChefs } from "../../../api/chefs.js";
 import { useLoad } from "../../../hooks/useLoad.js";
@@ -51,15 +51,15 @@ export default function AdminChefListPage() {
         <h1 ref={topRef} tabIndex={-1} className="list-anchor">
           Đầu bếp
         </h1>
-        {canWrite(user) && (
+        {canManageChefs(user) && (
           <Link className="btn btn-primary" to="/admin/chefs/new" state={backState}>
             + Thêm đầu bếp
           </Link>
         )}
       </div>
-      {!canWrite(user) && (
+      {!canManageChefs(user) && (
         <p className="notice" role="note">
-          Tài khoản của bạn chỉ có quyền xem.
+          {user?.role === "editor" ? "Chỉ quản trị viên thêm, sửa hồ sơ đầu bếp. Bạn chọn đầu bếp trong nhóm mình khi thêm, sửa món." : "Tài khoản của bạn chỉ có quyền xem."}
         </p>
       )}
 
@@ -86,7 +86,7 @@ export default function AdminChefListPage() {
                 <th>Chuyên môn</th>
                 <th>Phụ trách</th>
                 {scored && <th>Điểm</th>}
-                {canWrite(user) && (
+                {canManageChefs(user) && (
                   <th>
                     <span className="sr-only">Thao tác</span>
                   </th>
@@ -109,7 +109,7 @@ export default function AdminChefListPage() {
                       {c.score.toFixed(3)}
                     </td>
                   )}
-                  {canWrite(user) && (
+                  {canManageChefs(user) && (
                     <td className="actions">
                       <Link className="btn btn-sm" to={`/admin/chefs/${c.id}/edit`} state={backState}>
                         Sửa

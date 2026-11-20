@@ -13,8 +13,8 @@ Nguồn: `bai1/source-code/`. Đích: `bai2/api/`. Cập nhật theo từng bư�
 | `guardDish`, `withServerFields`, câu ghi có điều kiện ở `src/routes/dishes.js` (từ `routes/admin/dishes.js`) | Đổi cách trả kết quả | Cùng thứ tự cổng và cùng luật `editableDishWhere`; `403` JSON; `PATCH` nhận một phần trường nên có câu ghi no-op khi chỉ đổi tag, nguyên liệu |
 | `src/search/dish-filter.js` (từ `dishFilterSql` ở `queries/dishes.js`) | Viết lại theo cùng luật | Chỉ giữ phần món nháp, dùng `draftScope`; tìm kiếm giữ đúng block7, không lấy phần bỏ dấu của block8 |
 | `src/auth/cleanup.js` | Chép, sửa ít | Dọn `mfa_challenges` thay cho `sessions` |
-| `src/policy/permissions.js` | Chép nguyên | Không |
-| `prisma/seed-data/block9.js` | Chép nguyên | Không |
+| `src/policy/permissions.js` | Chép, **đã đổi luật** (plan 16, 20/11) | Editor quản lý một nhóm đầu bếp (`user.chefIds`, từ `chefs.managerId`) thay cho một `chefId` của tài khoản; thêm `canAssignChef`; `chef:create`, `chef:update` chỉ Admin. Cách viết giữ nguyên: file thuần, một luật `editableDishWhere` dùng cho cả cổng lẫn câu ghi. Bài 1 giữ bản theo slide 52 |
+| `prisma/seed-data/block9.js` | Chép, sửa ít | 20/11: nhóm đầu bếp #1–30 / #31–60; 3 món nháp của B chuyển sang đầu bếp #45, #47, #55 |
 | `prisma/seed.js` | Chép, sửa ít | `TRUNCATE` bỏ `sessions`, thêm `mfa_challenges` |
 | `prisma/schema.prisma` | Chép, sửa ít | Bỏ model `Session`; thêm `User.tokenVersion`, model `MfaChallenge` |
 | `src/db.js` (phần `SENSITIVE`) | Chuyển đoạn ẩn tham số vào `db.js` của block7 | Danh sách bảng bỏ `sessions`, thêm `mfa_challenges` |

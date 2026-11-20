@@ -91,7 +91,7 @@ export default function AdminDishListPage() {
       )}
       {canWrite(user) && !canCreateDish(user) && (
         <p className="notice" role="note">
-          Tài khoản Editor này chưa được gắn với đầu bếp nào nên chưa thêm hay sửa món được. Hãy liên hệ quản trị viên.
+          Tài khoản Editor này chưa được giao nhóm đầu bếp nào nên chưa thêm hay sửa món được. Hãy liên hệ quản trị viên.
         </p>
       )}
 

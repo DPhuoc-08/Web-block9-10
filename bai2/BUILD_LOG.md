@@ -129,3 +129,22 @@ Quyết định và lý do chung nằm ở `Week7/block9-plan.md`. File này ghi
 **Đã kiểm tra:** `ve-so-do.mjs` chạy được. Chrome headless: `kichban.html`, `hotrotrinhbay.html` ở 1280 và 375px không cuộn ngang, bảng cuộn trong khung, không ảnh hỏng. File bằng chứng mới không chứa challenge, token, mã.
 
 **Chưa chắc:** sơ đồ cần nhóm duyệt (H2); chưa có ảnh DevTools (H1); H4 (CAPTCHA thật, Gmail thật, quét QR ở `web`) vẫn chờ người thử, nên vẫn chưa đánh dấu "đạt Bài 2".
+
+## Bước 43–44 — Editor quản lý một nhóm đầu bếp (plan mục 16, người dùng yêu cầu 20/11/2026)
+**Lý do:** người dùng thấy vô lý khi Editor sửa được hồ sơ của mọi đầu bếp (12.3). Đổi Editor thành "đầu bếp trưởng" của một nhóm. **Chỉ Bài 2**; Bài 1 giữ đúng slide 52. **Lệch slide 52** (món của Editor nhận `chefId` từ tài khoản): công bố ở `hotrotrinhbay.html` (bước 45).
+
+**Đã làm:**
+- Schema: bỏ `users.chefId`, thêm `chefs.managerId` (khoá ngoại `users`, `SetNull`, có index). Mỗi đầu bếp thuộc tối đa một Editor. `db push` sau khi người dùng xem SQL của `prisma migrate diff` và xác nhận.
+- `policy/permissions.js`: `chef:create`, `chef:update` chuyển sang chỉ Admin; luật ABAC dùng `user.chefIds` (nhóm) thay cho `user.chefId`; thêm `canAssignChef`. Nhóm rỗng không khớp món nào (như quy tắc "`chefId` rỗng không khớp" cũ).
+- `require-jwt.js`: mỗi request đọc nhóm từ DB (`managedChefs`), nên Admin chuyển đầu bếp sang nhóm khác có hiệu lực ngay, không cần token mới. `/api/auth/me` trả `chefIds` thay `chefId`.
+- `routes/dishes.js`: Editor gửi `chefId`; sau validate, đầu bếp ngoài nhóm → `403`, không ghi. `status` của Editor vẫn bị bỏ qua, món luôn `draft`. PATCH: đầu bếp cũ thuộc nhóm kiểm ở `guardDish` và lại trong câu `updateMany` đầu tiên (`chefId: { in: nhóm }`); đầu bếp mới kiểm bằng `canAssignChef`.
+- `search/dish-filter.js`: SQL thô dùng `IN (…)` qua `Prisma.join`, không nối chuỗi.
+- Seed: đầu bếp #1–30 thuộc Editor A, #31–60 thuộc Editor B. 3 món nháp của B chuyển sang #47 (nướng), #45 (cơm), #55 (cuốn) để đúng chuyên môn (seed kiểm tra). In thống kê nhóm.
+- `web`: form món của Editor có ô chọn đầu bếp, chỉ liệt kê nhóm mình, không có thêm nhanh đầu bếp. Trang Đầu bếp ẩn Thêm/Sửa với Editor, có câu giải thích; route `/admin/chefs/new`, `/:id/edit` chỉ Admin. Không thêm màn hình mới (dùng lại ô chọn đầu bếp đã duyệt của form Admin).
+- `check-api`: viết lại các ca Editor; thêm ca: chọn đầu bếp ngoài nhóm khi thêm, khi sửa (403, dữ liệu không đổi); `/me` trả `chefIds`; Editor thêm, sửa đầu bếp → 403; Admin chuyển đầu bếp sang nhóm khác thì Editor cũ mất quyền ngay, Editor mới có quyền ngay.
+
+**Phương án đã bỏ:** bảng nhóm riêng (nhiều-nhiều) — đề chỉ cần một người quản một đầu bếp; ô "Editor quản lý" trong form đầu bếp của Admin — người dùng chọn gán bằng seed trước, màn hình mới phải vẽ Figma.
+
+**Đã kiểm tra:** `check-api` **226 ĐẠT, 0 CHƯA ĐẠT** (sau khi seed lại). Lần chạy trước đó dừng ở phần E vì có người đăng nhập sai Admin qua server cũ đang chạy song song (đủ 3 lần sai → CAPTCHA); lần sau 5 ca phần F sai vì DB có thêm món nháp "flan" tạo tay qua web. Cả hai là trạng thái DB, không phải lỗi mã: seed lại rồi chạy thì đạt. `web` build được. Seed lại sau test: 4 tài khoản, 6 món nháp, `rate_limits` rỗng.
+
+**Chưa làm / chưa chắc:** chưa xem tận mắt form món của Editor và trang Đầu bếp trên trình duyệt. Tài liệu (`hotrotrinhbay`, `kichban`, `README`, `evidence/README`), sơ đồ 2 (số dòng lệch, câu "chefId trong body bị bỏ qua") và bằng chứng `evidence/` (ảnh 06–11, `db/`, `curl/check-api.txt`) còn theo luật cũ: làm ở bước 45. Admin chưa có màn hình gán nhóm.

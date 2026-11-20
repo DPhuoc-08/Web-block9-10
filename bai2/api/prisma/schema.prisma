@@ -50,9 +50,12 @@ model Chef {
   name   String    @unique
   dishes Dish[]
   tags   ChefTag[]
-  // Tài khoản Editor phụ trách đầu bếp này (block9).
-  users  User[]
+  // Editor quản lý đầu bếp này (plan 16 c): mỗi đầu bếp thuộc tối đa một Editor. Rỗng = chỉ Admin quản lý.
+  // Quyền gán là của Admin; hiện chỉ gán bằng seed.
+  managerId Int?
+  manager   User? @relation(fields: [managerId], references: [id], onDelete: SetNull)
 
+  @@index([managerId])
   @@map("chefs")
 }
 
@@ -156,10 +159,8 @@ model User {
   emailVerifiedAt DateTime?
   createdAt       DateTime   @default(now())
 
-  // Đầu bếp mà tài khoản Editor phụ trách (block9). Rỗng với viewer, admin. Rỗng thì không khớp món nào:
-  // luật ABAC phải kiểm tra khác null trước khi so sánh.
-  chefId Int?
-  chef   Chef? @relation(fields: [chefId], references: [id], onDelete: SetNull)
+  // Nhóm đầu bếp do Editor quản lý (plan 16 c). Rỗng với viewer, admin, và Editor chưa được gán nhóm.
+  managedChefs Chef[]
 
   // MFA theo từng tài khoản. mfaSecret là bản mã AES-256-GCM, không phải secret gốc.
   mfaEnabled       Boolean @default(false)
@@ -178,7 +179,6 @@ model User {
   mfaChallenges  MfaChallenge[]
   recoveryCodes  RecoveryCode[]
 
-  @@index([chefId])
   @@map("users")
 }
 

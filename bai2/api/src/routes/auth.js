@@ -124,8 +124,8 @@ router.post("/mfa", jsonBody, async (req, res) => {
 });
 
 router.get("/me", requireJwt, (req, res) => {
-  const { id, email, username, role, chefId } = res.locals.currentUser;
-  ok(res, { id, email, username, role, chefId });
+  const { id, email, username, role, chefIds } = res.locals.currentUser;
+  ok(res, { id, email, username, role, chefIds });
 });
 
 // ---------- Đăng ký ----------

@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import Layout from "./components/Layout.jsx";
 import RequireAuth, { Guard } from "./components/RequireAuth.jsx";
-import { canCreateDish, canWrite, isAdmin } from "./auth/can.js";
+import { canCreateDish, canManageChefs, canWrite, isAdmin } from "./auth/can.js";
 import SecurityPage from "./pages/admin/security/SecurityPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 import LoginPage from "./pages/auth/LoginPage.jsx";
@@ -60,8 +60,8 @@ export const router = createBrowserRouter([
           { path: "admin/dishes/:id/delete", element: <Guard allow={isAdmin}><DishDeletePage /></Guard> },
           // Đầu bếp, nguyên liệu: cùng cấu trúc URL; không có trang chi tiết (thêm/sửa/xoá xong về danh sách).
           { path: "admin/chefs", element: <AdminChefListPage /> },
-          { path: "admin/chefs/new", element: <Guard allow={canWrite}><ChefFormPage /></Guard> },
-          { path: "admin/chefs/:id/edit", element: <Guard allow={canWrite}><ChefFormPage /></Guard> },
+          { path: "admin/chefs/new", element: <Guard allow={canManageChefs}><ChefFormPage /></Guard> },
+          { path: "admin/chefs/:id/edit", element: <Guard allow={canManageChefs}><ChefFormPage /></Guard> },
           { path: "admin/chefs/:id/delete", element: <Guard allow={isAdmin}><ChefDeletePage /></Guard> },
           { path: "admin/ingredients", element: <AdminIngredientListPage /> },
           { path: "admin/ingredients/new", element: <Guard allow={canWrite}><IngredientFormPage /></Guard> },

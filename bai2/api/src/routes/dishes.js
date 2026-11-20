@@ -14,7 +14,7 @@ import { fuzzyPage } from "../search/fuzzy.js";
 import { TAG_SELECT, flatTags } from "../http/shapes.js";
 import { requireJwt } from "../auth/require-jwt.js";
 import { requirePermission } from "../auth/require-permission.js";
-import { can, canEditDish, editableDishWhere } from "../policy/permissions.js";
+import { can, canAssignChef, canEditDish, editableDishWhere } from "../policy/permissions.js";
 import { dishFilterSql } from "../search/dish-filter.js";
 
 const router = Router();
@@ -119,12 +119,16 @@ router.get("/:id", async (req, res) => {
   ok(res, stripStatus(toDetail(dish)));
 });
 
-// Trường do server đặt (slide 52, 63). Editor: chefId, status trong body bị bỏ qua; món mới nhận chefId của tài khoản.
-function withServerFields(body, user, { creating }) {
+// Trường do server đặt (slide 52, 63; plan 16 d). Editor: status trong body bị bỏ qua (món luôn nháp); chefId giữ lại
+// để chọn đầu bếp trong nhóm, kiểm tra bằng chefOutsideGroup sau khi validate.
+function withServerFields(body, user) {
   if (can(user, "dish:publish")) return body;
-  const { chefId, status, ...rest } = body;
-  return creating ? { ...rest, chefId: user.chefId } : rest;
+  const { status, ...rest } = body;
+  return rest;
 }
+
+// Đầu bếp gửi lên (đã qua validate) nằm ngoài nhóm của Editor → 403, không ghi gì. Không gửi chefId (PATCH) thì không đổi đầu bếp.
+const chefOutsideGroup = (user, chefId) => chefId !== undefined && !canAssignChef(user, chefId);
 
 const DISH_STATUSES = ["draft", "published"];
 function readStatus(body, errors) {
@@ -150,11 +154,12 @@ class DishWriteRefused extends Error {}
 // để SPA điều hướng sang trang chi tiết.
 router.post("/", requireJwt, requirePermission("dish:create"), jsonBody, async (req, res) => {
   const user = res.locals.currentUser;
-  const body = withServerFields(req.body, user, { creating: true });
+  const body = withServerFields(req.body, user);
   const input = validateDish(body);
   // Editor luôn tạo nháp; Admin chọn được, bỏ trống thì published như block7.
   const status = can(user, "dish:publish") ? (readStatus(body, input.errors) ?? "published") : "draft";
   if (hasErrors(input.errors)) return validationFailed(res, input.errors);
+  if (chefOutsideGroup(user, input.data.chefId)) return forbidden(res);
   await checkDishRefs(prisma, input);
   if (hasErrors(input.errors)) return validationFailed(res, input.errors);
 
@@ -181,10 +186,12 @@ router.post("/", requireJwt, requirePermission("dish:create"), jsonBody, async (
 router.patch("/:id", requireJwt, requirePermission("dish:update"), guardDish, jsonBody, async (req, res) => {
   const id = parseId(req.params.id);
   const user = res.locals.currentUser;
-  const body = withServerFields(req.body, user, { creating: false });
+  const body = withServerFields(req.body, user);
   const input = validateDish(body, { partial: true });
   const status = can(user, "dish:publish") ? readStatus(body, input.errors) : undefined;
   if (hasErrors(input.errors)) return validationFailed(res, input.errors);
+  // Đổi đầu bếp: chỉ sang đầu bếp trong nhóm (plan 16 e). Đầu bếp CŨ thuộc nhóm đã kiểm ở guardDish và lại ở câu ghi dưới.
+  if (chefOutsideGroup(user, input.data.chefId)) return forbidden(res);
   await checkDishRefs(prisma, input);
   if (hasErrors(input.errors)) return validationFailed(res, input.errors);
 

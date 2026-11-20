@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router";
 import { getAdminDish, createDish, updateDish } from "../../../api/dishes.js";
-import { isAdmin } from "../../../auth/can.js";
+import { assignableChefs, isAdmin } from "../../../auth/can.js";
 import { listAllChefs, createChef } from "../../../api/chefs.js";
 import { listAllIngredients, createIngredient } from "../../../api/ingredients.js";
 import { listTags } from "../../../api/tags.js";
@@ -88,7 +88,7 @@ function checkRequired(v, publisher) {
   if (!v.name.trim()) errors.name = "Tên món không được để trống.";
   if (v.price.trim() === "") errors.price = "Giá không được để trống.";
   if (v.tagIds.length === 0) errors.tagIds = "Vui lòng chọn ít nhất một tag.";
-  if (publisher && !v.chefId) errors.chefId = "Vui lòng chọn đầu bếp phụ trách.";
+  if (!v.chefId) errors.chefId = "Vui lòng chọn đầu bếp phụ trách.";
   if (v.ingredientIds.length === 0) errors.ingredientIds = "Vui lòng chọn ít nhất một nguyên liệu.";
   return errors;
 }
@@ -104,8 +104,9 @@ function toBody(v, publisher) {
     imageUrl: orNull(v.imageUrl),
     imageCredit: orNull(v.imageCredit),
     available: v.available,
-    // Editor không gửi hai trường này: api gán chefId từ tài khoản và giữ món ở Nháp (slide 52).
-    ...(publisher ? { chefId: Number(v.chefId), status: v.status } : {}),
+    chefId: Number(v.chefId),
+    // Editor không gửi status: api luôn giữ món của Editor ở Nháp (slide 52).
+    ...(publisher ? { status: v.status } : {}),
     ingredientIds: v.ingredientIds,
   };
 }
@@ -146,7 +147,8 @@ function DishForm({ id, dish, tags, chefs, ingredients, user }) {
   const [addedIngredient, setAddedIngredient] = useState(null);
   // Đầu bếp: cùng cách như nguyên liệu (danh sách cục bộ + thêm nhanh). Đầu bếp mới bắt buộc ≥ 1 chuyên môn (API)
   // → lấy các tag đang chọn của món làm chuyên môn; chưa chọn tag thì không mở khung thêm, báo chọn tag trước.
-  const [chefList, setChefList] = useState(chefs);
+  // Editor chỉ thấy đầu bếp trong nhóm mình (plan 16 d); api kiểm tra lại.
+  const [chefList, setChefList] = useState(() => assignableChefs(user, chefs));
   // Tag đã biết của form (gồm tag vừa tạo trong TagPicker) — để ghi đúng tên chuyên môn của đầu bếp mới.
   const [tagList, setTagList] = useState(tags);
   const [addingChef, setAddingChef] = useState(null);
@@ -264,7 +266,7 @@ function DishForm({ id, dish, tags, chefs, ingredients, user }) {
         <FormAlert fieldErrors={errors} generalError={generalError} />
         {!publisher && (
           <p className="notice" role="note">
-            {isEdit ? "Món đang ở trạng thái Nháp. Khách chỉ thấy món sau khi Admin xuất bản." : "Món mới ở trạng thái Nháp và thuộc đầu bếp của bạn. Khách chỉ thấy món sau khi Admin xuất bản."}
+            {isEdit ? "Món đang ở trạng thái Nháp. Bạn có thể đổi sang đầu bếp khác trong nhóm mình. Khách chỉ thấy món sau khi Admin xuất bản." : "Món mới ở trạng thái Nháp, chọn một đầu bếp trong nhóm bạn quản lý. Khách chỉ thấy món sau khi Admin xuất bản."}
           </p>
         )}
 
@@ -314,7 +316,7 @@ function DishForm({ id, dish, tags, chefs, ingredients, user }) {
 
           {/* Đầu bếp phụ trách: chọn đúng 1 — cùng kiểu ô gõ có gợi ý như nguyên liệu (plan mục 16; trước là lưới 60 radio).
               Gửi id dạng số; API kiểm tra id có thật. Người đúng chuyên môn (trùng tag đã chọn) đứng đầu gợi ý. */}
-          {publisher && (
+          {/* Editor: chỉ đầu bếp trong nhóm, không có thêm nhanh đầu bếp (chỉ Admin quản lý hồ sơ đầu bếp, plan 16 b). */}
           <fieldset className={`choice-group${errors.chefId ? " invalid" : ""}`}>
             <legend>Đầu bếp phụ trách</legend>
             {errors.chefId && <p className="error">{errors.chefId}</p>}
@@ -328,7 +330,7 @@ function DishForm({ id, dish, tags, chefs, ingredients, user }) {
               placeholder="Gõ tên đầu bếp, hoặc bấm để xem gợi ý"
               onAdd={(chefId) => (set("chefId", String(chefId)), setChefNotice(null))}
               onRemove={() => set("chefId", "")}
-              onAddNew={onAddNewChef}
+              onAddNew={publisher ? onAddNewChef : undefined}
             />
             {addingChef !== null && (
               <QuickAdd
@@ -350,7 +352,6 @@ function DishForm({ id, dish, tags, chefs, ingredients, user }) {
               {values.tagIds.length === 0 ? "Chọn tag của món để thấy đầu bếp đúng chuyên môn ở đầu gợi ý." : `${fitCount} đầu bếp đúng chuyên môn với tag đã chọn.`}
             </p>
           </fieldset>
-          )}
 
           {/* Nguyên liệu: chip đã chọn + ô gõ có gợi ý (plan mục 16; trước là lưới 250 ô tick) → mảng id
               (API lưu vào bảng dish_ingredients). */}
