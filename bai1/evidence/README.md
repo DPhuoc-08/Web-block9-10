@@ -6,7 +6,7 @@ Thu lần đầu 09/11/2026, **thu lại 13/11/2026** sau khi Bài 1 bỏ sessio
 
 **Làm bằng tay:** quét QR bằng Microsoft Authenticator trên điện thoại và đăng nhập bằng mã từ app (nhóm làm, 09/11/2026, không lưu ảnh vì chứa QR).
 
-**Chưa có:** ảnh chụp thật của cửa sổ DevTools. Network và Application (Cookies) ở `network/network-log.md` là bản chữ Chrome trả về qua DevTools Protocol.
+**Ảnh DevTools chụp tay** (`devtools/`, nhóm chụp 13/11, giá trị cookie đã che): `01-network-login-set-cookie` (Network sau đăng nhập), `02-application-cookies` (cookie `access`, `refresh`, `csrf` đều HttpOnly, SameSite=Lax), `03-console-document-cookie` (`document.cookie` trả chuỗi rỗng: JavaScript không đọc được cookie), `04-network-tu-refresh` (sau khi access hết hạn: không còn `access`, `refresh` đã đổi giá trị vì xoay vòng). Bản chữ đầy đủ của Network, Application vẫn ở `network/network-log.md`.
 
 **Hai can thiệp của script, chỉ trong kiểm thử:** xoá bộ đếm `mfa-fail` giữa các ca để ca sau không bị khoá; hạ role Editor A bằng SQL ở ca 4 rồi trả lại. Server không có nhánh bỏ qua MFA hay CAPTCHA. Không ca nào trong đây cần giải CAPTCHA.
 

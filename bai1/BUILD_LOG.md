@@ -339,3 +339,6 @@ Kết quả cuối: `check-auth` **153 ĐẠT**, `check-mfa` **86 ĐẠT**, `che
 **Đã kiểm tra:** 5 bộ kiểm thử trên code cuối: policy 32, rbac 159, mfa 86, auth 154, ssr 124, 0 CHƯA ĐẠT. Quét toàn bộ file chữ trong `evidence/` bằng giá trị thật trong `.env` (mật khẩu seed, `JWT_SECRET`, `OTP_PEPPER`, `MFA_ENCRYPTION_KEY`, secret reCAPTCHA, mật khẩu SMTP, email thật, chuỗi kết nối) và mẫu JWT / chuỗi token 43 ký tự: không lộ. Đã xem ảnh mới 33, 34, 35 và ảnh nhạy cảm 13, 14 (QR, secret, mã khôi phục đã che). Ở F2, F3 Chrome đã tự bỏ cookie refresh (Max-Age bằng hạn trong DB) nên thêm F4 để chứng minh server tự từ chối theo `expiresAt`.
 
 **Chưa có:** ảnh chụp thật cửa sổ DevTools (Network là bản chữ do Chrome trả về qua DevTools Protocol). Lần thu lại không chạy seed (seed xoá toàn bộ DB dùng chung với block7/8); bản ghi thử đã xoá ở cuối mỗi script. `hotrotrinhbay.html`, `kichban.html`, `README` của Bài 1 vẫn mô tả session.
+
+## Ảnh DevTools chụp tay (H1, cập nhật 20/11/2026)
+4 ảnh nhóm chụp 13/11 trong `evidence/devtools/`. Agent xem lại trước khi commit: ảnh `02-application-cookies`, `04-network-tu-refresh` lộ giá trị cookie `access`, `refresh`, `csrf` (bị cắt ngắn nhưng vẫn là token thật): đã vẽ khối đặc đè lên cột Value, giữ bản gốc ngoài repo. Ảnh 01, 03 không chứa bí mật. Mô tả từng ảnh ở `evidence/README.md`.
