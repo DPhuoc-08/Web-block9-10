@@ -47,3 +47,14 @@ Thu ngày 09/11/2026, thu lại 20/11/2026 theo nhóm đầu bếp của Editor 
 Sơ đồ do nhóm vẽ (bản nháp từ code thật, nhóm duyệt): `diagrams/1-dang-nhap-jwt-va-noi-luu-token.svg` (kèm nơi lưu token và lý do), `diagrams/2-request-co-bearer.svg`. Vẽ lại: `node evidence/diagrams/ve-so-do.mjs` từ thư mục `bai2/`.
 
 Lỗi do agent tạo ra (slide 69): giới hạn sai mã MFA bị vượt khi gửi đồng thời, `loi-va-kiem-tra-ma-nguon.md` mục 2 (kèm cách truy nguyên ca kiểm thử chập chờn); lỗi khác ở mục 3. Kiểm tra mã nguồn (slide 66): cùng tệp, mục 1. Danh sách mô-đun chuyển từ Bài 1: `MODULES.md`.
+
+## Ảnh DevTools chụp tay (`devtools/`, nhóm chụp 20/11/2026, token đã che)
+
+| Ảnh | Cho thấy |
+| :--- | :--- |
+| `01-network-login` | `POST /api/auth/login` trả `accessToken`, `expiresIn: 1800` |
+| `02-application-session-storage` | Session storage chỉ có `accessToken`, không lưu role |
+| `03-network-preflight` | `OPTIONS /api/dishes/1201` → `204`; `Access-Control-Allow-Origin: http://localhost:5173`, `Allow-Headers: Content-Type,Authorization` |
+| `04-network-403-giu-token` | Editor A mở món nháp nhóm B (`1204`) → `403`, trang báo thiếu quyền, vẫn đăng nhập |
+| `05-role-admin-van-chi-xem` | Thêm `role = admin` vào storage, trang vẫn "chỉ có quyền xem" |
+| `06-network-401-token-sua` | Sửa một ký tự token rồi Reload → `GET /api/auth/me` `401 UNAUTHENTICATED`, về đăng nhập, nhớ trang cũ |
